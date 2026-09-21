@@ -46,6 +46,7 @@ import {
     createStartedFirstScenarioCore,
     createTradeReadyCore,
 } from '../testing/firstScenarioTestUtils';
+import { createBetrayalMonsterFromDefinition } from '../domain/monsterDefinitions';
 
 function stateOf(core: BetrayalCore, seed = 'betrayal-ai-test'): MatchState<BetrayalCore> {
     const adapter = createReplayAdapter(BetrayalDomain, seed);
@@ -1055,6 +1056,52 @@ describe('小黑屋本地 AI', () => {
             combined: true,
             targetPlayerId: '1',
         });
+    });
+
+    test('顽石之血 AI 会接管石像小天使怪物回合，并保留结束回合收口动作', () => {
+        const core = createFirstScenarioHauntCore(['0', '1', '2']);
+        activateTestExplorer(core, '1');
+        core.activePlayerId = '1';
+        core.scenarioRuntime.hauntCardNumber = 5;
+        core.scenarioRuntime.traitorPlayerId = null;
+        core.scenarioRuntime.bloodFromStone = {
+            monsterTurnAfterPlayerId: '1',
+            activeMonsterTurn: true,
+            monsterTurnControllerPlayerId: '1',
+        };
+        core.monsters = [
+            createBetrayalMonsterFromDefinition(
+                'blood-from-stone-stone-cherub',
+                'stone-cherub-ai',
+                core.currentExplorer.roomId,
+            ),
+        ];
+
+        const state = stateOf(core, 'betrayal-ai-blood-from-stone-monster-turn');
+        const actions = buildActions(state, '1');
+
+        const startAction = actions.find((action) => (
+            action.kind === BETRAYAL_AI_ACTION_KINDS.RESOLVE_MONSTER_TURN_START
+        ));
+        expect(startAction).toBeDefined();
+        expect(actions.some((action) => action.kind === BETRAYAL_AI_ACTION_KINDS.ROLL_MONSTER_MOVEMENT_GROUP)).toBe(false);
+        expect(buildActions(state, '0')).toEqual([]);
+
+        const afterStart = applyBetrayalCommand(
+            core,
+            BETRAYAL_COMMANDS.RESOLVE_MONSTER_TURN_START,
+            '1',
+            { monsterId: 'stone-cherub-ai' },
+        );
+        const afterStartActions = buildActions(
+            stateOf(afterStart, 'betrayal-ai-blood-from-stone-monster-turn-after-start'),
+            '1',
+        );
+        expect(afterStartActions.some((action) => (
+            action.kind === BETRAYAL_AI_ACTION_KINDS.END_BLOOD_FROM_STONE_MONSTER_TURN
+        ))).toBe(true);
+        expect(betrayalAiRuntime.localPolicies?.baseline.decide(buildContext(state, '1'))?.actionId)
+            .toBe(startAction?.actionId);
     });
 
     test('AI 会用急救包治疗同房受伤队友，并通过正式领域管线生效', async () => {

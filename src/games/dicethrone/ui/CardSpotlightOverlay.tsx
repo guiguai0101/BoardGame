@@ -67,7 +67,7 @@ interface CardSpotlightOverlayProps {
     onClose: (id: string) => void;
     /** 对手悬浮窗元素引用（用于计算起始位置） */
     opponentHeaderRef?: React.RefObject<HTMLElement | null>;
-    /** 自动关闭延迟（毫秒）；不传时保持到玩家点击空白背景关闭 */
+    /** 自动关闭延迟（毫秒），默认 3 秒 */
     autoCloseDelay?: number;
 }
 
@@ -76,7 +76,7 @@ export const CardSpotlightOverlay: React.FC<CardSpotlightOverlayProps> = ({
     locale,
     onClose,
     opponentHeaderRef,
-    autoCloseDelay,
+    autoCloseDelay = 3000,
 }) => {
     const currentItem = queue[0];
     const currentItemId = currentItem?.id;
@@ -116,12 +116,11 @@ export const CardSpotlightOverlay: React.FC<CardSpotlightOverlayProps> = ({
             id={currentItem.id}
             isVisible={true}
             onClose={() => onClose(currentItem.id)}
-            autoCloseDelay={autoCloseDelay ?? 0}
+            autoCloseDelay={autoCloseDelay}
             zIndex={UI_Z_INDEX.overlayRaised}
-            disableAutoClose={autoCloseDelay === undefined}
-            disableBackdropClose={false}
+            disableBackdropClose={true}
             closeOnContentClick={false}
-            allowContentPointerEvents={true}
+            allowContentPointerEvents={false}
             contentMotion={{
                 initial: { x: startPos.x, y: startPos.y, scale: 0.2, opacity: 0 },
                 animate: { x: 0, y: '-10vh', scale: 1, opacity: 1 },

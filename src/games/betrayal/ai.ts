@@ -39,6 +39,7 @@ interface BetrayalAiExplorer {
 
 interface BetrayalAiMonster {
     id: string;
+    definitionId?: string;
     name: string;
     roomId: string;
     speed?: number;
@@ -189,6 +190,11 @@ interface BetrayalAiCore {
         magicCamera?: BetrayalAiMagicCameraRuntime;
         helpingHands?: BetrayalAiHelpingHandsRuntime;
         mummy?: BetrayalAiMummyRuntime;
+        bloodFromStone?: {
+            monsterTurnAfterPlayerId: string | null;
+            activeMonsterTurn: boolean;
+            monsterTurnControllerPlayerId: string | null;
+        };
     };
     endgameResult: unknown | null;
 }
@@ -243,6 +249,7 @@ const ACTION_KINDS = {
     MOVE_TROLL_HAND: 'move-troll-hand',
     TROLL_HAND_ATTACK: 'troll-hand-attack',
     END_TROLL_HAND_MONSTER_TURN: 'end-troll-hand-monster-turn',
+    END_BLOOD_FROM_STONE_MONSTER_TURN: 'end-blood-from-stone-monster-turn',
     STUDY_MUMMY_NAME: 'study-mummy-name',
     LEARN_MUMMY_BANISHMENT: 'learn-mummy-banishment',
     BANISH_MUMMY: 'banish-mummy',
@@ -536,6 +543,30 @@ function isHelpingHandsMonsterTurn(core: BetrayalAiCore, playerId: PlayerId): bo
         && core.scenarioRuntime.hauntCardNumber === 12
         && Boolean(helpingHands?.activeMonsterTurn)
         && helpingHands?.monsterTurnControllerPlayerId === playerId;
+}
+
+function isBloodFromStoneHaunt(core: BetrayalAiCore): boolean {
+    return core.phase === 'haunt'
+        && core.scenarioRuntime.hauntCardNumber === 5
+        && Boolean(core.scenarioRuntime.bloodFromStone);
+}
+
+function isBloodFromStoneMonsterTurn(core: BetrayalAiCore, playerId: PlayerId): boolean {
+    const bloodFromStone = core.scenarioRuntime.bloodFromStone;
+    return isBloodFromStoneHaunt(core)
+        && Boolean(bloodFromStone?.activeMonsterTurn)
+        && bloodFromStone?.monsterTurnControllerPlayerId === playerId;
+}
+
+function isStoneCherubMonster(monster: BetrayalAiMonster): boolean {
+    return monster.definitionId === 'blood-from-stone-stone-cherub'
+        || monster.name === '石像小天使'
+        || monster.id.startsWith('stone-cherub');
+}
+
+function resolveStoneCherubMovementGroupId(monsters: BetrayalAiMonster[]): string | null {
+    const stoneCherub = monsters.find(isStoneCherubMonster);
+    return stoneCherub ? `${stoneCherub.name}:${stoneCherub.speed ?? 4}` : null;
 }
 
 function resolveLowestTrait(explorer: BetrayalAiExplorer): BetrayalTraitKey {
@@ -1900,6 +1931,100 @@ function buildHelpingHandsMonsterTurnActions(
     return actions;
 }
 
+function buildBloodFromStoneMonsterTurnActions(
+    validate: BetrayalAiValidator,
+    state: BetrayalState,
+    playerId: PlayerId,
+): AiLegalAction[] {
+    const core = state.core;
+    if (!isBloodFromStoneMonsterTurn(core, playerId)) {
+        return [];
+    }
+
+    const stoneCherubs = core.monsters.filter(isStoneCherubMonster);
+    const actions: AiLegalAction[] = [];
+    const add = (action: AiLegalAction | null) => {
+        if (action) actions.push(action);
+    };
+
+    for (const monster of stoneCherubs) {
+        add(createValidatedAction({
+            validate,
+            state,
+            playerId,
+            type: BETRAYAL_COMMANDS.RESOLVE_MONSTER_TURN_START,
+            payload: { monsterId: monster.id },
+            kind: ACTION_KINDS.RESOLVE_MONSTER_TURN_START,
+            label: `${monster.name}开回合`,
+            idParts: [monster.id],
+            metadata: {
+                monsterId: monster.id,
+                strategicScore: 1520,
+                visibleStepDelayPolicy: 'visible',
+            },
+        }));
+    }
+
+    const movementGroupId = resolveStoneCherubMovementGroupId(stoneCherubs);
+    if (movementGroupId) {
+        add(createValidatedAction({
+            validate,
+            state,
+            playerId,
+            type: BETRAYAL_COMMANDS.ROLL_MONSTER_MOVEMENT_GROUP,
+            payload: { groupId: movementGroupId },
+            kind: ACTION_KINDS.ROLL_MONSTER_MOVEMENT_GROUP,
+            label: '石像小天使移动骰',
+            idParts: [movementGroupId],
+            metadata: {
+                groupId: movementGroupId,
+                strategicScore: 1510,
+                visibleStepDelayPolicy: 'visible',
+            },
+        }));
+    }
+
+    for (const monster of stoneCherubs) {
+        for (const room of core.rooms) {
+            if (room.state !== 'discovered' || room.id === monster.roomId) {
+                continue;
+            }
+            add(createValidatedAction({
+                validate,
+                state,
+                playerId,
+                type: BETRAYAL_COMMANDS.MOVE_MONSTER_TO_ROOM,
+                payload: { monsterId: monster.id, roomId: room.id },
+                kind: ACTION_KINDS.MOVE_MONSTER_TO_ROOM,
+                label: `${monster.name}移动到${room.name}`,
+                idParts: [monster.id, room.id],
+                metadata: {
+                    monsterId: monster.id,
+                    roomId: room.id,
+                    strategicScore: 560,
+                    visibleStepDelayPolicy: 'visible',
+                },
+            }));
+        }
+    }
+
+    add(createValidatedAction({
+        validate,
+        state,
+        playerId,
+        type: BETRAYAL_COMMANDS.END_BLOOD_FROM_STONE_MONSTER_TURN,
+        payload: {},
+        kind: ACTION_KINDS.END_BLOOD_FROM_STONE_MONSTER_TURN,
+        label: '结束石像小天使回合',
+        metadata: {
+            strategicScore: 0,
+            visibleStepDelayPolicy: 'visible',
+        },
+    }));
+
+    return actions;
+}
+
 function buildTurnEndRollAcknowledgementActions(
     validate: BetrayalAiValidator,
     state: BetrayalState,
@@ -2129,6 +2254,15 @@ function buildBetrayalAiLegalActions(
     const helpingHandsMonsterTurnActions = buildHelpingHandsMonsterTurnActions(validate, state, args.playerId);
     if (helpingHandsMonsterTurnActions.length > 0) {
         return [...recentRollAcknowledgementActions, ...helpingHandsMonsterTurnActions];
+    }
+
+    const bloodFromStoneMonsterTurnActions = buildBloodFromStoneMonsterTurnActions(
+        validate,
+        state,
+        args.playerId,
+    );
+    if (bloodFromStoneMonsterTurnActions.length > 0) {
+        return [...recentRollAcknowledgementActions, ...bloodFromStoneMonsterTurnActions];
     }
 
     return [...recentRollAcknowledgementActions, ...buildTurnActions(validate, state, args.playerId)];
@@ -2452,6 +2586,8 @@ function scoreAction(context: AiDecisionContext, action: AiLegalAction): number 
             return Math.min(strategicScore, 560);
         case ACTION_KINDS.END_TROLL_HAND_MONSTER_TURN:
             return 0;
+        case ACTION_KINDS.END_BLOOD_FROM_STONE_MONSTER_TURN:
+            return 0;
         case ACTION_KINDS.END_TURN:
             return 0;
         default:
@@ -2531,6 +2667,7 @@ export function createBetrayalAiRuntime(args: {
                 ACTION_KINDS.MOVE_TROLL_HAND,
                 ACTION_KINDS.TROLL_HAND_ATTACK,
                 ACTION_KINDS.END_TROLL_HAND_MONSTER_TURN,
+                ACTION_KINDS.END_BLOOD_FROM_STONE_MONSTER_TURN,
             ],
         },
         localPolicies: {

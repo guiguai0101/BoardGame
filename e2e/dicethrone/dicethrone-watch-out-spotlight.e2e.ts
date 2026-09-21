@@ -3990,6 +3990,7 @@ test('opponent lucky card should only show card spotlight for viewer', async ({ 
             path: testInfo.outputPath('05-p0-after-p1-play-lucky-no-duplicate-overlay.png'),
             fullPage: false,
         });
+        await expect(hostCardSpotlight, '对手卡牌特写应在短暂展示后自动退场').toBeHidden({ timeout: 5000 });
     } finally {
         await guestContext.close();
         await hostContext.close();
@@ -4213,11 +4214,7 @@ test('opponent common-card spotlight should match actual effect for samurai and 
             expect(finalState.shieldTotal).toBe(options.expectedShield);
             expect(finalState.lastEventTypes).toContain('CARD_PLAYED');
 
-            await hostPage.waitForTimeout(3600);
-            await expect(hostSpotlight).toBeVisible({ timeout: 1000 });
-            await expect(hostSpotlight.getByRole('button', { name: /关闭特写|Close Spotlight|Close/i })).toBeVisible({ timeout: 1000 });
-            await hostSpotlight.getByRole('button', { name: /关闭特写|Close Spotlight|Close/i }).click();
-            await expect(hostSpotlight).toBeHidden({ timeout: 5000 });
+            await expect(hostSpotlight, '对手卡牌特写应在短暂展示后自动退场').toBeHidden({ timeout: 5000 });
             await guestPage.waitForTimeout(500);
             await savePageEvidenceScreenshot(
                 guestPage,
