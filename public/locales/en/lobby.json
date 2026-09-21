@@ -436,6 +436,7 @@
       "progressLabel": "Download progress",
       "progressPercent": "{{percent}}%",
       "progressPending": "Preparing",
+      "closeAction": "Close update panel and continue in background",
       "retryAction": "Check again"
     }
   },
@@ -465,6 +466,7 @@
     "progressPercent": "{{percent}}%",
     "progressPending": "Preparing",
     "progressHint": "Fetching download progress. Please wait.",
+    "closeAction": "Close update panel and continue in background",
     "openSettings": "Open install settings",
     "continueInstall": "Continue install",
     "retryAction": "Check again",

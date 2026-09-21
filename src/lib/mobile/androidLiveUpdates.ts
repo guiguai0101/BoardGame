@@ -446,6 +446,7 @@ const updateOtaDebugState = (_patch: Record<string, unknown>) => {};
 const emitOtaErrorState = (
     onForceStateChange: AndroidLiveUpdateStartOptions['onForceStateChange'],
     options: {
+        blocking?: boolean;
         version?: string;
         displayVersion?: string;
         title?: string;
@@ -455,7 +456,7 @@ const emitOtaErrorState = (
 ) => {
     emitForceState(onForceStateChange, {
         phase: 'error',
-        blocking: true,
+        blocking: options.blocking ?? true,
         version: options.version,
         displayVersion: options.displayVersion,
         title: options.title ?? '更新失败',
@@ -1185,6 +1186,7 @@ export const startAndroidLiveUpdateBackgroundCheck = async (
                     reason,
                 });
                 emitOtaErrorState(onForceStateChange, {
+                    blocking: applyMode === 'immediate',
                     title: '更新清单不存在',
                     message: '无法找到更新清单，请稍后重试或重新安装最新版本。',
                     reason,
@@ -1212,6 +1214,7 @@ export const startAndroidLiveUpdateBackgroundCheck = async (
                     reason,
                 });
                 emitOtaErrorState(onForceStateChange, {
+                    blocking: applyMode === 'immediate',
                     title: '更新失败',
                     message: '无法读取更新清单，请检查网络后重试。',
                     reason,
@@ -1349,6 +1352,15 @@ export const startAndroidLiveUpdateBackgroundCheck = async (
                         title: '正在准备更新',
                         message: '正在检查并应用新版本，请稍候。',
                     });
+                } else {
+                    emitForceState(onForceStateChange, {
+                        phase: 'checking',
+                        blocking: false,
+                        version: manifest.version,
+                        displayVersion: manifestDisplayVersion,
+                        title: '发现新版本',
+                        message: '正在后台准备更新，完成后会自动切换。',
+                    });
                 }
 
                 const bundleList = await withTimeout(
@@ -1448,6 +1460,15 @@ export const startAndroidLiveUpdateBackgroundCheck = async (
                             displayVersion: manifestDisplayVersion,
                             title: '正在下载更新',
                             message: '正在下载并准备重启应用，请稍候。',
+                        });
+                    } else {
+                        emitForceState(onForceStateChange, {
+                            phase: 'downloading',
+                            blocking: false,
+                            version: manifest.version,
+                            displayVersion: manifestDisplayVersion,
+                            title: '正在后台下载更新',
+                            message: '更新会在后台继续，完成后自动切换。',
                         });
                     }
 
@@ -1575,6 +1596,7 @@ export const startAndroidLiveUpdateBackgroundCheck = async (
                     manifestVersion: manifest.version,
                 });
                 emitOtaErrorState(onForceStateChange, {
+                    blocking: resolvedApplyMode === 'immediate',
                     version: manifest.version,
                     displayVersion: manifestDisplayVersion,
                     title: buildForceUpdateTitle(manifest, '更新失败'),

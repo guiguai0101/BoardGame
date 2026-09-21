@@ -436,6 +436,7 @@
       "progressLabel": "下载进度",
       "progressPercent": "{{percent}}%",
       "progressPending": "准备中",
+      "closeAction": "关闭更新面板，继续后台更新",
       "retryAction": "重新检查"
     }
   },
@@ -465,6 +466,7 @@
     "progressPercent": "{{percent}}%",
     "progressPending": "准备中",
     "progressHint": "正在获取下载进度，请稍候。",
+    "closeAction": "关闭更新面板，继续后台更新",
     "openSettings": "打开安装权限设置",
     "continueInstall": "继续安装",
     "retryAction": "重新检查",

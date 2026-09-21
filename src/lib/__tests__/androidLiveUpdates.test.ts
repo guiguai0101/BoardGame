@@ -808,7 +808,7 @@ describe('androidLiveUpdates', () => {
         expect(states.some((state) => state.blocking)).toBe(false);
     });
 
-    it('OTA 清单读取失败时必须返回显式错误并显示阻塞错误态', async () => {
+    it('OTA 清单读取失败时必须返回显式错误并显示非阻塞错误态', async () => {
         vi.resetModules();
 
         vi.doMock('@capacitor/core', () => ({
@@ -871,12 +871,12 @@ describe('androidLiveUpdates', () => {
         expect(currentMock).not.toHaveBeenCalled();
         expect(states).toContainEqual({
             phase: 'error',
-            blocking: true,
+            blocking: false,
             reason: 'OTA 清单读取失败：已尝试 1 个清单入口均失败：https://assets.easyboardgame.top/official/app-updates/android/stable/latest.json: Failed to fetch',
         });
     });
 
-    it('OTA 清单不存在时必须返回显式错误并显示阻塞错误态', async () => {
+    it('OTA 清单不存在时必须返回显式错误并显示非阻塞错误态', async () => {
         vi.resetModules();
 
         vi.doMock('@capacitor/core', () => ({
@@ -937,7 +937,7 @@ describe('androidLiveUpdates', () => {
         expect(currentMock).not.toHaveBeenCalled();
         expect(states).toContainEqual({
             phase: 'error',
-            blocking: true,
+            blocking: false,
             reason: 'OTA 清单不存在：已尝试 1 个清单入口均失败：https://assets.easyboardgame.top/official/app-updates/android/stable/latest.json: 404 https://assets.easyboardgame.top/official/app-updates/android/stable/latest.json',
         });
     });
@@ -999,9 +999,13 @@ describe('androidLiveUpdates', () => {
         }));
 
         const { startAndroidLiveUpdateBackgroundCheck } = await import('../mobile/androidLiveUpdates');
+        const states: Array<{ phase: string; blocking: boolean }> = [];
 
         const result = await startAndroidLiveUpdateBackgroundCheck({
             force: true,
+            onForceStateChange: (state) => {
+                states.push({ phase: state.phase, blocking: state.blocking });
+            },
             envOverride: {
                 VITE_ANDROID_OTA_ENABLED: 'true',
                 VITE_ANDROID_OTA_MANIFEST_URL: 'https://assets.easyboardgame.top/official/app-updates/android/stable/latest.json',
@@ -1082,9 +1086,13 @@ describe('androidLiveUpdates', () => {
         }));
 
         const { startAndroidLiveUpdateBackgroundCheck } = await import('../mobile/androidLiveUpdates');
+        const states: Array<{ phase: string; blocking: boolean }> = [];
 
         const result = await startAndroidLiveUpdateBackgroundCheck({
             force: true,
+            onForceStateChange: (state) => {
+                states.push({ phase: state.phase, blocking: state.blocking });
+            },
             envOverride: {
                 VITE_ANDROID_OTA_ENABLED: 'true',
                 VITE_ANDROID_OTA_MANIFEST_URL: 'https://assets.easyboardgame.top/official/app-updates/android/stable/latest.json',
@@ -1110,6 +1118,8 @@ describe('androidLiveUpdates', () => {
         expect(setMultiDelayMock).toHaveBeenCalledWith({
             delayConditions: [{ kind: 'background', value: '0' }],
         });
+        expect(states).toContainEqual({ phase: 'checking', blocking: false });
+        expect(states).toContainEqual({ phase: 'downloading', blocking: false });
     });
 
     it('强制 OTA manifest 若发现新版本，后台检查也必须立即阻塞应用', async () => {
