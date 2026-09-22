@@ -197,6 +197,13 @@
         "pass": "放弃反击"
       }
     },
+    "battleFury": {
+      "title": "{{attackerObjectId}} 可以进行战斗怒火额外攻击",
+      "options": {
+        "attack": "进行额外攻击",
+        "pass": "跳过"
+      }
+    },
     "defense": {
       "title": "{{defenderObjectId}} 可以防御 {{attackerObjectId}}",
       "options": {

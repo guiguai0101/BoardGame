@@ -4235,13 +4235,17 @@ function postProcessSystemEvents(
 
     const hasUnreducedTriggerConsumption = !inputEventsAlreadyReduced
         && finalEvents.some(event => event.type === SU_EVENTS.TRIGGER_CONSUMED);
-    if (!options?.skipReactionQueueResolution && !hasUnreducedTriggerConsumption) {
-        const hasNewMandatoryTrigger = finalEvents.some(event => (
-            event.type === SU_EVENTS.TRIGGER_QUEUED
-            && (event.payload.triggers ?? []).some(trigger => (
-                trigger.resolutionClass === 'mandatory' || trigger.mandatory === true
-            ))
-        ));
+    const hasNewMandatoryTrigger = finalEvents.some(event => (
+        event.type === SU_EVENTS.TRIGGER_QUEUED
+        && (event.payload.triggers ?? []).some(trigger => (
+            trigger.resolutionClass === 'mandatory' || trigger.mandatory === true
+        ))
+    ));
+    if (
+        !options?.skipReactionQueueResolution
+        && !hasUnreducedTriggerConsumption
+        && (hasNewMandatoryTrigger || !msForQueue.sys.interaction?.current)
+    ) {
         const rq = maybeResolveReactionQueue(msForQueue, random, now, {
             materializeDomainEvents: false,
             suspendCurrentInteraction: hasNewMandatoryTrigger || Boolean(msForQueue.sys.interaction?.current),

@@ -707,8 +707,9 @@ function resolvePromptChoice(
         case 'playDiscardMinion': {
             const choice = value as CardChoice;
             const player = state.core.players[context.playerId];
+            const allowed = new Set((context.cards ?? []).map(card => card.cardUid));
             const card = player?.discard.find(candidate => candidate.uid === choice.cardUid);
-            if (!card || getMinionDef(card.defId) === undefined || card.uid === context.excludeCardUid) return { events: [] };
+            if (!card || !allowed.has(card.uid) || getMinionDef(card.defId) === undefined || card.uid === context.excludeCardUid) return { events: [] };
             return {
                 events: [grantContextualExtraMinion(
                     { playerId: context.playerId, now: timestamp, matchState: state },
@@ -1303,7 +1304,7 @@ const disneyPromptProgram = createPromptProgram<DisneyPromptContext, SmashUpCore
                 || context.kind === 'hansReveal'
             ) {
                 const cards = context.kind === 'playDiscardMinion'
-                    ? collectDiscardCards(state, context.playerId, card => getMinionDef(card.defId) !== undefined && card.uid !== context.excludeCardUid)
+                    ? (context.cards ?? []).filter(card => card.cardUid !== context.excludeCardUid)
                     : (context.cards ?? []);
                 return cards.map((card, index) => ({
                     id: `card-${index}`,

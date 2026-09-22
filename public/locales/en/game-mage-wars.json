@@ -197,6 +197,13 @@
         "pass": "Pass"
       }
     },
+    "battleFury": {
+      "title": "{{attackerObjectId}} may make a Battle Fury extra attack",
+      "options": {
+        "attack": "Make extra attack",
+        "pass": "Pass"
+      }
+    },
     "defense": {
       "title": "{{defenderObjectId}} may defend against {{attackerObjectId}}",
       "options": {

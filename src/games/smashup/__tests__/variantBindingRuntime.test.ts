@@ -25,6 +25,8 @@ describe('Smash Up 变体绑定运行时回归', () => {
         expect(shouldGenerateSmashUpPodAlias('powerModifier', 'all_stars_full_moon')).toBe(false);
         expect(resolveSmashUpVariantRelationForSourceId('powerModifier', 'bear_cavalry_polar_commando')).toBe('baseOnly');
         expect(shouldGenerateSmashUpPodAlias('powerModifier', 'bear_cavalry_polar_commando')).toBe(false);
+        expect(resolveSmashUpVariantRelationForSourceId('powerModifier', 'sinister_six_electro')).toBe('baseOnly');
+        expect(shouldGenerateSmashUpPodAlias('powerModifier', 'sinister_six_electro')).toBe(false);
     });
 
     it('baseOnly / podOnly surface 都不会自动生成反向 alias', () => {
