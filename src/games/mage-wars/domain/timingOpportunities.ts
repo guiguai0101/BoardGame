@@ -3537,6 +3537,17 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
                     autoResolveIfSingle: false,
                 };
             }
+            if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.BATTLE_FURY) {
+                return {
+                    title: 'interaction.battleFury.title',
+                    titleKey: 'interaction.battleFury.title',
+                    titleParams: {
+                        attackerObjectId: opportunity.metadata?.attackerObjectId,
+                    },
+                    targetType: 'button',
+                    autoResolveIfSingle: false,
+                };
+            }
             if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.DEFENSE) {
                 return {
                     title: 'interaction.defense.title',

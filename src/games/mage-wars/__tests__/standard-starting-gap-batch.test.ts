@@ -22,8 +22,8 @@ import {
 import type { MageWarsCore } from '../domain/types';
 import {
     castObjectSpellCommand,
-    getSimpleChoicePrompt,
     getPromptOptions,
+    getSimpleChoicePrompt,
     makeArenaObject,
     makeVisibleEnchantmentObject,
     PLAYER_ZERO_START_ZONE,
@@ -1063,12 +1063,12 @@ describe('mage-wars standard starting spellbook implementation batch', () => {
         ]));
         const interaction = getSimpleChoicePrompt(attacked.state, 'mw.battle-fury.choice');
         expect(interaction).toBeDefined();
-        const options = getPromptOptions(attacked.state);
-        expect(options).toEqual(expect.arrayContaining([
+        const promptOptions = getPromptOptions(attacked.state);
+        expect(promptOptions).toEqual(expect.arrayContaining([
             expect.objectContaining({ id: 'pass' }),
             expect.objectContaining({ value: expect.objectContaining({ action: 'attack' }) }),
         ]));
-        const attackOption = options.find((option) => (
+        const attackOption = promptOptions.find((option) => (
             (option.value as { action?: string } | undefined)?.action === 'attack'
         ));
         expect(attackOption).toBeDefined();

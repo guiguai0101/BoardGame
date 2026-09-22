@@ -25,8 +25,8 @@
     "dicethrone/ability-cards-gunslinger.atlas": {
       "variants": {
         "json": {
-          "sha256": "9e462b4ac975030a8332436ba89ea0977b68027de36463f845d18ecaa3a2f564",
-          "bytes": 2047,
+          "sha256": "b006ff82bb0dcfb4b949349628f1235f883f84e0fc0b3b84c0d7fe36e4a24c42",
+          "bytes": 2088,
           "mime": "application/json"
         }
       }
@@ -70,8 +70,8 @@
     "dicethrone/ability-cards-tianshi.atlas": {
       "variants": {
         "json": {
-          "sha256": "eb27e7537c76cc4864207635e609156273ef923a7ad26aa442a59b7a01389f3f",
-          "bytes": 461,
+          "sha256": "7eec33c0301bfa408f354fdc01d77c57d1c0cfd420346db24a4a34bec80a1cb8",
+          "bytes": 473,
           "mime": "application/json"
         }
       }
@@ -97,8 +97,8 @@
     "dicethrone/ability-cards-vampire_lord.atlas": {
       "variants": {
         "json": {
-          "sha256": "d239f39c95e911e2c9665d20284c69c0304f840c89ddca96ef4fd0e7c4f08be3",
-          "bytes": 472,
+          "sha256": "49e7782c44f97dc746564383135e032f6fdd26d574fa2ee8af3fd8e615466a87",
+          "bytes": 484,
           "mime": "application/json"
         }
       }
@@ -124,8 +124,8 @@
     "mage-wars/mages-core-atlas": {
       "variants": {
         "json": {
-          "sha256": "6aeaf2de9d1cf47f992a55724b4a0da91e70f0cbba0e362c9c0c50c2ff34a1a4",
-          "bytes": 2825,
+          "sha256": "c9ed6f6402c7851b317e8c6d16479d119f2be1dd15af6432f01aeadafa922b16",
+          "bytes": 2956,
           "mime": "application/json"
         }
       }

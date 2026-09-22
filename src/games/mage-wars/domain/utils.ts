@@ -205,6 +205,19 @@ export function moveArenaObject(
                 },
             },
             arena: currentCore.arena.map((zone) => {
+                if (zone.id === currentFromZoneId && zone.id === currentToZoneId) {
+                    const nextObjectIds = zone.objectIds.includes(currentObjectId)
+                        ? zone.objectIds
+                        : [...zone.objectIds, currentObjectId];
+                    const nextConjurationIds = currentObject.kind === 'conjuration' && !zone.conjurationIds.includes(currentObjectId)
+                        ? [...zone.conjurationIds, currentObjectId]
+                        : zone.conjurationIds;
+                    return {
+                        ...zone,
+                        objectIds: nextObjectIds,
+                        conjurationIds: nextConjurationIds,
+                    };
+                }
                 if (zone.id === currentFromZoneId) {
                     return {
                         ...zone,

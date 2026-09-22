@@ -760,7 +760,6 @@ export function resourceFootprintsConflict(
     const rightWrites = new Set(right.writes.map(reactionResourceKey));
     const leftReads = new Set(left.reads.map(reactionResourceKey));
     const rightReads = new Set(right.reads.map(reactionResourceKey));
-
     if (
         left.commutativeOperation === 'ongoing_detach_discard'
         && right.commutativeOperation === 'ongoing_detach_discard'

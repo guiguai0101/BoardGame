@@ -1,6 +1,17 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { initAllAbilities, resetAbilityInit } from '../abilities';
 import { getRegisteredAbilityKeys } from '../domain/abilityRegistry';
+import { getBaseDefIdsForFactions } from '../data/cards';
+import { SMASHUP_FACTION_IDS } from '../domain/ids';
+import {
+    collectMissingSmashUpPodVariantProfileFactionIds,
+    collectSmashUpVariantBindingErrors,
+} from '../domain/variantBindingValidation';
+import { getAllSmashUpVariantProfiles } from '../domain/variantBindings';
+import {
+    resolveSmashUpVariantRelationForSourceId,
+    shouldGenerateSmashUpPodAlias,
+} from '../domain/variantBindingRuntime';
 import { getOngoingRuntimeRegistrationShape, hasRegisteredTrigger } from '../domain/ongoingEffects';
 
 beforeAll(() => {
@@ -9,6 +20,34 @@ beforeAll(() => {
 });
 
 describe('Smash Up 变体绑定运行时回归', () => {
+    it('力量修正 POD 策略由统一 metadata 决定', () => {
+        expect(resolveSmashUpVariantRelationForSourceId('powerModifier', 'all_stars_full_moon')).toBe('separate');
+        expect(shouldGenerateSmashUpPodAlias('powerModifier', 'all_stars_full_moon')).toBe(false);
+        expect(resolveSmashUpVariantRelationForSourceId('powerModifier', 'bear_cavalry_polar_commando')).toBe('baseOnly');
+        expect(shouldGenerateSmashUpPodAlias('powerModifier', 'bear_cavalry_polar_commando')).toBe(false);
+        expect(resolveSmashUpVariantRelationForSourceId('powerModifier', 'sinister_six_electro')).toBe('baseOnly');
+        expect(shouldGenerateSmashUpPodAlias('powerModifier', 'sinister_six_electro')).toBe(false);
+    });
+
+    it('baseOnly / podOnly surface 都不会自动生成反向 alias', () => {
+        expect(shouldGenerateSmashUpPodAlias('powerModifier', 'bear_cavalry_polar_commando')).toBe(false);
+        expect(resolveSmashUpVariantRelationForSourceId('ongoing', 'mega_troopers_omega_protocol')).toBe('podOnly');
+        expect(shouldGenerateSmashUpPodAlias('ongoing', 'mega_troopers_omega_protocol')).toBe(false);
+    });
+
+    it('非法 same 语义已收口为合法 shared relation', () => {
+        expect(resolveSmashUpVariantRelationForSourceId('ability', 'mega_troopers_mega_attack')).toBe('shared');
+        expect(resolveSmashUpVariantRelationForSourceId('interaction', 'mega_troopers_mega_attack')).toBe('shared');
+        expect(shouldGenerateSmashUpPodAlias('ability', 'mega_troopers_mega_attack')).toBe(true);
+        expect(shouldGenerateSmashUpPodAlias('interaction', 'mega_troopers_mega_attack')).toBe(true);
+    });
+
+    it('差异 POD 牌不会继续继承经典 ongoing surface', () => {
+        expect(resolveSmashUpVariantRelationForSourceId('ability', 'bear_cavalry_polar_commando')).toBe('separate');
+        expect(resolveSmashUpVariantRelationForSourceId('ongoing', 'bear_cavalry_polar_commando')).toBe('separate');
+        expect(shouldGenerateSmashUpPodAlias('ongoing', 'bear_cavalry_polar_commando')).toBe(false);
+    });
+
     it('共享的 POD 持续触发仍会注册到运行时', () => {
         expect(hasRegisteredTrigger('alien_scout_pod', 'afterScoring')).toBe(true);
         expect(hasRegisteredTrigger('pirate_king_pod', 'beforeScoring')).toBe(true);

@@ -4264,33 +4264,17 @@ function postProcessSystemEvents(
 
     const hasUnreducedTriggerConsumption = !inputEventsAlreadyReduced
         && finalEvents.some(event => event.type === SU_EVENTS.TRIGGER_CONSUMED);
-    const currentInteraction = msForQueue.sys.interaction?.current;
-    const currentInteractionSourceId = (currentInteraction?.data as { sourceId?: unknown } | undefined)?.sourceId;
-    const currentInteractionFrameId = currentInteraction?.resolutionFrameId;
-    const actionPlayedInThisBatch = events.some(event => event.type === SU_EVENTS.ACTION_PLAYED);
-    const actionInitialInteractionStillCurrent = actionPlayedInThisBatch
-        && interactionIdBeforePostProcess !== undefined
-        && currentInteraction?.id === interactionIdBeforePostProcess;
-    const pendingActionPlayedTriggers = (msForQueue.core.triggerQueue ?? []).filter(trigger => (
-        trigger.sourceEventId?.startsWith('action-played:')
+    const hasNewMandatoryTrigger = finalEvents.some(event => (
+        event.type === SU_EVENTS.TRIGGER_QUEUED
+        && (event.payload.triggers ?? []).some(trigger => (
+            trigger.resolutionClass === 'mandatory' || trigger.mandatory === true
+        ))
     ));
-    const actionFrameStillHasOwnTrigger = typeof currentInteractionFrameId === 'string'
-        && pendingActionPlayedTriggers.some(trigger => trigger.frameId === currentInteractionFrameId);
-    const actionOwnInteractionStillCurrent = actionInitialInteractionStillCurrent
-        || (Boolean(currentInteraction)
-            && currentInteractionSourceId !== 'smashup_reaction_choose'
-            && (actionFrameStillHasOwnTrigger || pendingActionPlayedTriggers.length > 0));
     if (
         !options?.skipReactionQueueResolution
         && !hasUnreducedTriggerConsumption
-        && !actionOwnInteractionStillCurrent
+        && (hasNewMandatoryTrigger || !msForQueue.sys.interaction?.current)
     ) {
-        const hasNewMandatoryTrigger = finalEvents.some(event => (
-            event.type === SU_EVENTS.TRIGGER_QUEUED
-            && (event.payload.triggers ?? []).some(trigger => (
-                trigger.resolutionClass === 'mandatory' || trigger.mandatory === true
-            ))
-        ));
         const rq = maybeResolveReactionQueue(msForQueue, random, now, {
             materializeDomainEvents: false,
             suspendCurrentInteraction: hasNewMandatoryTrigger || Boolean(msForQueue.sys.interaction?.current),
