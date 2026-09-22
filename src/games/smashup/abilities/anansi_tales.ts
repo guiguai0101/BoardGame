@@ -366,6 +366,7 @@ function buildExtraActionPlayEventsFromHand(
             cardUid: card.uid,
             defId: card.defId,
             ownerId: card.owner,
+            destinationOverride: 'hand',
             timestamp,
             isExtraAction: true,
             ...(targetBaseIndex !== undefined ? { targetBaseIndex } : {}),
@@ -899,6 +900,8 @@ const deckActionSearchPromptProgram = createPromptProgram<DeckActionSearchContex
             cardUid: card.uid,
             defId: card.defId,
             ownerId: card.owner,
+            // 该额外行动结算完会转入另一名玩家手牌，不应被阿南西之网再次接管。
+            destinationOverride: 'hand',
             timestamp,
             isExtraAction: true,
             sourceCommandType: context.sourceId,
@@ -1468,7 +1471,6 @@ function hornetTrigger(ctx: TriggerContext): AbilityResult {
 
 function anansisWebOnActionPlayed(ctx: BaseAbilityContext): AbilityResult {
     if (!ctx.matchState || !ctx.triggerCardUid || !ctx.triggerCardDefId || !ctx.triggerCardOwnerId) return { events: [] };
-    if (ctx.actionTargetBaseIndex !== ctx.baseIndex) return { events: [] };
     const base = ctx.state.bases[ctx.baseIndex];
     if (!base?.minions.some(minion => minion.controller === ctx.playerId)) return { events: [] };
     if (base.metadata?.anansisWebUsedTurn === ctx.state.turnNumber) return { events: [] };
@@ -1559,10 +1561,11 @@ export function registerAnansiTalesAbilities(): void {
 
     registerBaseAbility('base_anansis_web', 'onActionPlayed', anansisWebOnActionPlayed, {
         mandatory: false,
+        onActionPlayedScope: 'allBases',
         canTrigger: ctx => {
             const base = ctx.state.bases[ctx.baseIndex];
-            return ctx.actionTargetBaseIndex === ctx.baseIndex
-                && isStandardActionDef(getCardDef(ctx.triggerCardDefId ?? ''))
+            return isStandardActionDef(getCardDef(ctx.triggerCardDefId ?? ''))
+                && ctx.actionDestinationOverride !== 'hand'
                 && base?.minions.some(minion => minion.controller === ctx.playerId) === true
                 && base.metadata?.anansisWebUsedTurn !== ctx.state.turnNumber;
         },

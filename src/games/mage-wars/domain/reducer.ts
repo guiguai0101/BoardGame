@@ -9,8 +9,10 @@ import {
     updatePlayer,
 } from './utils';
 import {
+    isMageWarsLivingArenaObject,
     isMageWarsQuickSpellCounterResponseCardId,
     resolveMageWarsObjectEffectiveLife,
+    resolveMageWarsZoneMaxMovementActionsPerTurn,
 } from './spellRules';
 import {
     applyMovementTemporaryTraits,
@@ -34,10 +36,42 @@ function removePreparedSpell(preparedSpellCardIds: number[], spellCardId: number
     });
 }
 
+function removeOneCard(cardIds: readonly number[], spellCardId: number): number[] {
+    let removed = false;
+    return cardIds.filter((candidate) => {
+        if (!removed && candidate === spellCardId) {
+            removed = true;
+            return false;
+        }
+        return true;
+    });
+}
+
 function clearDefenseUsesThisRound(object: MageWarsArenaObjectState): MageWarsArenaObjectState {
     if (!object.defenseUsesThisRound) return object;
     const { defenseUsesThisRound: _defenseUsesThisRound, ...readyObject } = object;
     return readyObject;
+}
+
+function applyMovementTurnFacts(
+    object: MageWarsArenaObjectState,
+    movementLimits: readonly number[],
+    countsAsMovementAction: boolean,
+): MageWarsArenaObjectState {
+    const movementLimit = movementLimits.length > 0
+        ? Math.min(...movementLimits)
+        : object.movementActionsLimitThisTurn;
+    return {
+        ...object,
+        ...(countsAsMovementAction
+            ? { movementActionsUsedThisTurn: (object.movementActionsUsedThisTurn ?? 0) + 1 }
+            : {}),
+        ...(movementLimit === undefined ? {} : {
+            movementActionsLimitThisTurn: object.movementActionsLimitThisTurn === undefined
+                ? movementLimit
+                : Math.min(object.movementActionsLimitThisTurn, movementLimit),
+        }),
+    };
 }
 
 function clearPlayerDefenseUsesThisRound(player: MageWarsPlayerState): MageWarsPlayerState {
@@ -283,6 +317,26 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
             }));
         }
 
+        case MAGE_WARS_EVENTS.AREA_CONJURATION_MANA_GAINED:
+            return updateArenaObject(core, event.payload.objectId, (object) => {
+                if (object.kind !== 'conjuration' || object.sourceSpellCardId !== 2209) return object;
+                const targetObjectIds = object.pentagramRoundNumber === event.payload.roundNumber
+                    ? (object.pentagramTargetObjectIdsThisRound ?? [])
+                    : [];
+                if (targetObjectIds.length >= 2 || targetObjectIds.includes(event.payload.targetObjectId)) {
+                    return object;
+                }
+                return {
+                    ...object,
+                    mana: (object.mana ?? 0) + event.payload.amount,
+                    pentagramRoundNumber: event.payload.roundNumber,
+                    pentagramTargetObjectIdsThisRound: [
+                        ...targetObjectIds,
+                        event.payload.targetObjectId,
+                    ],
+                };
+            });
+
         case MAGE_WARS_EVENTS.SPELL_CAST_STARTED:
             if (event.payload.caster.kind === 'arena-object') {
                 const objectManaCost = event.payload.objectManaCost ?? 0;
@@ -317,6 +371,14 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
             });
 
         case MAGE_WARS_EVENTS.SPELL_CAST_RESOLVED:
+            if (event.payload.paymentAlreadyApplied === true) {
+                return updatePlayer(core, event.payload.playerId, (player) => ({
+                    ...player,
+                    discardSpellCardIds: player.discardSpellCardIds.includes(event.payload.spellCardId)
+                        ? player.discardSpellCardIds
+                        : [event.payload.spellCardId, ...(player.discardSpellCardIds ?? [])],
+                }));
+            }
             if (event.payload.caster.kind === 'arena-object') {
                 const objectManaCost = event.payload.objectManaCost ?? 0;
                 const playerManaCost = event.payload.playerManaCost ?? Math.max(0, event.payload.manaCost - objectManaCost);
@@ -351,12 +413,30 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
                 };
             });
 
+        case MAGE_WARS_EVENTS.SPELL_COST_REDUCTION_USED:
+            return updateArenaObject(core, event.payload.sourceObjectId, (object) => (
+                recordObjectAbilityUseInRound(object, event.payload.sourceAbilityId, event.payload.roundNumber)
+            ));
+
         case MAGE_WARS_EVENTS.SPELL_DISCARDED:
             return updatePlayer(core, event.payload.playerId, (player) => ({
                 ...player,
                 discardSpellCardIds: player.discardSpellCardIds.includes(event.payload.spellCardId)
                     ? player.discardSpellCardIds
-                    : [event.payload.spellCardId, ...(player.discardSpellCardIds ?? [])],
+                : [event.payload.spellCardId, ...(player.discardSpellCardIds ?? [])],
+            }));
+
+        case MAGE_WARS_EVENTS.DEFEATED_CREATURE_CARD_CONSUMED:
+            return updatePlayer(core, event.payload.playerId, (player) => ({
+                ...player,
+                defeatedLivingCreatureCardIds: removeOneCard(
+                    player.defeatedLivingCreatureCardIds ?? [],
+                    event.payload.spellCardId,
+                ),
+                discardSpellCardIds: removeOneCard(
+                    player.discardSpellCardIds ?? [],
+                    event.payload.spellCardId,
+                ),
             }));
 
         case MAGE_WARS_EVENTS.SPELL_COUNTERED:
@@ -559,6 +639,13 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
         }
 
         case MAGE_WARS_EVENTS.ARENA_OBJECT_MOVED: {
+            const movingObject = core.objects[event.payload.objectId];
+            const movementLimits = movingObject && isMageWarsLivingArenaObject(movingObject)
+                ? [
+                    resolveMageWarsZoneMaxMovementActionsPerTurn(core, event.payload.fromZoneId),
+                    resolveMageWarsZoneMaxMovementActionsPerTurn(core, event.payload.toZoneId),
+                ].filter((value): value is number => value !== undefined)
+                : [];
             const moved = moveArenaObject(
                 core,
                 event.payload.objectId,
@@ -566,16 +653,17 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
                 event.payload.toZoneId,
             );
             const isTeleportMove = event.payload.movementMode === 'teleport';
-            return updateArenaObject(moved, event.payload.objectId, (object) => (
-                applyMovementTemporaryTraits({
+            return updateArenaObject(moved, event.payload.objectId, (object) => {
+                const movementTraitsApplied = applyMovementTemporaryTraits({
                     ...object,
                     actionReady: event.payload.actionCost === 'none' ? object.actionReady : false,
                     guarding: false,
                 }, {
                     actionCost: event.payload.actionCost,
                     isTeleportMove,
-                })
-            ));
+                });
+                return applyMovementTurnFacts(movementTraitsApplied, movementLimits, !isTeleportMove);
+            });
         }
 
         case MAGE_WARS_EVENTS.ARENA_OBJECT_TEMPORARY_TRAITS_CLEARED:
@@ -607,13 +695,24 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
             return core;
         }
 
-        case MAGE_WARS_EVENTS.SPELL_TELEPORT_RESOLVED:
-            return moveArenaObject(
+        case MAGE_WARS_EVENTS.SPELL_TELEPORT_RESOLVED: {
+            const target = core.objects[event.payload.targetObjectId];
+            const movementLimits = target && isMageWarsLivingArenaObject(target)
+                ? [
+                    resolveMageWarsZoneMaxMovementActionsPerTurn(core, event.payload.fromZoneId),
+                    resolveMageWarsZoneMaxMovementActionsPerTurn(core, event.payload.toZoneId),
+                ].filter((value): value is number => value !== undefined)
+                : [];
+            const moved = moveArenaObject(
                 core,
                 event.payload.targetObjectId,
                 event.payload.fromZoneId,
                 event.payload.toZoneId,
             );
+            return updateArenaObject(moved, event.payload.targetObjectId, (object) => (
+                applyMovementTurnFacts(object, movementLimits, false)
+            ));
+        }
 
         case MAGE_WARS_EVENTS.ENCHANTMENT_STOLEN: {
             const moved = event.payload.fromZoneId === event.payload.toZoneId
@@ -693,6 +792,22 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
                     ? { ...object, guarding: false }
                     : object
             ));
+
+        case MAGE_WARS_EVENTS.FEAR_HELMET_TRIGGERED:
+            return updateArenaObject(core, event.payload.helmetObjectId, (object) => {
+                const attackerObjectIds = object.fearHelmetRoundNumber === event.payload.roundNumber
+                    ? (object.fearHelmetAttackerObjectIdsThisRound ?? [])
+                    : [];
+                if (attackerObjectIds.includes(event.payload.attackerObjectId)) return object;
+                return {
+                    ...object,
+                    fearHelmetRoundNumber: event.payload.roundNumber,
+                    fearHelmetAttackerObjectIdsThisRound: [
+                        ...attackerObjectIds,
+                        event.payload.attackerObjectId,
+                    ],
+                };
+            });
 
         case MAGE_WARS_EVENTS.DEFENSE_AVAILABLE:
             if (event.payload.attackerObjectId) {
@@ -839,8 +954,24 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
             }
             return core;
 
-        case MAGE_WARS_EVENTS.ARENA_OBJECT_DEFEATED:
-            return removeArenaObject(core, event.payload.objectId);
+        case MAGE_WARS_EVENTS.ARENA_OBJECT_DEFEATED: {
+            const defeated = core.objects[event.payload.objectId];
+            const removed = removeArenaObject(core, event.payload.objectId);
+            if (!defeated) return removed;
+            if (defeated.sourceSpellCardId !== 1811 && !isMageWarsLivingArenaObject(defeated)) return removed;
+            return updatePlayer(removed, defeated.ownerId, (player) => ({
+                ...player,
+                ...(defeated.sourceSpellCardId === 1811 ? { mana: player.mana + 2 } : {}),
+                ...(isMageWarsLivingArenaObject(defeated)
+                    ? {
+                        defeatedLivingCreatureCardIds: [
+                            ...(player.defeatedLivingCreatureCardIds ?? []),
+                            defeated.sourceSpellCardId,
+                        ],
+                    }
+                    : {}),
+            }));
+        }
 
         case MAGE_WARS_EVENTS.MAGE_DEFEATED:
             return {
@@ -866,13 +997,21 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
                 guarding: false,
             }));
             const resetActions = (event.payload.objectIds ?? []).reduce((nextCore, objectId) => (
-                updateArenaObject(nextCore, objectId, (object) => object.banished
-                    ? object
-                    : {
-                        ...object,
-                        actionReady: true,
-                        guarding: false,
-                    })
+                updateArenaObject(nextCore, objectId, (object) => {
+                    const resetObject = object.banished
+                        ? object
+                        : {
+                            ...object,
+                            actionReady: true,
+                            guarding: false,
+                        };
+                    const {
+                        movementActionsUsedThisTurn: _movementActionsUsedThisTurn,
+                        movementActionsLimitThisTurn: _movementActionsLimitThisTurn,
+                        ...movementFactsCleared
+                    } = resetObject;
+                    return movementFactsCleared;
+                })
                 ), resetPlayer);
             const resetPlayerDefense = updatePlayer(resetActions, event.payload.playerId, clearPlayerDefenseUsesThisRound);
             return Object.values(resetPlayerDefense.objects).reduce((nextCore, object) => (

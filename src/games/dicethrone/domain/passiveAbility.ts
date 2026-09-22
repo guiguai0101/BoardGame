@@ -386,7 +386,13 @@ export function hasUsableResponseWindowPassiveAction(
 ): boolean {
     const passives = getPlayerPassiveAbilities(state, playerId);
     return passives.some((passive) => passive.actions.some((action, actionIndex) => (
-        (action.timing === 'responseWindow' || action.timing === 'anytime')
+        (
+            action.timing === 'responseWindow'
+            || (
+                action.timing === 'anytime'
+                && context.responseWindowType !== 'afterAttackResolved'
+            )
+        )
         && isPassiveActionUsable(state, playerId, passive.id, actionIndex, phase, context)
     )));
 }
@@ -413,6 +419,10 @@ export function hasUsableDiceRerollPassiveAction(
     const passives = getPlayerPassiveAbilities(state, playerId);
     return passives.some((passive) => passive.actions.some((action, actionIndex) => (
         action.type === 'rerollDie'
+        && !(
+            action.timing === 'anytime'
+            && context.responseWindowType === 'afterAttackResolved'
+        )
         && isPassiveActionUsable(state, playerId, passive.id, actionIndex, phase, context)
     )));
 }

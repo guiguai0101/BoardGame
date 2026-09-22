@@ -99,6 +99,7 @@ export function registerBaseAbilityAsQueuedTrigger(
       triggerCardUid: ctx.triggerCardUid,
       triggerCardDefId: ctx.triggerCardDefId,
       triggerCardOwnerId: ctx.triggerCardOwnerId,
+      actionDestinationOverride: ctx.actionDestinationOverride,
       frameId: ctx.frameId,
       sourceEventId: ctx.sourceEventId,
       now: ctx.now } as BaseAbilityContext;
@@ -140,6 +141,8 @@ export function collectBaseAbilityTriggers(params: {
   triggerCardUid?: string;
   triggerCardDefId?: string;
   triggerCardOwnerId?: PlayerId;
+  actionDestinationOverride?: 'hand';
+  actionPlayScope?: 'targetBase' | 'allBases';
   frameId?: string;
   sourceEventId?: string;
   now: number;
@@ -163,6 +166,8 @@ export function collectBaseAbilityTriggers(params: {
     triggerCardUid,
     triggerCardDefId,
     triggerCardOwnerId,
+    actionDestinationOverride,
+    actionPlayScope,
     frameId,
     sourceEventId,
     now } = params;
@@ -174,6 +179,10 @@ export function collectBaseAbilityTriggers(params: {
   for (const sourceDefId of getEffectiveBaseAbilitySourceIds(core, baseIndex)) {
     if (!hasBaseAbility(sourceDefId, timing)) continue;
     const options = getBaseAbilityOptions(sourceDefId, timing);
+    if (timing === 'onActionPlayed' && actionPlayScope) {
+      const registeredScope = options?.onActionPlayedScope ?? 'targetBase';
+      if (registeredScope !== actionPlayScope) continue;
+    }
     const optionContext = {
       state: core,
       baseIndex,
@@ -193,6 +202,7 @@ export function collectBaseAbilityTriggers(params: {
       triggerCardUid,
       triggerCardDefId,
       triggerCardOwnerId,
+      actionDestinationOverride,
       frameId,
       sourceEventId,
       now };
@@ -237,6 +247,7 @@ export function collectBaseAbilityTriggers(params: {
       triggerCardUid,
       triggerCardDefId,
       triggerCardOwnerId,
+      actionDestinationOverride,
       ...(explicitDerivedFootprint
         ? {
             derivedFootprint: explicitDerivedFootprint,
@@ -281,6 +292,7 @@ export function registerExtendedBaseAbilityAsQueuedTrigger(
       triggerCardUid: ctx.triggerCardUid,
       triggerCardDefId: ctx.triggerCardDefId,
       triggerCardOwnerId: ctx.triggerCardOwnerId,
+      actionDestinationOverride: ctx.actionDestinationOverride,
       frameId: ctx.frameId,
       sourceEventId: ctx.sourceEventId,
       now: ctx.now };
@@ -319,6 +331,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
   triggerCardUid?: string;
   triggerCardDefId?: string;
   triggerCardOwnerId?: PlayerId;
+  actionDestinationOverride?: 'hand';
   frameId?: string;
   sourceEventId?: string;
   now: number;
@@ -341,6 +354,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
     triggerCardUid,
     triggerCardDefId,
     triggerCardOwnerId,
+    actionDestinationOverride,
     frameId,
     sourceEventId,
     now,
@@ -369,6 +383,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
       triggerCardUid,
       triggerCardDefId,
       triggerCardOwnerId,
+      actionDestinationOverride,
       frameId,
       sourceEventId,
       now,
@@ -415,6 +430,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
       triggerCardUid,
       triggerCardDefId,
       triggerCardOwnerId,
+      actionDestinationOverride,
       ...(explicitDerivedFootprint
         ? {
             derivedFootprint: explicitDerivedFootprint,

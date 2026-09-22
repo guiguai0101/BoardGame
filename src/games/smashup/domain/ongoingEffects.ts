@@ -235,6 +235,8 @@ export interface TriggerContext {
     actionTargetType?: 'base' | 'minion';
     /** onActionPlayed 时：行动牌目标随从 */
     actionTargetMinionUid?: string;
+    /** onActionPlayed 时：行动牌已声明的替代去向。 */
+    actionDestinationOverride?: 'hand';
     /** REVEAL_HAND / REVEAL_DECK_TOP / onDeckInspected 时：暴露卡牌 */
     inspectionCards?: Array<{ uid: string; defId: string }>;
     /** REVEAL_HAND / REVEAL_DECK_TOP / onDeckInspected 时：暴露区域 */
@@ -735,6 +737,7 @@ function createTriggerInstance(
         actionTargetBaseIndex: ctx.actionTargetBaseIndex,
         actionTargetType: ctx.actionTargetType,
         actionTargetMinionUid: ctx.actionTargetMinionUid,
+        actionDestinationOverride: ctx.actionDestinationOverride,
         inspectionCards: ctx.inspectionCards ? structuredClone(ctx.inspectionCards) : undefined,
         inspectionZone: ctx.inspectionZone,
         inspectionTargetPlayerIds: ctx.inspectionTargetPlayerIds ? structuredClone(ctx.inspectionTargetPlayerIds) : undefined,

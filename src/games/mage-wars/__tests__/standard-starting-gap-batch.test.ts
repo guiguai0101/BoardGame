@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Command, MatchState } from '../../../engine/types';
 import { INTERACTION_COMMANDS } from '../../../engine/systems/InteractionSystem';
 import { FLOW_COMMANDS } from '../../../engine/systems/FlowSystem';
+import { reduceEvent } from '../domain/reducer';
 import { getMageWarsSpellCardFromConfig } from '../data/configPackage';
 import { MAGE_WARS_COMMANDS } from '../domain';
 import { MAGE_WARS_EVENTS } from '../domain/events';
@@ -11,7 +12,12 @@ import {
     getMageWarsObjectAttackProfile,
     isMageWarsElusiveArenaObject,
     isMageWarsFlyingArenaObject,
+    isMageWarsLimitedLifeArenaObject,
     isMageWarsSlowArenaObject,
+    isMageWarsSwiftArenaObject,
+    resolveMageWarsObjectEffectiveArmor,
+    resolveMageWarsObjectEffectiveLife,
+    resolveMageWarsObjectRegeneration,
 } from '../domain/spellRules';
 import type { MageWarsCore } from '../domain/types';
 import {
@@ -30,9 +36,160 @@ import {
     withPreparedPlayerMage,
     validateCommand,
 } from './helpers/domainFlowHarness';
-import { ARENA_ZONE_IDS, MAGE_IDS, STATUS_TOKEN_IDS } from '../domain/ids';
+import { ARENA_ZONE_IDS, MAGE_IDS, MAGE_WARS_OBJECT_ABILITY_IDS, STATUS_TOKEN_IDS } from '../domain/ids';
 
 describe('mage-wars standard starting spellbook implementation batch', () => {
+    it('implements 1900 Mongoose Agility as a revealed elusive enchantment with auditable text', () => {
+        const target = makeArenaObject('mongoose-agility-target-0', '0', PLAYER_ZERO_START_ZONE);
+        const base = setupState('initiativeQuickcast');
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [1900]),
+                target,
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, castObjectSpellCommand(1900, 5, target.id));
+        const enchantment = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 1900);
+
+        expect(cast.success).toBe(true);
+        expect(enchantment).toMatchObject({
+            revealed: true,
+            anchoredToObjectId: target.id,
+            rulesText: '本生物获得遁逸特性。',
+        });
+        expect(isMageWarsElusiveArenaObject(cast.state.core.objects[target.id], cast.state.core)).toBe(true);
+    });
+
+    it('implements 1902 Toxic Blood as limited life and preserves attachment ordering', () => {
+        const target = makeArenaObject('toxic-blood-target-0', '0', PLAYER_ZERO_START_ZONE, { life: 10 });
+        const base = setupState('initiativeQuickcast');
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.WARLOCK_APPRENTICE, [1902]),
+                target,
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, castObjectSpellCommand(1902, 5, target.id));
+        const limitedLifeEnchantment = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 1902);
+
+        expect(cast.success).toBe(true);
+        expect(limitedLifeEnchantment).toMatchObject({
+            revealed: true,
+            anchoredToObjectId: target.id,
+            rulesText: '本生物获得有限生命特性。',
+        });
+        expect(isMageWarsLimitedLifeArenaObject(cast.state.core, cast.state.core.objects[target.id])).toBe(true);
+
+        const laterLifeBonus = makeVisibleEnchantmentObject(
+            'toxic-blood-later-life-bonus',
+            '0',
+            PLAYER_ZERO_START_ZONE,
+            {
+                sourceSpellCardId: 1808,
+                sourceObjectId: 'spell-card-1808',
+                name: '公牛耐力',
+                anchoredToObjectId: target.id,
+                createdAtSequence: (limitedLifeEnchantment?.createdAtSequence ?? 0) + 1,
+            },
+        );
+        const orderedCore = withArenaObject(cast.state.core, laterLifeBonus);
+        expect(resolveMageWarsObjectEffectiveLife(orderedCore, orderedCore.objects[target.id])).toBe(10);
+    });
+
+    it('implements 1915 Cheetah Speed as a revealed swift enchantment with auditable text', () => {
+        const target = makeArenaObject('cheetah-speed-target-0', '0', PLAYER_ZERO_START_ZONE);
+        const base = setupState('initiativeQuickcast');
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [1915]),
+                target,
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, castObjectSpellCommand(1915, 5, target.id));
+        const enchantment = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 1915);
+
+        expect(cast.success).toBe(true);
+        expect(enchantment).toMatchObject({
+            revealed: true,
+            anchoredToObjectId: target.id,
+            rulesText: '本生物获得迅捷特性。',
+        });
+        expect(isMageWarsSwiftArenaObject(cast.state.core.objects[target.id], cast.state.core)).toBe(true);
+    });
+
+    it('implements 1811 Decoy as a hidden area-or-object enchantment with reveal-and-consume refund', () => {
+        const target = makeArenaObject('decoy-target-0', '0', PLAYER_ZERO_START_ZONE);
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(setupState('initiativeQuickcast').core, '0', MAGE_IDS.WIZARD_APPRENTICE, [1811]),
+                target,
+            ),
+            sys: setupState('initiativeQuickcast').sys,
+        };
+
+        const cast = runCommand(state, castObjectSpellCommand(1811, 2, target.id));
+        const decoy = Object.values(cast.state.core.objects).find((object) => object.sourceSpellCardId === 1811);
+
+        expect(getMageWarsSpellCardFromConfig(1811)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(decoy).toMatchObject({
+            kind: 'enchantment',
+            revealed: false,
+            anchoredToObjectId: target.id,
+            rulesText: getMageWarsSpellCardFromConfig(1811)?.rulesText,
+        });
+        expect(cast.state.core.players['0'].mana).toBe(18);
+
+        const revealed = runCommand(cast.state, {
+            type: MAGE_WARS_COMMANDS.USE_ARENA_OBJECT_ABILITY,
+            playerId: '0',
+            payload: {
+                objectId: decoy!.id,
+                abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.DECOY_REVEAL,
+                manaCost: 0,
+            },
+        });
+
+        expect(revealed.success).toBe(true);
+        expect(revealed.events.map((event) => event.type)).toContain(MAGE_WARS_EVENTS.ENCHANTMENT_REVEALED);
+        expect(revealed.state.core.objects[decoy!.id]).toBeUndefined();
+        expect(revealed.state.core.players['0'].mana).toBe(20);
+    });
+
+    it('allows 1811 Decoy to anchor to an empty zone', () => {
+        const planning = setupState('initiativeQuickcast');
+        const state: MatchState<MageWarsCore> = {
+            core: withPreparedPlayerMage(planning.core, '0', MAGE_IDS.WIZARD_APPRENTICE, [1811]),
+            sys: planning.sys,
+        };
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 1811,
+                manaCost: 2,
+                targetZoneId: ARENA_ZONE_IDS.A2,
+            },
+        });
+        expect(cast.success).toBe(true);
+        expect(Object.values(cast.state.core.objects)).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                sourceSpellCardId: 1811,
+                revealed: false,
+                anchoredToZoneId: ARENA_ZONE_IDS.A2,
+            }),
+        ]));
+    });
+
     it('implements 1819 Force Orb as a structured status-proof defense enchantment', () => {
         const target = makeArenaObject('force-orb-target-0', '0', PLAYER_ZERO_START_ZONE);
         const attacker = makeArenaObject('force-orb-attacker-1', '1', PLAYER_ZERO_START_ZONE, {
@@ -936,5 +1093,696 @@ describe('mage-wars standard starting spellbook implementation batch', () => {
             }),
         ]));
         expect(extra.state.core.objects[attacker.id].temporaryTraits?.battleFuryRoundNumber).toBeUndefined();
+    });
+
+    it('implements 2903 Mountain Gorilla through the generic creature summon and configured combat profile', () => {
+        const base = setupState('creatureAction');
+        const state: MatchState<MageWarsCore> = {
+            core: withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [2903]),
+            sys: base.sys,
+        };
+
+        const summoned = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 2903,
+                manaCost: 16,
+                targetZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        });
+        const gorilla = summoned.state.core.objects['mwobj-0-2903-1'];
+
+        expect(getMageWarsSpellCardFromConfig(2903)?.requiresCodeSupport).toBe(false);
+        expect(summoned.success).toBe(true);
+        expect(gorilla).toMatchObject({
+            kind: 'creature',
+            name: '高山猩猩',
+            life: 16,
+            armor: 2,
+            combatProfilesSource: 'config',
+        });
+        expect(getMageWarsObjectAttackProfile(gorilla, 'attack-0')).toMatchObject({
+            actionKind: 'quick',
+            rangeKind: 'melee',
+            diceCount: 4,
+        });
+    });
+
+    it('implements 2206 and 2207 as same-zone animal area grants', () => {
+        const animal = makeArenaObject('area-grant-animal-0', '0', PLAYER_ZERO_START_ZONE, {
+            typeLine: '生物 / 动物',
+            attackOrTraitLine: '利爪：快速近战 2 骰',
+        });
+        const target = makeArenaObject('area-grant-target-1', '1', PLAYER_ZERO_START_ZONE, { life: 40 });
+        const base = setupState('deployment');
+        const pierceState: MatchState<MageWarsCore> = {
+            core: [animal, target].reduce(
+                (core, object) => withArenaObject(core, object),
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [2206]),
+            ),
+            sys: base.sys,
+        };
+
+        const pierceCast = runCommand(pierceState, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: { spellCardId: 2206, manaCost: 7, targetZoneId: PLAYER_ZERO_START_ZONE },
+        });
+        const pierceAttack = runCommand({
+            ...pierceCast.state,
+            sys: { ...pierceCast.state.sys, phase: 'creatureAction' },
+        }, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: {
+                attackerObjectId: animal.id,
+                attackProfileId: 'attack-0',
+                targetObjectId: target.id,
+            },
+        });
+        const pierceDeclared = pierceAttack.events.find((event) => event.type === MAGE_WARS_EVENTS.ARENA_OBJECT_ATTACK_DECLARED);
+        const pierceSource = Object.values(pierceCast.state.core.objects).find((object) => object.sourceSpellCardId === 2206);
+
+        expect(pierceCast.success).toBe(true);
+        expect(pierceSource).toMatchObject({ kind: 'conjuration', anchoredToZoneId: PLAYER_ZERO_START_ZONE });
+        expect(pierceDeclared?.payload).toMatchObject({ pierceModifier: 1 });
+
+        const movingAnimal = makeArenaObject('area-charge-animal-0', '0', ARENA_ZONE_IDS.A2, {
+            typeLine: '生物 / 动物',
+            attackOrTraitLine: '利爪：快速近战 2 骰',
+        });
+        const chargeTarget = makeArenaObject('area-charge-target-1', '1', PLAYER_ZERO_START_ZONE, { life: 40 });
+        const chargeState: MatchState<MageWarsCore> = {
+            core: [movingAnimal, chargeTarget].reduce(
+                (core, object) => withArenaObject(core, object),
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [2207]),
+            ),
+            sys: base.sys,
+        };
+        const chargeCast = runCommand(chargeState, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: { spellCardId: 2207, manaCost: 7, targetZoneId: PLAYER_ZERO_START_ZONE },
+        });
+        const moved = runCommand({
+            ...chargeCast.state,
+            sys: { ...chargeCast.state.sys, phase: 'creatureAction' },
+        }, {
+            type: MAGE_WARS_COMMANDS.MOVE_ARENA_OBJECT,
+            playerId: '0',
+            payload: { objectId: movingAnimal.id, toZoneId: PLAYER_ZERO_START_ZONE },
+        });
+        const chargeAttack = runCommand(moved.state, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: {
+                attackerObjectId: movingAnimal.id,
+                attackProfileId: 'attack-0',
+                targetObjectId: chargeTarget.id,
+            },
+        });
+        const chargeDeclared = chargeAttack.events.find((event) => event.type === MAGE_WARS_EVENTS.ARENA_OBJECT_ATTACK_DECLARED);
+
+        expect(getMageWarsSpellCardFromConfig(2206)?.requiresCodeSupport).toBe(false);
+        expect(getMageWarsSpellCardFromConfig(2207)?.requiresCodeSupport).toBe(false);
+        expect(chargeCast.success).toBe(true);
+        expect(moved.success).toBe(true);
+        expect(chargeAttack.success).toBe(true);
+        expect(chargeDeclared?.payload).toMatchObject({ chargeDiceModifier: 1 });
+    });
+
+    it('implements 2221 and 2222 channeling grants through the formal channel phase', () => {
+        const cases = [
+            { spellCardId: 2221, mageId: MAGE_IDS.WARLOCK_APPRENTICE },
+            { spellCardId: 2222, mageId: MAGE_IDS.BEASTMASTER_APPRENTICE },
+        ] as const;
+
+        for (const entry of cases) {
+            const base = setupState('deployment');
+            const cast = runCommand({
+                core: withPreparedPlayerMage(base.core, '0', entry.mageId, [entry.spellCardId]),
+                sys: base.sys,
+            }, {
+                type: MAGE_WARS_COMMANDS.CAST_SPELL,
+                playerId: '0',
+                payload: {
+                    spellCardId: entry.spellCardId,
+                    manaCost: 5,
+                    targetZoneId: PLAYER_ZERO_START_ZONE,
+                },
+            });
+            const manaBeforeChannel = cast.state.core.players['0'].mana;
+            const baseChanneling = cast.state.core.players['0'].channeling;
+            const channel = runCommand({
+                core: { ...cast.state.core, phaseReadyPlayerIds: [] },
+                sys: { ...cast.state.sys, phase: 'reset' },
+            }, {
+                type: FLOW_COMMANDS.ADVANCE_PHASE,
+                playerId: '0',
+                payload: {},
+            });
+            const manaEvent = channel.events.find((event) => (
+                event.type === MAGE_WARS_EVENTS.MANA_CHANNELED
+                && event.payload.playerId === '0'
+            ));
+
+            expect(getMageWarsSpellCardFromConfig(entry.spellCardId)?.requiresCodeSupport).toBe(false);
+            expect(cast.success).toBe(true);
+            expect(channel.success).toBe(true);
+            expect(manaEvent?.payload).toMatchObject({ amount: baseChanneling + 1 });
+            expect(channel.state.core.players['0'].mana).toBe(manaBeforeChannel + baseChanneling + 1);
+        }
+    });
+
+    it('implements 2223 Mana Siphon as a zone placement that follows the selected mage', () => {
+        const base = setupState('deployment');
+        const preparedCore = withPreparedPlayerMage(base.core, '0', MAGE_IDS.WIZARD_APPRENTICE, [2223]);
+        const state: MatchState<MageWarsCore> = {
+            core: withPlayerInZone(
+                {
+                    ...preparedCore,
+                    players: {
+                        ...preparedCore.players,
+                        '0': { ...preparedCore.players['0'], mana: 20 },
+                    },
+                },
+                '1',
+                ARENA_ZONE_IDS.B2,
+            ),
+            sys: base.sys,
+        };
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 2223,
+                manaCost: 12,
+                targetPlayerId: '1',
+                targetZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        });
+        const siphon = Object.values(cast.state.core.objects).find((object) => object.sourceSpellCardId === 2223);
+
+        expect(getMageWarsSpellCardFromConfig(2223)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(siphon).toMatchObject({
+            kind: 'conjuration',
+            anchoredToZoneId: PLAYER_ZERO_START_ZONE,
+            anchoredToPlayerId: '1',
+            rulesText: '当法力虹吸进场时，选择距离本法术最多2格区域之内并在视线中的一名法师。只要法力虹吸在场，该法师获得聚魔-2，并且与被选择法师所在竞技场的位置无关。',
+        });
+
+        const channel = runCommand({
+            core: { ...cast.state.core, phaseReadyPlayerIds: [] },
+            sys: { ...cast.state.sys, phase: 'reset' },
+        }, {
+            type: FLOW_COMMANDS.ADVANCE_PHASE,
+            playerId: '0',
+            payload: {},
+        });
+
+        expect(channel.state.core.players['0'].mana).toBe(18);
+        expect(channel.state.core.players['1'].mana).toBe(18);
+
+        const movedTarget = runCommand({
+            core: {
+                ...channel.state.core,
+                currentPlayerId: '1',
+                phaseActorId: '1',
+            },
+            sys: { ...channel.state.sys, phase: 'creatureAction' },
+        }, {
+            type: MAGE_WARS_COMMANDS.MOVE_MAGE,
+            playerId: '1',
+            payload: { toZoneId: ARENA_ZONE_IDS.B3 },
+        });
+        const nextChannel = runCommand({
+            core: {
+                ...movedTarget.state.core,
+                currentPlayerId: '0',
+                phaseActorId: '0',
+                phaseReadyPlayerIds: [],
+            },
+            sys: { ...movedTarget.state.sys, phase: 'reset' },
+        }, {
+            type: FLOW_COMMANDS.ADVANCE_PHASE,
+            playerId: '0',
+            payload: {},
+        });
+
+        expect(movedTarget.success).toBe(true);
+        expect(nextChannel.state.core.players['1'].mana).toBe(26);
+    });
+
+    it('implements 3726 Moloch\'s Torment with controlled-curse upkeep payment and optional skip', () => {
+        const target = makeArenaObject('moloch-torment-target-1', '1', PLAYER_ZERO_START_ZONE, { life: 8 });
+        const curse = makeVisibleEnchantmentObject(
+            'moloch-torment-curse-1',
+            '0',
+            PLAYER_ZERO_START_ZONE,
+            { anchoredToObjectId: target.id },
+        );
+        const base = setupState('initiativeQuickcast');
+        const state: MatchState<MageWarsCore> = {
+            core: [target, curse].reduce(
+                (core, object) => withArenaObject(core, object),
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.WARLOCK_APPRENTICE, [3726]),
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 3726,
+                manaCost: 3,
+                targetPlayerId: '0',
+            },
+        });
+        const equipment = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 3726);
+
+        expect(getMageWarsSpellCardFromConfig(3726)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(equipment).toMatchObject({
+            kind: 'equipment',
+            anchoredToPlayerId: '0',
+            rulesText: '限定邪术师。在维持阶段中，你可以为每个至少附属有一个你控制的诅咒的生物支付1点法力，以对该生物造成1点直接伤害。',
+        });
+
+        const upkeep = runCommand({
+            core: {
+                ...cast.state.core,
+                phaseReadyPlayerIds: ['1'],
+                phaseActorId: '0',
+            },
+            sys: { ...cast.state.sys, phase: 'channel' },
+        }, {
+            type: FLOW_COMMANDS.ADVANCE_PHASE,
+            playerId: '0',
+            payload: {},
+        });
+        const interaction = getSimpleChoicePrompt(
+            upkeep.state,
+            'mw.upkeep-equipment-direct-damage.choice',
+        );
+        const payOption = getPromptOptions(upkeep.state).find((option) => (
+            (option.value as { action?: string } | undefined)?.action === 'pay'
+        ));
+        expect(upkeep.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE_AVAILABLE,
+                payload: expect.objectContaining({
+                    sourceObjectId: equipment?.id,
+                    sourceSpellCardId: 3726,
+                    targetObjectId: target.id,
+                    playerId: '0',
+                    amount: 1,
+                    damageType: 'aether',
+                }),
+            }),
+        ]));
+        expect(payOption).toBeDefined();
+
+        const paid = runCommand(upkeep.state, {
+            type: INTERACTION_COMMANDS.RESPOND,
+            playerId: '0',
+            payload: {
+                interactionId: interaction.id,
+                optionId: payOption!.id,
+            },
+        } as Command);
+        expect(paid.success).toBe(true);
+        expect(paid.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.MANA_SPENT,
+                payload: expect.objectContaining({ playerId: '0', amount: 1, spellCardId: 3726 }),
+            }),
+            expect.objectContaining({
+                type: 'DAMAGE_DEALT',
+                payload: expect.objectContaining({
+                    targetId: target.id,
+                    actualDamage: 1,
+                    sourceAbilityId: 'mw.spell.3726.upkeep',
+                }),
+            }),
+        ]));
+        expect(paid.state.core.players['0'].mana).toBe(cast.state.core.players['0'].mana - 1);
+        expect(paid.state.core.objects[target.id].damage).toBe(1);
+
+        const skipped = runCommand({
+            core: {
+                ...cast.state.core,
+                players: {
+                    ...cast.state.core.players,
+                    '0': { ...cast.state.core.players['0'], mana: 0 },
+                },
+                phaseReadyPlayerIds: ['1'],
+                phaseActorId: '0',
+            },
+            sys: { ...cast.state.sys, phase: 'channel' },
+        }, {
+            type: FLOW_COMMANDS.ADVANCE_PHASE,
+            playerId: '0',
+            payload: {},
+        });
+        expect(skipped.success).toBe(true);
+        expect(skipped.events.some((event) => event.type === 'DAMAGE_DEALT')).toBe(false);
+        expect(skipped.state.core.objects[target.id].damage).toBe(0);
+    });
+
+    it('implements 2208 Poison Cloud with upkeep toxin damage and one movement action per turn', () => {
+        const base = setupState('deployment');
+        const target = makeArenaObject('poison-cloud-target-1', '1', PLAYER_ZERO_START_ZONE, {
+            typeLine: '生物 / 迅捷',
+            life: 8,
+            actionReady: true,
+        });
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.WIZARD_APPRENTICE, [2208]),
+                target,
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 2208,
+                manaCost: 8,
+                targetZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        });
+        const cloud = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 2208);
+
+        expect(getMageWarsSpellCardFromConfig(2208)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(cloud).toMatchObject({
+            kind: 'conjuration',
+            anchoredToZoneId: PLAYER_ZERO_START_ZONE,
+            rulesText: '每个维持阶段，所有位于毒气云雾所在区域的活体生物受到2点直接毒素伤害。如果一个活体生物进入本区域，或在本区域开始它的行动阶段，则它回合不可以执行多于一次的移动行动。',
+        });
+
+        const upkeep = runCommand({
+            core: {
+                ...cast.state.core,
+                phaseReadyPlayerIds: ['1'],
+                phaseActorId: '0',
+            },
+            sys: { ...cast.state.sys, phase: 'channel' },
+        }, {
+            type: FLOW_COMMANDS.ADVANCE_PHASE,
+            playerId: '0',
+            payload: {},
+        });
+        const upkeepDamageEvent = upkeep.events.find((event) => event.type === 'DAMAGE_DEALT');
+
+        expect(upkeep.success).toBe(true);
+        expect(upkeep.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE_AVAILABLE,
+                payload: expect.objectContaining({
+                    sourceObjectId: cloud?.id,
+                    sourceSpellCardId: 2208,
+                    targetObjectId: target.id,
+                    amount: 2,
+                    damageType: '毒素',
+                }),
+            }),
+        ]));
+        expect(upkeepDamageEvent).toMatchObject({
+            payload: expect.objectContaining({
+                targetId: target.id,
+                actualDamage: 2,
+                sourceAbilityId: 'mw.spell.2208.upkeep',
+            }),
+        });
+
+        const movedOut = runCommand({
+            core: {
+                ...cast.state.core,
+                currentPlayerId: '1',
+                phaseActorId: '1',
+            },
+            sys: { ...cast.state.sys, phase: 'creatureAction' },
+        }, {
+            type: MAGE_WARS_COMMANDS.MOVE_ARENA_OBJECT,
+            playerId: '1',
+            payload: {
+                objectId: target.id,
+                toZoneId: ARENA_ZONE_IDS.A2,
+            },
+        });
+
+        expect(movedOut.success).toBe(true);
+        expect(movedOut.state.core.objects[target.id]).toMatchObject({
+            movementActionsUsedThisTurn: 1,
+            movementActionsLimitThisTurn: 1,
+        });
+        expect(validateCommand(movedOut.state, {
+            type: MAGE_WARS_COMMANDS.MOVE_ARENA_OBJECT,
+            playerId: '1',
+            payload: {
+                objectId: target.id,
+                toZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        })).toBe('movementActionLimitReached');
+    });
+
+    it('implements 2303 Morktali as a same-zone friendly regeneration aura', () => {
+        const target = makeArenaObject('morktali-aura-target-0', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'creature',
+            typeLine: '生物 / 植物',
+            life: 10,
+            damage: 3,
+            armor: 0,
+        });
+        const base = setupState('deployment');
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.BEASTMASTER_APPRENTICE, [2303]),
+                target,
+            ),
+            sys: base.sys,
+        };
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 2303,
+                manaCost: 8,
+                targetZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        });
+        const tree = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 2303);
+
+        expect(getMageWarsSpellCardFromConfig(2303)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(tree).toMatchObject({
+            kind: 'conjuration',
+            life: 8,
+            armor: 2,
+            rulesText: '重生2·活体·传奇；火焰+2·水流免疫。所有位于生命巨树默克塔利所在区域的友方活体生物获得重生2特性。',
+        });
+        expect(resolveMageWarsObjectRegeneration(cast.state.core, target)).toMatchObject({
+            value: 2,
+            sourceObjectIds: [tree?.id],
+        });
+    });
+
+    it('implements 2219 Binsara Hand as a once-per-round armor or healing ability', () => {
+        const base = setupState('deployment');
+        const target = makeArenaObject('binsara-target-0', '0', PLAYER_ZERO_START_ZONE, {
+            damage: 2,
+            armor: 2,
+        });
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withPreparedPlayerMage(base.core, '0', MAGE_IDS.PRIESTESS_APPRENTICE, [2219]),
+                target,
+            ),
+            sys: base.sys,
+        };
+
+        const cast = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 2219,
+                manaCost: 5,
+                targetZoneId: PLAYER_ZERO_START_ZONE,
+            },
+        });
+        const hand = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 2219);
+
+        expect(getMageWarsSpellCardFromConfig(2219)?.requiresCodeSupport).toBe(false);
+        expect(cast.success).toBe(true);
+        expect(hand).toMatchObject({
+            kind: 'conjuration',
+            anchoredToZoneId: PLAYER_ZERO_START_ZONE,
+            rulesText: '每回合一次，在任意友方生物的行动阶段之前或之后，你可以以一个活体生物为目标，使其获得护甲+1特性直到本回合结束，或者你可以为其治疗1点伤害。使用一枚就绪标记来记录本能力。',
+        });
+
+        const armorCommand = {
+            type: MAGE_WARS_COMMANDS.USE_ARENA_OBJECT_ABILITY,
+            playerId: '0' as const,
+            payload: {
+                objectId: hand!.id,
+                abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+                manaCost: 0,
+                targetObjectId: target.id,
+                mode: 'armor-bonus' as const,
+            },
+        };
+        const armored = runCommand({
+            core: cast.state.core,
+            sys: { ...cast.state.sys, phase: 'creatureAction' },
+        }, armorCommand);
+
+        expect(armored.success).toBe(true);
+        expect(armored.state.core.players['0'].mana).toBe(cast.state.core.players['0'].mana);
+        expect(armored.state.core.players['0'].actionReady).toBe(cast.state.core.players['0'].actionReady);
+        expect(armored.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.ARENA_OBJECT_ABILITY_RESOLVED,
+                payload: expect.objectContaining({
+                    objectId: hand!.id,
+                    abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+                    mode: 'armor-bonus',
+                    actionCost: 'none',
+                    roundNumber: cast.state.core.turnNumber,
+                }),
+            }),
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.ARENA_OBJECT_TEMPORARY_TRAITS_GAINED,
+                payload: expect.objectContaining({
+                    objectId: target.id,
+                    armorModifier: 1,
+                    armorModifierUntilRoundNumber: cast.state.core.turnNumber,
+                }),
+            }),
+        ]));
+        expect(armored.state.core.objects[target.id].temporaryTraits).toMatchObject({
+            armorModifier: 1,
+            armorModifierUntilRoundNumber: cast.state.core.turnNumber,
+        });
+        expect(resolveMageWarsObjectEffectiveArmor(armored.state.core, armored.state.core.objects[target.id]))
+            .toBe(3);
+        expect(armored.state.core.objects[hand!.id].abilityUseRoundNumbers).toMatchObject({
+            [MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND]: cast.state.core.turnNumber,
+        });
+
+        expect(validateCommand(armored.state, {
+            ...armorCommand,
+            payload: { ...armorCommand.payload, mode: 'heal' },
+        })).toBe('objectAbilityAlreadyUsedThisRound');
+
+        const nextRound = reduceEvent(
+            reduceEvent(armored.state.core, {
+                type: MAGE_WARS_EVENTS.TURN_ADVANCED,
+                payload: { fromPlayerId: '0', toPlayerId: '0', turnNumber: 2 },
+                sourceCommandType: 'test',
+                timestamp: 0,
+            }),
+            {
+                type: MAGE_WARS_EVENTS.ARENA_OBJECT_TEMPORARY_TRAITS_CLEARED,
+                payload: {
+                    ownerId: target.ownerId,
+                    objectId: target.id,
+                    traitIds: ['armor'],
+                    sourceAbilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+                },
+                sourceCommandType: 'test',
+                timestamp: 0,
+            },
+        );
+        expect(nextRound.objects[target.id].temporaryTraits).toBeUndefined();
+        expect(resolveMageWarsObjectEffectiveArmor(nextRound, nextRound.objects[target.id])).toBe(2);
+
+        const healingTarget = {
+            ...target,
+            id: 'binsara-heal-target-0',
+            damage: 2,
+        };
+        const healingState: MatchState<MageWarsCore> = {
+            core: {
+                ...nextRound,
+                objects: {
+                    ...nextRound.objects,
+                    [healingTarget.id]: healingTarget,
+                },
+                arena: nextRound.arena.map((zone) => zone.id === healingTarget.zoneId
+                    ? { ...zone, objectIds: [...zone.objectIds, healingTarget.id] }
+                    : zone),
+            },
+            sys: { ...cast.state.sys, phase: 'creatureAction' },
+        };
+        const healed = runCommand(healingState, {
+            ...armorCommand,
+            payload: {
+                ...armorCommand.payload,
+                targetObjectId: healingTarget.id,
+                mode: 'heal',
+            },
+        });
+
+        expect(healed.success).toBe(true);
+        expect(healed.events).toContainEqual(expect.objectContaining({
+            type: MAGE_WARS_EVENTS.SPELL_HEALING_ROLLED,
+            payload: expect.objectContaining({
+                spellCardId: 2219,
+                sourceAbilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+                diceResults: [1],
+                healing: 1,
+                actualHealing: 1,
+            }),
+        }));
+        expect(healed.state.core.objects[healingTarget.id].damage).toBe(1);
+    });
+
+    it('rejects Binsara Hand outside the creature action window, at distance, or on nonliving targets', () => {
+        const base = setupState('creatureAction');
+        const hand = makeArenaObject('binsara-hand-source-0', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'conjuration',
+            sourceSpellCardId: 2219,
+            sourceObjectId: 'spell-card-2219',
+            name: '宾莎拉之手',
+            typeLine: '魔物 / 神殿',
+            anchoredToZoneId: PLAYER_ZERO_START_ZONE,
+            actionReady: false,
+        });
+        const distant = makeArenaObject('binsara-distant-target-0', '0', ARENA_ZONE_IDS.C3);
+        const nonliving = makeArenaObject('binsara-nonliving-target-0', '0', PLAYER_ZERO_START_ZONE, {
+            typeLine: '生物 / 非活体',
+        });
+        const state = [hand, distant, nonliving].reduce(
+            (core, object) => withArenaObject(core, object),
+            withPlayerMage(base.core, '0', MAGE_IDS.PRIESTESS_APPRENTICE),
+        );
+        const command = {
+            type: MAGE_WARS_COMMANDS.USE_ARENA_OBJECT_ABILITY,
+            playerId: '0' as const,
+            payload: {
+                objectId: hand.id,
+                abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+                manaCost: 0,
+                targetObjectId: distant.id,
+                mode: 'armor-bonus' as const,
+            },
+        };
+
+        expect(validateCommand({ core: state, sys: base.sys }, command)).toBe('targetOutOfRange');
+        expect(validateCommand({ core: state, sys: { ...base.sys, phase: 'planning' } }, command)).toBe('wrongPhase');
+        expect(validateCommand({ core: state, sys: base.sys }, {
+            ...command,
+            payload: { ...command.payload, targetObjectId: nonliving.id },
+        })).toBe('invalidTargetObject');
     });
 });

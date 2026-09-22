@@ -140,8 +140,9 @@ export const SummonerWarsBoard: React.FC<Props> = ({
   const mapPaddingRight = isLandscapeMobileViewport ? MOBILE_LANDSCAPE_MAP_PADDING : desktopMapPadding;
   const mapShadeWidth = isLandscapeMobileViewport ? MOBILE_LANDSCAPE_MAP_PADDING : desktopMapPadding;
   const activeEventLabelClass = 'text-xs px-1.5 py-0.5';
-  const activeEventCardStyle = { width: `calc(${BOARD_SHELL_REFERENCE_WIDTH} * 0.045)` };
-  const activeEventNameClass = 'text-[11px] py-0.5 px-1';
+  // 持续事件需要保持卡面可读；当前实际入口按原尺寸的两倍展示，不设置最大宽度。
+  const activeEventCardStyle = { width: `calc(${BOARD_SHELL_REFERENCE_WIDTH} * 0.09)` };
+  const activeEventNameClass = 'text-xs py-1 px-1.5';
   const activeEventChargeDotStyle = {
     width: `calc(${BOARD_SHELL_REFERENCE_WIDTH} * 0.004)`,
     height: `calc(${BOARD_SHELL_REFERENCE_WIDTH} * 0.004)`,
@@ -1330,7 +1331,7 @@ export const SummonerWarsBoard: React.FC<Props> = ({
                         const sprite = getEventSpriteConfig(ev);
                         const charges = ev.charges ?? 0;
                         return (
-                          <div key={ev.id} className="relative cursor-pointer group pointer-events-auto" onClick={() => handleMagnifyCard(ev)}>
+                          <div key={ev.id} data-testid={`sw-opponent-active-event-${ev.id}`} className="relative cursor-pointer group pointer-events-auto" onClick={() => handleMagnifyCard(ev)}>
                             <CardSprite atlasId={sprite.atlasId} frameIndex={sprite.frameIndex} className="rounded shadow-lg border border-amber-500/40 hover:border-amber-400 transition-all hover:scale-105" style={activeEventCardStyle} />
                             <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/20 transition-colors" />
                             <div className={`absolute bottom-0 left-0 right-0 bg-black/80 text-amber-200 text-center rounded-b truncate border-t border-amber-500/20 ${activeEventNameClass}`}>{ev.name}</div>
@@ -1369,7 +1370,7 @@ export const SummonerWarsBoard: React.FC<Props> = ({
                         const sprite = getEventSpriteConfig(ev);
                         const charges = ev.charges ?? 0;
                         return (
-                          <div key={ev.id} className="relative cursor-pointer group pointer-events-auto" onClick={() => handleMagnifyCard(ev)}>
+                          <div key={ev.id} data-testid={`sw-player-active-event-${ev.id}`} className="relative cursor-pointer group pointer-events-auto" onClick={() => handleMagnifyCard(ev)}>
                             <CardSprite atlasId={sprite.atlasId} frameIndex={sprite.frameIndex} className="rounded shadow-lg border border-amber-500/40 hover:border-amber-400 transition-all hover:scale-105" style={activeEventCardStyle} />
                             <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/20 transition-colors" />
                             <div className={`absolute bottom-0 left-0 right-0 bg-black/80 text-amber-200 text-center rounded-b truncate border-t border-amber-500/20 ${activeEventNameClass}`}>{ev.name}</div>

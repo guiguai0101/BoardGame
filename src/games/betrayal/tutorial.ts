@@ -334,6 +334,16 @@ const BETRAYAL_OMEN_CONFIRMATION_AND_HAUNT_RISK: TutorialManifest = {
             position: 'top',
             requireAction: true,
             allowedCommands: [BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION],
+            aiActions: [
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '1',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '2',
+                },
+            ],
             advanceOnEvents: [{ type: 'CARD_RESOLUTION_ACKNOWLEDGED', match: { playerId: '0', remainingCount: 0 } }],
             viewAs: '0',
         },
@@ -519,6 +529,14 @@ const BETRAYAL_HAUNT_NATURAL_TRIGGER_FLOW: TutorialManifest = {
                     playerId: '1',
                 },
                 {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '2',
+                },
+                {
                     commandType: BETRAYAL_COMMANDS.END_TURN,
                     playerId: '1',
                 },
@@ -547,6 +565,14 @@ const BETRAYAL_HAUNT_NATURAL_TRIGGER_FLOW: TutorialManifest = {
                 {
                     commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
                     playerId: '2',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '1',
                 },
                 {
                     commandType: BETRAYAL_COMMANDS.END_TURN,
@@ -582,6 +608,14 @@ const BETRAYAL_HAUNT_NATURAL_TRIGGER_FLOW: TutorialManifest = {
                 {
                     commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
                     playerId: '1',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '2',
                 },
             ],
             hiddenAutomation: compressedRepeat(
@@ -774,6 +808,14 @@ const BETRAYAL_MAIN_PLAYER_PATH: TutorialManifest = {
                     playerId: '1',
                 },
                 {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '2',
+                },
+                {
                     commandType: BETRAYAL_COMMANDS.END_TURN,
                     playerId: '1',
                 },
@@ -803,6 +845,14 @@ const BETRAYAL_MAIN_PLAYER_PATH: TutorialManifest = {
                 {
                     commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
                     playerId: '2',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '1',
                 },
                 {
                     commandType: BETRAYAL_COMMANDS.END_TURN,
@@ -870,6 +920,14 @@ const BETRAYAL_MAIN_PLAYER_PATH: TutorialManifest = {
                 {
                     commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
                     playerId: '1',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '0',
+                },
+                {
+                    commandType: BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION,
+                    playerId: '2',
                 },
             ],
             hiddenAutomation: compressedRepeat(

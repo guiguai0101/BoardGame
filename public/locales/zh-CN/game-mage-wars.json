@@ -115,7 +115,8 @@
     "observeOpponentPublicView": "观察对手公开区",
     "opponentPublicView": "对手公开视角",
     "backToSelfView": "返回自己视角",
-    "phaseProgressTitle": "回合流程"
+    "phaseProgressTitle": "回合流程",
+    "cardOriginalText": "卡牌原文"
   },
   "zonesPanel": {
     "title": "私有与附着区",
@@ -190,6 +191,21 @@
       "manaCost": "法力 {{manaCost}}",
       "cancel": "取消"
     },
+    "battleFury": {
+      "title": "{{attackerObjectId}} 可以进行一次额外的快速近战攻击",
+      "options": {
+        "attack": "追加攻击",
+        "pass": "放弃追加攻击"
+      }
+    },
+    "fearHelmet": {
+      "title": "{{attackerObjectId}} 的攻击被恐惧头盔取消，选择后续动作",
+      "options": {
+        "retarget": "改攻其他目标",
+        "guard": "改为守卫",
+        "cancel": "取消攻击"
+      }
+    },
     "counterstrike": {
       "title": "{{defenderObjectId}} 可以反击 {{attackerObjectId}}",
       "options": {
@@ -211,6 +227,13 @@
         "destroy": "摧毁结界"
       }
     },
+    "upkeepEquipmentDirectDamage": {
+      "title": "{{targetObjectId}} 可受到 {{amount}} 点摩洛王的折磨伤害",
+      "options": {
+        "pay": "支付法力并造成伤害",
+        "skip": "不造成伤害"
+      }
+    },
     "upkeepHealTransfer": {
       "title": "{{targetObjectId}} 的死亡链接可治疗最多 {{availableHealing}} 点伤害",
       "options": {
@@ -221,7 +244,9 @@
     "enchantmentResponse": {
       "title": "必须展示响应结界 {{responseObjectId}}",
       "options": {
-        "reveal": "展示并结算"
+        "reveal": "展示并结算",
+        "redirect": "展示并将法术重定向给施法者",
+        "teleport": "传送到 {{targetZoneId}}"
       }
     },
     "spellCastChoice": {
@@ -254,7 +279,13 @@
     "targetOutOfRange": "目标不在当前范围内。",
     "wallEdgeOccupied": "这条边界已经有墙体，不能再放置墙体。",
     "missingTarget": "请先选择一个合法目标。",
-    "spellRequiresCodeSupport": "这个法术还没有进入当前可操作范围。"
+    "spellRequiresCodeSupport": "这个法术还没有进入当前可操作范围。",
+    "resurrectionTargetNotLivingCreature": "起死回生只能选择弃牌堆中的活体生物。",
+    "resurrectionTargetNotInSpellbook": "目标生物不在你的法术书中。",
+    "resurrectionTargetNotDefeated": "目标生物不在被摧毁的活体生物牌池中。",
+    "resurrectionTargetNotDiscarded": "目标生物当前不在你的弃牌堆中。",
+    "resurrectionTargetMissingCost": "目标生物的法力费用或法术等级资料不完整。",
+    "resurrectionTargetMissingStats": "目标生物的生命或护甲资料不完整。"
   },
   "spellbook": {
     "previousPage": "上一页",
@@ -345,8 +376,8 @@
     "mageDetailAria": "法师规则卡",
     "mageDetailDescription": "这份构筑按这张法师能力牌的训练方向计算。需要更换法师时，返回选书页选择另一本绑定对应法师的法术书。",
     "trainedDirection": "受训方向",
-    "opposedDirection": "相斥方向",
-    "currentListLabel": "法术书清单",
+      "opposedDirection": "相斥方向",
+      "currentListLabel": "法术书清单",
     "none": "无",
     "close": "关闭",
     "type": {
@@ -428,6 +459,7 @@
       "deploySelectWolf": "点击准备区的“丛林灰狼”。",
       "deployTargetZone": "点击兽王所在区域。",
       "wolfSummoned": "丛林灰狼进场后行动标记是已用面，所以现在不能行动；下一步用兽性觉醒把它翻回就绪。",
+      "armorReading": "看灰狼卡牌上的护甲字段。护甲会在伤害结算时抵消相应伤害；攻击条里的“穿刺+N”会抵消相应点数的护甲。",
       "rouseSelectSpell": "点击准备区的“兽性觉醒”。",
       "rouseTargetWolf": "点击场上的“丛林灰狼”卡牌本体，让兽性觉醒作用到它。",
       "passYourDeployment": "丛林灰狼的行动标记已经就绪，但现在仍在部署阶段。先点击“结束部署”；进入行动阶段后再点灰狼卡牌本体移动。",

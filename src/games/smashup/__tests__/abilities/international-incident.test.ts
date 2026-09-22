@@ -4,17 +4,20 @@ import { initAllAbilities, resetAbilityInit } from '../../abilities';
 import { INTERNATIONAL_INCIDENT_BASES, INTERNATIONAL_INCIDENT_CARDS } from '../../data/factions/international_incident';
 import { getDiscardSpecialOptions } from '../../domain/discardSpecialAbilities';
 import { isCardSuppressed, isMinionProtected } from '../../domain/ongoingEffects';
+import { collectLegalActionPlayTargets, validateActionPlaySemantics } from '../../domain/playLegality';
 import {
     getEffectivePower,
     getPlayerEffectivePowerOnBase,
     getTotalEffectivePowerOnBase,
 } from '../../domain/ongoingModifiers';
+import { reduceTurnStartedEvent } from '../../domain/reduce';
 import { executeTriggerProgramExecutor } from '../../domain/triggerExecutors';
 import { SU_COMMANDS, SU_EVENTS } from '../../domain/types';
 import {
     applyEvents,
     expectRegisteredAbilityContract,
     getFirstPrompt,
+    getPromptOption,
     getPromptOptions,
     getSimpleChoicePrompt,
     invokeRegisteredAbilityContract,
@@ -24,10 +27,12 @@ import {
     makeMinion,
     makePlayer,
     makeState,
+    respondToPrompt,
     respondToPromptOption,
     respondToPromptOptions,
 } from '../helpers';
 import { runCommand } from '../testRunner';
+import { getCurrentInteractionSummary } from '../../../../engine/testing/interactionTestFacade';
 
 const FIXED_RANDOM = {
     random: () => 0,
@@ -471,9 +476,60 @@ describe('国际事件四派系代表性玩法行为', () => {
             ])],
         });
 
-        expect(isMinionProtected(mooseCore, mooseCore.bases[0].minions[1], 0, '1', 'destroy')).toBe(true);
-        expect(isMinionProtected(mooseCore, mooseCore.bases[0].minions[1], 0, '0', 'destroy')).toBe(false);
-        expect(isMinionProtected(mooseCore, mooseCore.bases[0].minions[2], 0, '0', 'destroy')).toBe(false);
+        expect(isMinionProtected(
+            mooseCore,
+            mooseCore.bases[0].minions[1],
+            0,
+            '1',
+            'destroy',
+            { sourceKind: 'action' },
+        )).toBe(true);
+        expect(isMinionProtected(
+            mooseCore,
+            mooseCore.bases[0].minions[1],
+            0,
+            '1',
+            'destroy',
+            { sourceKind: 'nonAction' },
+        )).toBe(false);
+        expect(isMinionProtected(
+            mooseCore,
+            mooseCore.bases[0].minions[1],
+            0,
+            '0',
+            'destroy',
+            { sourceKind: 'action' },
+        )).toBe(false);
+        expect(isMinionProtected(
+            mooseCore,
+            mooseCore.bases[0].minions[2],
+            0,
+            '0',
+            'destroy',
+            { sourceKind: 'action' },
+        )).toBe(false);
+
+        const borrowedMooseCore = makeState({
+            bases: [makeBase('base_great_white_north_eh', [
+                makeMinion('borrowed-host', 'mounties_dudlee', '1', 2, {
+                    attachedActions: [{
+                        uid: 'borrowed-moose',
+                        defId: 'mounties_battle_moose',
+                        ownerId: '0',
+                        metadata: { sourceControllerId: '0' },
+                    }],
+                }),
+                makeMinion('borrowed-ally', 'mounties_war_canuck', '1', 3),
+            ])],
+        });
+        expect(isMinionProtected(
+            borrowedMooseCore,
+            borrowedMooseCore.bases[0].minions[1],
+            0,
+            '2',
+            'destroy',
+            { sourceKind: 'action' },
+        )).toBe(false);
     });
 
     it('骑警的 Haich-Q 和骑警少校持续力量修正计入有效力量', () => {
@@ -2289,9 +2345,13 @@ describe('国际事件四派系代表性玩法行为', () => {
             bases: [
                 makeBase('base_strategic_syrup_reserve', [
                     makeMinion('war-canuck', 'mounties_war_canuck', '0', 4),
+                    makeMinion('northern', 'mounties_northern_mover', '0', 4),
                 ]),
                 makeBase('base_great_white_north_eh', [
-                    makeMinion('enemy', 'musketeers_young_musketeer', '1', 2),
+                    makeMinion('enemy-a', 'musketeers_young_musketeer', '1', 2),
+                ]),
+                makeBase('base_ringside', [
+                    makeMinion('enemy-b', 'sumo_wrestlers_rookie_sumo', '1', 2),
                 ]),
             ],
         });
@@ -2306,9 +2366,24 @@ describe('国际事件四派系代表性玩法行为', () => {
             random: FIXED_RANDOM,
             now: 40,
         });
-        const moved = applyEvents(core, result.events);
-        expect(moved.bases[1].minions.map(minion => minion.uid)).toEqual(['enemy', 'war-canuck']);
-        expect(moved.bases[1].minions[0].metadata?.internationalIncidentAlwaysGetOurMan).toMatchObject({
+        const selectedSource = respondToPromptOption(
+            result.matchState!,
+            option => option.value?.minionUid === 'northern',
+            '总能抓到目标选择第二个己方随从',
+            '0',
+            FIXED_RANDOM,
+        );
+        const selectedTarget = respondToPromptOption(
+            selectedSource.finalState,
+            option => option.value?.minionUid === 'enemy-b',
+            '总能抓到目标选择第二个合法对手随从',
+            '0',
+            FIXED_RANDOM,
+        );
+        const moved = selectedTarget.finalState.core;
+        expect(moved.bases[1].minions.map(minion => minion.uid)).toEqual(['enemy-a']);
+        expect(moved.bases[2].minions.map(minion => minion.uid)).toEqual(['enemy-b', 'northern']);
+        expect(moved.bases[2].minions[0].metadata?.internationalIncidentAlwaysGetOurMan).toMatchObject({
             sourcePlayerId: '0',
             turnNumber: 1,
         });
@@ -2323,8 +2398,9 @@ describe('国际事件四派系代表性玩法行为', () => {
             now: 41,
         });
         const afterTurnEnd = applyEvents(moved, turnEnd.events);
-        expect(afterTurnEnd.bases[1].minions.map(minion => minion.uid)).toEqual(['war-canuck']);
-        expect(afterTurnEnd.players['1'].discard.map(card => card.uid)).toContain('enemy');
+        expect(afterTurnEnd.bases[1].minions.map(minion => minion.uid)).toEqual(['enemy-a']);
+        expect(afterTurnEnd.bases[2].minions.map(minion => minion.uid)).toEqual(['northern']);
+        expect(afterTurnEnd.players['1'].discard.map(card => card.uid)).toContain('enemy-b');
     });
 
     it('骑警北方搬运者可选择移动另一个己方随从到其它基地', () => {
@@ -2385,6 +2461,67 @@ describe('国际事件四派系代表性玩法行为', () => {
         }));
         expect(destination.finalState.core.bases[0].minions.map(minion => minion.uid)).toEqual(['mover']);
         expect(destination.finalState.core.bases[1].minions.map(minion => minion.uid)).toEqual(['ally']);
+    });
+
+    it('骑警北方搬运者没有其它己方随从时反馈无合法目标', () => {
+        const core = makeState({
+            bases: [makeBase('base_strategic_syrup_reserve', [
+                makeMinion('mover', 'mounties_northern_mover', '0', 4),
+            ])],
+        });
+
+        const result = invokeRegisteredAbilityContract('mounties_northern_mover', 'talent', {
+            state: core,
+            matchState: makeMatchState(core),
+            playerId: '0',
+            cardUid: 'mover',
+            defId: 'mounties_northern_mover',
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 42,
+        });
+
+        expect(result.matchState).toBeUndefined();
+        expect(result.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.ABILITY_FEEDBACK,
+            payload: expect.objectContaining({
+                playerId: '0',
+                messageKey: 'feedback.no_valid_targets',
+            }),
+        }));
+    });
+
+    it('战争骑警当前基地没有对手随从时反馈条件不满足且不增加力量', () => {
+        const core = makeState({
+            bases: [makeBase('base_great_white_north_eh', [
+                makeMinion('war-canuck', 'mounties_war_canuck', '0', 3),
+                makeMinion('ally', 'mounties_dudlee', '0', 2),
+            ])],
+        });
+
+        const result = invokeRegisteredAbilityContract('mounties_war_canuck', 'talent', {
+            state: core,
+            matchState: makeMatchState(core),
+            playerId: '0',
+            cardUid: 'war-canuck',
+            defId: 'mounties_war_canuck',
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 42,
+        });
+
+        expect(result.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.ABILITY_FEEDBACK,
+            payload: expect.objectContaining({
+                playerId: '0',
+                messageKey: 'feedback.condition_not_met',
+            }),
+        }));
+        expect(result.events.some(event => event.type === SU_EVENTS.PERMANENT_POWER_ADDED)).toBe(false);
+
+        const unchanged = applyEvents(core, result.events);
+        expect(unchanged.bases[0].minions[0].powerModifier ?? 0).toBe(0);
+        expect(unchanged.timedPowerModifiers).toBeUndefined();
     });
 
     it('战争骑警的力量持续到自己的下个回合开始再回滚', () => {
@@ -2968,6 +3105,185 @@ describe('国际事件四派系代表性玩法行为', () => {
         }));
     });
 
+    it('大白北方没有其它基地或没有任何合法玩家时不创建交互', () => {
+        const onlyBase = makeState({
+            turnOrder: ['0', '1'],
+            bases: [makeBase('base_great_white_north_eh', [
+                makeMinion('only-base-own', 'mounties_dudlee', '0', 2),
+            ])],
+        });
+        const onlyBaseResult = executeTriggerProgramExecutor('beforeScoring', 'base_great_white_north_eh', {
+            state: onlyBase,
+            matchState: makeMatchState(onlyBase),
+            timing: 'beforeScoring',
+            playerId: '0',
+            sourceDefId: 'base_great_white_north_eh',
+            sourceBaseIndex: 0,
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 610,
+        });
+        expect(onlyBaseResult.matchState).toBeUndefined();
+        expect(onlyBaseResult.events).toEqual([]);
+
+        const noEligiblePlayer = makeState({
+            turnOrder: ['0', '1'],
+            bases: [
+                makeBase('base_great_white_north_eh', []),
+                makeBase('base_ringside', []),
+            ],
+        });
+        const noEligiblePlayerResult = executeTriggerProgramExecutor('beforeScoring', 'base_great_white_north_eh', {
+            state: noEligiblePlayer,
+            matchState: makeMatchState(noEligiblePlayer),
+            timing: 'beforeScoring',
+            playerId: '0',
+            sourceDefId: 'base_great_white_north_eh',
+            sourceBaseIndex: 0,
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 611,
+        });
+        expect(noEligiblePlayerResult.matchState).toBeUndefined();
+        expect(noEligiblePlayerResult.events).toEqual([]);
+    });
+
+    it('大白北方跳过没有己方随从的玩家，并继续让后续合法玩家选择', () => {
+        const core = makeState({
+            turnOrder: ['0', '1', '2'],
+            bases: [
+                makeBase('base_great_white_north_eh', [
+                    makeMinion('p1-own', 'musketeers_young_musketeer', '1', 3),
+                    makeMinion('p2-own', 'sumo_wrestlers_rookie_sumo', '2', 2),
+                ]),
+                makeBase('base_ringside', []),
+            ],
+        });
+        const result = executeTriggerProgramExecutor('beforeScoring', 'base_great_white_north_eh', {
+            state: core,
+            matchState: makeMatchState(core),
+            timing: 'beforeScoring',
+            playerId: '0',
+            sourceDefId: 'base_great_white_north_eh',
+            sourceBaseIndex: 0,
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 612,
+        });
+
+        expect(getCurrentInteractionSummary(result.matchState!).playerId).toBe('1');
+        const skippedP1 = respondToPromptOption(
+            result.matchState!,
+            option => option.value?.skip === true,
+            '大白北方无己方随从玩家之后的第一个合法玩家跳过',
+            '1',
+            FIXED_RANDOM,
+        );
+        expect(getCurrentInteractionSummary(skippedP1.finalState).playerId).toBe('2');
+        expect(getPromptOptions(getFirstPrompt(skippedP1.finalState)).map(option => option.value?.minionUid)).toContain('p2-own');
+    });
+
+    it('大白北方移动被保护反馈拦截时不加力，但仍继续处理下一位玩家', () => {
+        const core = makeState({
+            turnOrder: ['0', '1'],
+            bases: [
+                makeBase('base_great_white_north_eh', [
+                    makeMinion('p0-own', 'mounties_dudlee', '0', 2),
+                    makeMinion('p1-own', 'musketeers_young_musketeer', '1', 3),
+                ]),
+                makeBase('base_ringside', [
+                    makeMinion('moai', 'polynesian_voyagers_moai', '1', 3),
+                ]),
+                makeBase('base_strategic_syrup_reserve', []),
+            ],
+        });
+        const result = executeTriggerProgramExecutor('beforeScoring', 'base_great_white_north_eh', {
+            state: core,
+            matchState: makeMatchState(core),
+            timing: 'beforeScoring',
+            playerId: '0',
+            sourceDefId: 'base_great_white_north_eh',
+            sourceBaseIndex: 0,
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 613,
+        });
+        const blockedMove = getPromptOption(
+            getFirstPrompt(result.matchState!),
+            option => option.value?.minionUid === 'p0-own' && option.value?.toBaseIndex === 1,
+            '大白北方被保护的移动选项',
+        );
+
+        const blocked = respondToPrompt(result.matchState!, blockedMove.id, '0', FIXED_RANDOM);
+        expect(blocked.success, blocked.error).toBe(true);
+        expect(blocked.events.some(event => event.type === SU_EVENTS.MINION_MOVED)).toBe(false);
+        expect(blocked.events.some(event => event.type === SU_EVENTS.TEMP_POWER_ADDED)).toBe(false);
+        expect(blocked.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.ABILITY_FEEDBACK,
+            payload: expect.objectContaining({ messageKey: 'feedback.target_protected' }),
+        }));
+        expect(getCurrentInteractionSummary(blocked.finalState).playerId).toBe('1');
+
+        const movedP1 = respondToPromptOption(
+            blocked.finalState,
+            option => option.value?.minionUid === 'p1-own' && option.value?.toBaseIndex === 2,
+            '大白北方保护反馈后的下一位玩家移动',
+            '1',
+            FIXED_RANDOM,
+        );
+        expect(movedP1.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.MINION_MOVED,
+            payload: expect.objectContaining({ minionUid: 'p1-own', toBaseIndex: 2 }),
+        }));
+        expect(movedP1.finalState.core.bases[2].minions[0].tempPowerModifier).toBe(1);
+    });
+
+    it('大白北方响应前控制权变化会拒绝陈旧随从选项', () => {
+        const core = makeState({
+            turnOrder: ['0', '1'],
+            bases: [
+                makeBase('base_great_white_north_eh', [
+                    makeMinion('stale-minion', 'mounties_dudlee', '0', 2),
+                    makeMinion('other-player', 'musketeers_young_musketeer', '1', 3),
+                ]),
+                makeBase('base_ringside', []),
+            ],
+        });
+        const result = executeTriggerProgramExecutor('beforeScoring', 'base_great_white_north_eh', {
+            state: core,
+            matchState: makeMatchState(core),
+            timing: 'beforeScoring',
+            playerId: '0',
+            sourceDefId: 'base_great_white_north_eh',
+            sourceBaseIndex: 0,
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 614,
+        });
+        const staleOption = getPromptOption(
+            getFirstPrompt(result.matchState!),
+            option => option.value?.minionUid === 'stale-minion' && option.value?.toBaseIndex === 1,
+            '大白北方陈旧控制权选项',
+        );
+        const changedControllerState = {
+            ...result.matchState!,
+            core: {
+                ...result.matchState!.core,
+                bases: result.matchState!.core.bases.map((base, baseIndex) => baseIndex === 0
+                    ? {
+                        ...base,
+                        minions: base.minions.map(minion => minion.uid === 'stale-minion'
+                            ? { ...minion, controller: '1' }
+                            : minion),
+                    }
+                    : base),
+            },
+        };
+        const rejected = respondToPrompt(changedControllerState, staleOption.id, '0', FIXED_RANDOM);
+        expect(rejected.success).toBe(false);
+        expect(rejected.error).toBe('无效的选择');
+    });
+
     it('相扑手表演奖、斗志奖和抓住腰带完成抽牌、分配指示物与移动闭环', () => {
         const performance = makeState({
             players: {
@@ -3182,6 +3498,42 @@ describe('国际事件四派系代表性玩法行为', () => {
         expect(result.events.some(event => event.type === SU_EVENTS.CARDS_DRAWN)).toBe(false);
     });
 
+    it('Porthos 从行动牌合法目标集合中排除对手行动，但放行控制者自己的行动', () => {
+        const core = makeState({
+            players: {
+                '0': makePlayer('0'),
+                '1': makePlayer('1', {
+                    hand: [makeCard('en-garde', 'musketeers_en_garde', 'action', '1')],
+                }),
+            },
+            bases: [makeBase('base_bastion_saint_gervais', [
+                makeMinion('protected', 'musketeers_porthos', '0', 4),
+                makeMinion('ordinary', 'sumo_wrestlers_rookie_sumo', '0', 2),
+            ])],
+        });
+
+        const legalTargets = collectLegalActionPlayTargets(core, '1', {
+            defId: 'musketeers_en_garde',
+            effectiveHandSize: 1,
+        });
+        expect(legalTargets.minionUids).toEqual(['ordinary']);
+
+        const blocked = validateActionPlaySemantics(core, '1', {
+            defId: 'musketeers_en_garde',
+            targetBaseIndex: 0,
+            targetMinionUid: 'protected',
+        });
+        expect(blocked.valid).toBe(false);
+        expect(blocked.error).toContain('受到保护');
+
+        const allowed = validateActionPlaySemantics(core, '0', {
+            defId: 'musketeers_en_garde',
+            targetBaseIndex: 0,
+            targetMinionUid: 'protected',
+        });
+        expect(allowed.valid).toBe(true);
+    });
+
     it('黄金百合在回合结束时没有己方随从不应抽牌', () => {
         const core = makeState({
             players: {
@@ -3317,6 +3669,67 @@ describe('国际事件四派系代表性玩法行为', () => {
         expect(getDiscardSpecialOptions(resolved.finalState.core, '0')).toHaveLength(0);
     });
 
+    it('骑警嗯？只在本回合第一张行动后开放，第二张行动后不应补触发', () => {
+        const core = makeState({
+            players: {
+                '0': makePlayer('0', {
+                    discard: [makeCard('eh-after-second-action', 'mounties_eh', 'action', '0')],
+                    actionsPlayed: 2,
+                    actionLimit: 2,
+                }),
+                '1': makePlayer('1'),
+            },
+            turnOrder: ['0', '1'],
+            currentPlayerIndex: 0,
+            bases: [
+                makeBase('base_strategic_syrup_reserve', [
+                    makeMinion('eh-second-action-ally', 'mounties_dudlee', '0', 2),
+                ]),
+            ],
+        });
+
+        expect(getDiscardSpecialOptions(core, '0')).toHaveLength(0);
+    });
+
+    it('骑警嗯？在下一回合重新打出第一张行动后恢复可用', () => {
+        const core = makeState({
+            players: {
+                '0': makePlayer('0', {
+                    discard: [makeCard('eh-next-turn', 'mounties_eh', 'action', '0')],
+                    actionsPlayed: 2,
+                    actionLimit: 2,
+                    usedDiscardPlayAbilities: ['mounties_eh'],
+                }),
+                '1': makePlayer('1'),
+            },
+            turnOrder: ['0', '1'],
+            currentPlayerIndex: 0,
+            bases: [
+                makeBase('base_strategic_syrup_reserve', [
+                    makeMinion('eh-next-turn-ally', 'mounties_dudlee', '0', 2),
+                ]),
+            ],
+        });
+        const nextTurn = reduceTurnStartedEvent(core, {
+            type: SU_EVENTS.TURN_STARTED,
+            payload: { playerId: '0', turnNumber: 2 },
+            timestamp: 100,
+        } as never);
+        const afterFirstAction = {
+            ...nextTurn,
+            players: {
+                ...nextTurn.players,
+                '0': {
+                    ...nextTurn.players['0'],
+                    actionsPlayed: 1,
+                },
+            },
+        };
+
+        expect(afterFirstAction.players['0'].usedDiscardPlayAbilities).toBeUndefined();
+        expect(getDiscardSpecialOptions(afterFirstAction, '0')).toHaveLength(1);
+    });
+
     it('骑警带进来、Dudlee、挪过去和北方搬运者补齐移动触发与目标限制', () => {
         const bringIn = makeState({
             bases: [
@@ -3335,7 +3748,7 @@ describe('国际事件四派系代表性玩法行为', () => {
             playerId: '0',
             sourceDefId: 'mounties_bring_em_in',
             sourceCardUid: 'bring-in',
-            sourceBaseIndex: 1,
+            moveFromBaseIndex: 0,
             sourceControllerId: '0',
             triggerMinionUid: 'host',
             moveToBaseIndex: 1,
@@ -3346,6 +3759,22 @@ describe('国际事件四派系代表性玩法行为', () => {
             type: SU_EVENTS.POWER_COUNTER_ADDED,
             payload: expect.objectContaining({ minionUid: 'host', amount: 1, reason: 'mounties_bring_em_in' }),
         }));
+
+        const sameBaseResult = executeTriggerProgramExecutor('onMinionMoved', 'mounties_bring_em_in', {
+            state: bringIn,
+            matchState: makeMatchState(bringIn),
+            timing: 'onMinionMoved',
+            playerId: '0',
+            sourceDefId: 'mounties_bring_em_in',
+            sourceCardUid: 'bring-in',
+            moveFromBaseIndex: 1,
+            sourceControllerId: '0',
+            triggerMinionUid: 'host',
+            moveToBaseIndex: 1,
+            random: FIXED_RANDOM,
+            now: 75,
+        });
+        expect(sameBaseResult.events.some(event => event.type === SU_EVENTS.POWER_COUNTER_ADDED)).toBe(false);
 
         const dudlee = makeState({
             bases: [
@@ -3424,6 +3853,31 @@ describe('国际事件四派系代表性玩法行为', () => {
         );
         expect(afterMoveAboot.finalState.core.bases[1].minions.map(minion => minion.uid)).toEqual(['enemy-target-base', 'mover-a']);
         expect(afterMoveAboot.finalState.core.bases[1].minions[1].tempPowerModifier).toBe(2);
+
+        const noValidSource = makeState({
+            bases: [
+                makeBase('base_strategic_syrup_reserve', [
+                    makeMinion('same-base-own', 'mounties_dudlee', '0', 2),
+                    makeMinion('same-base-enemy', 'musketeers_young_musketeer', '1', 3),
+                ]),
+                makeBase('base_great_white_north_eh', []),
+            ],
+        });
+        const noValidSourceResult = invokeRegisteredAbilityContract('mounties_move_aboot', 'onPlay', {
+            state: noValidSource,
+            matchState: makeMatchState(noValidSource),
+            playerId: '0',
+            cardUid: 'move-aboot-no-source',
+            defId: 'mounties_move_aboot',
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 76,
+        });
+        expect(noValidSourceResult.matchState).toBeUndefined();
+        expect(noValidSourceResult.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.ABILITY_FEEDBACK,
+            payload: expect.objectContaining({ playerId: '0', messageKey: 'feedback.no_valid_targets' }),
+        }));
 
         const northern = makeState({
             bases: [makeBase('base_strategic_syrup_reserve', [
@@ -3549,6 +4003,29 @@ describe('国际事件四派系代表性玩法行为', () => {
             type: SU_EVENTS.MINION_MOVED,
             payload: expect.objectContaining({ minionUid: 'source-ally', fromBaseIndex: 0, toBaseIndex: 2, reason: 'mounties_haich_q' }),
         }));
+
+        const noOwnMinion = makeState({
+            bases: [makeBase({
+                defId: 'base_strategic_syrup_reserve',
+                ongoingActions: [{ uid: 'haich-q-empty', defId: 'mounties_haich_q', ownerId: '0' }],
+                minions: [makeMinion('enemy-only', 'musketeers_young_musketeer', '1', 3)],
+            })],
+        });
+        const noOwnMinionResult = invokeRegisteredAbilityContract('mounties_haich_q', 'talent', {
+            state: noOwnMinion,
+            matchState: makeMatchState(noOwnMinion),
+            playerId: '0',
+            cardUid: 'haich-q-empty',
+            defId: 'mounties_haich_q',
+            baseIndex: 0,
+            random: FIXED_RANDOM,
+            now: 80,
+        });
+        expect(noOwnMinionResult.matchState).toBeUndefined();
+        expect(noOwnMinionResult.events).toContainEqual(expect.objectContaining({
+            type: SU_EVENTS.ABILITY_FEEDBACK,
+            payload: expect.objectContaining({ playerId: '0', messageKey: 'feedback.no_valid_targets' }),
+        }));
     });
 
     it('呼叫警徽的打出和计分前 special 都能给一个基地的己方随从放置指示物', () => {
@@ -3598,17 +4075,12 @@ describe('国际事件四派系代表性玩法行为', () => {
             cardUid: 'badge-special',
             defId: 'mounties_when_calls_the_badge',
             baseIndex: 0,
+            targetBaseIndex: 0,
             random: FIXED_RANDOM,
             now: 79,
         });
-        const specialTarget = respondToPromptOption(
-            special.matchState!,
-            option => option.value?.baseIndex === 0,
-            '呼叫警徽 special 目标基地',
-            '0',
-            FIXED_RANDOM,
-        );
-        const afterSpecial = specialTarget.finalState.core;
+        expect(special.matchState).toBeUndefined();
+        const afterSpecial = applyEvents(specialCore, special.events);
         expect(afterSpecial.bases[0].minions.map(minion => minion.powerCounters ?? 0)).toEqual([1, 1, 0]);
     });
 

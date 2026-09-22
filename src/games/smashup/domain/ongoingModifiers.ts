@@ -15,8 +15,7 @@ import type { SmashUpCore, MinionOnBase, BaseInPlay, TitanState } from './types'
 import { getMunchkinSpecialCardDescriptor } from '../data/factions/munchkin';
 import { getBaseDef, getCardDef } from '../data/cards';
 import { getSuppressionFilteredStateForSource, isBaseAbilitySuppressed, isBaseScoringSuppressed, isCardSuppressed } from './ongoingEffects';
-import type { SmashUpVariantRelation } from './variantBindings';
-import { resolveSmashUpVariantRelationForSourceId, shouldGenerateSmashUpPodAlias } from './variantBindingRuntime';
+import { shouldGenerateSmashUpPodAlias } from './variantBindingRuntime';
 import { getEffectiveBaseAbilitySourceIds } from './effectiveBaseAbilities';
 import {
     countSemanticControlledMinionCandidates,
@@ -293,32 +292,12 @@ function shouldExposePodModifierAlias(defId: string): boolean {
     return Boolean(getBaseDef(`${defId}_pod`));
 }
 
-function resolvePowerModifierVariantRelation(sourceDefId: string): SmashUpVariantRelation | undefined {
-    return resolveSmashUpVariantRelationForSourceId('powerModifier', sourceDefId);
-}
-
-function getMetadataPodStrategy(
-    sourceDefId: string,
-    relation: SmashUpVariantRelation | undefined,
-): PodVariantStrategy | undefined {
-    if (!relation) return undefined;
-    if (relation === 'baseOnly') return 'baseOnly';
-    if (relation === 'podOnly' && !sourceDefId.endsWith('_pod')) return 'baseOnly';
-    return 'inherit';
-}
-
 function getPodStrategy(
     sourceDefId: string,
     options?: ModifierRegistrationOptions,
 ): PodVariantStrategy {
     if (options?.podStrategy) {
         return options.podStrategy;
-    }
-    if (isEntityBackedModifierSource(sourceDefId)) {
-        const metadataStrategy = getMetadataPodStrategy(sourceDefId, resolvePowerModifierVariantRelation(sourceDefId));
-        if (metadataStrategy) {
-            return metadataStrategy;
-        }
     }
     if (options?.variantPolicy === 'baseOnly') {
         return 'baseOnly';
@@ -984,8 +963,17 @@ function filterRuntimeMatchedActions(
     baseDefId: string,
     options?: RuntimeActionMatchOptions,
 ): ModifierRuntimeAction[] {
+    const explicitPodSourceId = ctx.modifierSourceDefId && !ctx.modifierSourceDefId.endsWith('_pod')
+        ? `${ctx.modifierSourceDefId}_pod`
+        : undefined;
     const exactDefId = options?.exactDefId
-        ?? getScopedExactRuntimeDefId(ctx, baseDefId);
+        ?? (
+            explicitPodSourceId
+            && ctx.modifierSourceDefId === baseDefId
+            && modifierRegistry.some(entry => entry.sourceDefId === explicitPodSourceId)
+                ? ctx.modifierSourceDefId
+                : undefined
+        );
     return filterSemanticMatchedRuntimeActions(
         { state: ctx.state, minion: ctx.minion, baseIndex: ctx.baseIndex },
         actions,
@@ -999,11 +987,7 @@ function getScopedExactRuntimeDefId(
     baseDefId: string,
 ): string | undefined {
     if (!ctx.modifierSourceDefId) return undefined;
-    if (normalizeDefId(ctx.modifierSourceDefId) !== normalizeDefId(baseDefId)) return undefined;
-    if (ctx.modifierSourceDefId.endsWith('_pod')) return ctx.modifierSourceDefId;
-    const relation = resolvePowerModifierVariantRelation(ctx.modifierSourceDefId);
-    if (relation && relation !== 'shared') return ctx.modifierSourceDefId;
-    return modifierRegistry.some(entry => entry.sourceDefId === `${ctx.modifierSourceDefId}_pod`)
+    return normalizeDefId(ctx.modifierSourceDefId) === normalizeDefId(baseDefId)
         ? ctx.modifierSourceDefId
         : undefined;
 }

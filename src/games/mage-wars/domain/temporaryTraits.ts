@@ -9,6 +9,7 @@ export type MageWarsTemporaryTraitId =
     | 'quickActionAfterMove'
     | 'charge'
     | 'meleeDice'
+    | 'armor'
     | 'vampiric'
     | 'pierce'
     | 'unavoidable'
@@ -20,6 +21,8 @@ export interface MageWarsTemporaryTraitGain {
     chargeDiceModifier?: number;
     meleeDiceModifier?: number;
     meleeDiceModifierUntilRoundNumber?: number;
+    armorModifier?: number;
+    armorModifierUntilRoundNumber?: number;
     vampiricNextMelee?: boolean;
     nextMeleePierceModifier?: number;
     nextMeleeUnavoidable?: boolean;
@@ -62,6 +65,10 @@ export function getTemporaryMeleeDiceModifier(reader: MageWarsTemporaryTraitRead
     return reader.temporaryTraits?.meleeDiceModifier ?? 0;
 }
 
+export function getTemporaryArmorModifier(reader: MageWarsTemporaryTraitReader): number {
+    return reader.temporaryTraits?.armorModifier ?? 0;
+}
+
 export function getTemporaryNextMeleePierceModifier(reader: MageWarsTemporaryTraitReader): number {
     return reader.temporaryTraits?.nextMeleePierceModifier ?? 0;
 }
@@ -91,6 +98,12 @@ export function getTemporaryTraitIdsForTurnCleanup(
         && reader.temporaryTraits?.meleeDiceModifierUntilRoundNumber !== turnNumber
     ) {
         traitIds.push('meleeDice');
+    }
+    if (
+        getTemporaryArmorModifier(reader) > 0
+        && reader.temporaryTraits?.armorModifierUntilRoundNumber !== turnNumber
+    ) {
+        traitIds.push('armor');
     }
     if (hasTemporaryVampiricNextMelee(reader)) traitIds.push('vampiric');
     if (getTemporaryNextMeleePierceModifier(reader) > 0) traitIds.push('pierce');
@@ -147,6 +160,18 @@ export function applyTemporaryTraitGain(
             temporaryTraits.meleeDiceModifierUntilRoundNumber = Math.max(
                 object.temporaryTraits?.meleeDiceModifierUntilRoundNumber ?? 0,
                 gain.meleeDiceModifierUntilRoundNumber,
+            );
+        }
+    }
+    if ((gain.armorModifier ?? 0) > 0) {
+        temporaryTraits.armorModifier = Math.max(
+            object.temporaryTraits?.armorModifier ?? 0,
+            gain.armorModifier ?? 0,
+        );
+        if (gain.armorModifierUntilRoundNumber !== undefined) {
+            temporaryTraits.armorModifierUntilRoundNumber = Math.max(
+                object.temporaryTraits?.armorModifierUntilRoundNumber ?? 0,
+                gain.armorModifierUntilRoundNumber,
             );
         }
     }
@@ -236,6 +261,10 @@ export function clearTemporaryTraits(
             case 'meleeDice':
                 delete nextTraits.meleeDiceModifier;
                 delete nextTraits.meleeDiceModifierUntilRoundNumber;
+                break;
+            case 'armor':
+                delete nextTraits.armorModifier;
+                delete nextTraits.armorModifierUntilRoundNumber;
                 break;
             case 'vampiric':
                 delete nextTraits.vampiricNextMelee;

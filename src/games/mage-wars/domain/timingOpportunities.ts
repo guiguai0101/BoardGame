@@ -17,10 +17,12 @@ import {
     MAGE_WARS_INTERACTION_SOURCE_IDS,
     type MageWarsCounterstrikeChoiceValue,
     type MageWarsBattleFuryChoiceValue,
+    type MageWarsFearHelmetChoiceValue,
     type MageWarsDefenseChoiceValue,
     type MageWarsEnchantmentResponseChoiceValue,
     type MageWarsTeleportTrapChoiceValue,
     type MageWarsUpkeepCostChoiceValue,
+    type MageWarsUpkeepEquipmentDirectDamageChoiceValue,
     type MageWarsUpkeepHealTransferChoiceValue,
 } from './systems';
 import {
@@ -30,6 +32,7 @@ import {
 import {
     MAGE_WARS_EVENTS,
     type MageWarsArenaObjectAttackGuardRemovalAvailableEvent,
+    type MageWarsFearHelmetAvailableEvent,
     type MageWarsArenaObjectAttackManaCostAvailableEvent,
     type MageWarsArenaObjectAttackManaDrainAvailableEvent,
     type MageWarsArenaObjectAttackDefeatAvailableEvent,
@@ -56,6 +59,8 @@ import {
     type MageWarsStatusTokenRemovalAvailableEvent,
     type MageWarsUpkeepBurnRollAvailableEvent,
     type MageWarsUpkeepCostAvailableEvent,
+    type MageWarsUpkeepAreaConjurationDirectDamageAvailableEvent,
+    type MageWarsUpkeepEquipmentDirectDamageAvailableEvent,
     type MageWarsUpkeepEnchantmentDirectDamageAvailableEvent,
     type MageWarsUpkeepHealTransferAvailableEvent,
     type MageWarsUpkeepHealTransferDamageAvailableEvent,
@@ -81,26 +86,32 @@ import {
     getMageWarsObjectAttackProfiles,
     isMageWarsObjectAttackTargetAllowed,
     isMageWarsObjectAttackTargetInRange,
+    isMageWarsFearHelmetAttackBlocked,
     resolveMageWarsAttachedVisibleEnchantmentMovementDirectDamage,
     resolveMageWarsDamageTypeImmunity,
     resolveMageWarsMagebaneCurseDamageSource,
     resolveMageWarsObjectEffectiveLife,
     getMageWarsZoneDistance,
+    isMageWarsTargetSpellRedirectResponseCardId,
+    isMageWarsTargetSpellTeleportResponseCardId,
 } from './spellRules';
 import { getArenaZone, getOpponentId } from './utils';
 
 export type MageWarsTimingOpportunityChoiceValue =
     | MageWarsBattleFuryChoiceValue
+    | MageWarsFearHelmetChoiceValue
     | MageWarsCounterstrikeChoiceValue
     | MageWarsDefenseChoiceValue
     | MageWarsEnchantmentResponseChoiceValue
     | MageWarsTeleportTrapChoiceValue
     | MageWarsUpkeepCostChoiceValue
+    | MageWarsUpkeepEquipmentDirectDamageChoiceValue
     | MageWarsUpkeepHealTransferChoiceValue;
 
 const MAGE_WARS_TIMING_OPPORTUNITY_KINDS = {
     COUNTERSTRIKE: 'mage-wars.counterstrike',
     BATTLE_FURY: 'mage-wars.battle-fury',
+    FEAR_HELMET: 'mage-wars.fear-helmet',
     DEFENSE: 'mage-wars.defense',
     ENCHANTMENT_RESPONSE: 'mage-wars.enchantment-response',
     MAGEBANE_CURSE_DAMAGE: 'mage-wars.magebane-curse-damage',
@@ -111,6 +122,8 @@ const MAGE_WARS_TIMING_OPPORTUNITY_KINDS = {
     UPKEEP_ROT_DAMAGE: 'mage-wars.upkeep-rot-damage',
     UPKEEP_BURN_ROLL: 'mage-wars.upkeep-burn-roll',
     UPKEEP_ENCHANTMENT_DIRECT_DAMAGE: 'mage-wars.upkeep-enchantment-direct-damage',
+    UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE: 'mage-wars.upkeep-area-conjuration-direct-damage',
+    UPKEEP_EQUIPMENT_DIRECT_DAMAGE: 'mage-wars.upkeep-equipment-direct-damage',
     ARENA_OBJECT_ATTACK_MANA_COST: 'mage-wars.arena-object-attack-mana-cost',
     ARENA_OBJECT_ATTACK_MANA_DRAIN: 'mage-wars.arena-object-attack-mana-drain',
     ARENA_OBJECT_ATTACK_STATUS_EFFECT: 'mage-wars.arena-object-attack-status-effect',
@@ -253,6 +266,12 @@ function isUpkeepCostAvailableEvent(event: GameEvent): event is MageWarsUpkeepCo
     return event.type === MAGE_WARS_EVENTS.UPKEEP_COST_AVAILABLE;
 }
 
+function isUpkeepEquipmentDirectDamageAvailableEvent(
+    event: GameEvent,
+): event is MageWarsUpkeepEquipmentDirectDamageAvailableEvent {
+    return event.type === MAGE_WARS_EVENTS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE_AVAILABLE;
+}
+
 function isUpkeepHealTransferAvailableEvent(event: GameEvent): event is MageWarsUpkeepHealTransferAvailableEvent {
     return event.type === MAGE_WARS_EVENTS.UPKEEP_HEAL_TRANSFER_AVAILABLE;
 }
@@ -275,6 +294,12 @@ function isUpkeepEnchantmentDirectDamageAvailableEvent(
     event: GameEvent,
 ): event is MageWarsUpkeepEnchantmentDirectDamageAvailableEvent {
     return event.type === MAGE_WARS_EVENTS.UPKEEP_ENCHANTMENT_DIRECT_DAMAGE_AVAILABLE;
+}
+
+function isUpkeepAreaConjurationDirectDamageAvailableEvent(
+    event: GameEvent,
+): event is MageWarsUpkeepAreaConjurationDirectDamageAvailableEvent {
+    return event.type === MAGE_WARS_EVENTS.UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE_AVAILABLE;
 }
 
 function isEnchantmentResponseRequiredEvent(event: GameEvent): event is MageWarsEnchantmentResponseRequiredEvent {
@@ -316,6 +341,10 @@ function isBattleFuryAvailableEvent(event: GameEvent): event is MageWarsBattleFu
     return event.type === MAGE_WARS_EVENTS.BATTLE_FURY_AVAILABLE;
 }
 
+function isFearHelmetAvailableEvent(event: GameEvent): event is MageWarsFearHelmetAvailableEvent {
+    return event.type === MAGE_WARS_EVENTS.FEAR_HELMET_AVAILABLE;
+}
+
 function defenseInteractionId(event: MageWarsDefenseAvailableEvent): string {
     return [
         'mw-defense',
@@ -329,6 +358,27 @@ function defenseInteractionId(event: MageWarsDefenseAvailableEvent): string {
 function upkeepCostInteractionId(event: MageWarsUpkeepCostAvailableEvent): string {
     return [
         'mw-upkeep-cost',
+        event.payload.sourceObjectId,
+        event.payload.targetObjectId,
+        event.timestamp ?? 0,
+    ].join('-');
+}
+
+function fearHelmetInteractionId(event: MageWarsFearHelmetAvailableEvent): string {
+    return [
+        'mw-fear-helmet',
+        event.payload.helmetObjectId,
+        event.payload.attackerObjectId,
+        event.payload.targetPlayerId,
+        event.timestamp ?? 0,
+    ].join('-');
+}
+
+function upkeepEquipmentDirectDamageInteractionId(
+    event: MageWarsUpkeepEquipmentDirectDamageAvailableEvent,
+): string {
+    return [
+        'mw-upkeep-equipment-direct-damage',
         event.payload.sourceObjectId,
         event.payload.targetObjectId,
         event.timestamp ?? 0,
@@ -2101,6 +2151,223 @@ function createUpkeepCostOpportunity(
     };
 }
 
+function createFearHelmetOpportunity(
+    args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
+    event: MageWarsFearHelmetAvailableEvent,
+): Opportunity<MageWarsFearHelmetChoiceValue> | null {
+    const attacker = args.state.core.objects[event.payload.attackerObjectId];
+    const helmet = args.state.core.objects[event.payload.helmetObjectId];
+    if (
+        !attacker
+        || !helmet
+        || helmet.sourceSpellCardId !== 3720
+        || helmet.anchoredToPlayerId !== event.payload.targetPlayerId
+    ) return null;
+
+    const requestId = fearHelmetInteractionId(event);
+    const baseValue = {
+        attackerObjectId: attacker.id,
+        helmetObjectId: helmet.id,
+        originalTargetPlayerId: event.payload.targetPlayerId,
+        attackProfileId: event.payload.attackProfileId,
+        allowCounterstrikeOpportunity: event.payload.allowCounterstrikeOpportunity,
+        removeGuardAfterMelee: event.payload.removeGuardAfterMelee,
+        ...(event.payload.counterstrikeSourceObjectId
+            ? { counterstrikeSourceObjectId: event.payload.counterstrikeSourceObjectId }
+            : {}),
+        effectDieResult: event.payload.effectDieResult,
+    };
+    const candidates: ChoiceRequestCandidate<MageWarsFearHelmetChoiceValue>[] = [{
+        id: 'cancel',
+        label: 'interaction.fearHelmet.options.cancel',
+        labelKey: 'interaction.fearHelmet.options.cancel',
+        value: { action: 'cancel', ...baseValue },
+        displayMode: 'button',
+    }];
+
+    if (event.payload.strikeIndex === 0 && attacker.kind === 'creature') {
+        candidates.push({
+            id: 'guard',
+            label: 'interaction.fearHelmet.options.guard',
+            labelKey: 'interaction.fearHelmet.options.guard',
+            value: { action: 'guard', ...baseValue },
+            displayMode: 'button',
+        });
+    }
+
+    const profile = getMageWarsObjectAttackProfiles(attacker)
+        .find((candidate) => candidate.id === event.payload.attackProfileId);
+    if (!profile) return null;
+
+    for (const player of Object.values(args.state.core.players)) {
+        if (
+            player.id === attacker.ownerId
+            || player.id === event.payload.targetPlayerId
+            || player.damage >= player.life
+            || !isMageWarsObjectAttackTargetInRange(args.state.core, attacker.zoneId, player.mageZoneId, profile)
+            || isMageWarsFearHelmetAttackBlocked(args.state.core, player.id, attacker.id)
+        ) continue;
+        candidates.push({
+            id: `retarget:player:${player.id}`,
+            label: 'interaction.fearHelmet.options.retarget',
+            labelKey: 'interaction.fearHelmet.options.retarget',
+            value: { action: 'retarget', ...baseValue, targetPlayerId: player.id },
+            displayMode: 'button',
+        });
+    }
+    for (const target of Object.values(args.state.core.objects)) {
+        if (
+            target.ownerId === attacker.ownerId
+            || target.damage >= resolveMageWarsObjectEffectiveLife(args.state.core, target)
+            || isMageWarsBanishedArenaObject(target)
+            || !isMageWarsObjectAttackTargetAllowed(attacker, profile, target, args.state.core)
+            || !isMageWarsObjectAttackTargetInRange(args.state.core, attacker.zoneId, target.zoneId, profile)
+        ) continue;
+        candidates.push({
+            id: `retarget:object:${target.id}`,
+            label: 'interaction.fearHelmet.options.retarget',
+            labelKey: 'interaction.fearHelmet.options.retarget',
+            value: { action: 'retarget', ...baseValue, targetObjectId: target.id },
+            displayMode: 'button',
+        });
+    }
+
+    return {
+        id: requestId,
+        timing: args.timing,
+        sourceRef: {
+            kind: 'ability',
+            id: MAGE_WARS_INTERACTION_SOURCE_IDS.FEAR_HELMET_CHOICE,
+            ownerId: attacker.ownerId,
+            controllerId: attacker.ownerId,
+            metadata: { sourceAbilityId: 'mw.spell.3720.fear-helmet' },
+        },
+        controllerId: attacker.ownerId,
+        class: 'optional',
+        condition: { satisfied: true },
+        targetRequest: {
+            kind: 'choose-option',
+            min: 1,
+            max: 1,
+            description: 'interaction.fearHelmet.title',
+        },
+        resolution: { type: 'choice-request' },
+        choice: {
+            requestId,
+            playerId: attacker.ownerId,
+            kind: 'choose-option',
+            candidates,
+            selection: { min: 1, max: 1 },
+            skipPolicy: 'forbidden',
+            resolution: { type: 'interaction-response', interactionId: requestId },
+            ai: { status: 'shared-policy', policyId: 'mage-wars-button-options' },
+            metadata: { mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.FEAR_HELMET },
+        },
+        metadata: {
+            mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.FEAR_HELMET,
+            sourceAbilityId: 'mw.spell.3720.fear-helmet',
+            attackerObjectId: attacker.id,
+            helmetObjectId: helmet.id,
+            targetPlayerId: event.payload.targetPlayerId,
+        },
+    };
+}
+
+function createUpkeepEquipmentDirectDamageOpportunity(
+    args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
+    event: MageWarsUpkeepEquipmentDirectDamageAvailableEvent,
+): Opportunity<MageWarsUpkeepEquipmentDirectDamageChoiceValue> | null {
+    const source = args.state.core.objects[event.payload.sourceObjectId];
+    const target = args.state.core.objects[event.payload.targetObjectId];
+    const player = args.state.core.players[event.payload.playerId];
+    if (
+        !source
+        || source.kind !== 'equipment'
+        || source.sourceSpellCardId !== event.payload.sourceSpellCardId
+        || source.ownerId !== event.payload.playerId
+        || source.anchoredToPlayerId !== event.payload.playerId
+        || !target
+        || !isMageWarsLivingArenaObject(target)
+        || !player
+        || resolveMageWarsDamageTypeImmunity([event.payload.damageType], target).immune
+    ) return null;
+
+    const requestId = upkeepEquipmentDirectDamageInteractionId(event);
+    const sourceAbilityId = `mw.spell.${event.payload.sourceSpellCardId}.upkeep`;
+    const baseValue = {
+        playerId: event.payload.playerId,
+        sourceObjectId: event.payload.sourceObjectId,
+        sourceSpellCardId: event.payload.sourceSpellCardId,
+        targetObjectId: event.payload.targetObjectId,
+        amount: event.payload.amount,
+    };
+    const canPay = player.mana >= event.payload.amount;
+    const candidates: ChoiceRequestCandidate<MageWarsUpkeepEquipmentDirectDamageChoiceValue>[] = [
+        ...(canPay ? [{
+            id: 'pay',
+            label: 'interaction.upkeepEquipmentDirectDamage.options.pay',
+            labelKey: 'interaction.upkeepEquipmentDirectDamage.options.pay',
+            value: { action: 'pay' as const, ...baseValue },
+            displayMode: 'button' as const,
+        }] : []),
+        {
+            id: 'skip',
+            label: 'interaction.upkeepEquipmentDirectDamage.options.skip',
+            labelKey: 'interaction.upkeepEquipmentDirectDamage.options.skip',
+            value: { action: 'skip' as const, ...baseValue },
+            displayMode: 'button' as const,
+        },
+    ];
+
+    return {
+        id: requestId,
+        timing: args.timing,
+        sourceRef: {
+            kind: 'ability',
+            id: MAGE_WARS_INTERACTION_SOURCE_IDS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE_CHOICE,
+            ownerId: event.payload.playerId,
+            controllerId: event.payload.playerId,
+            metadata: {
+                sourceAbilityId,
+                sourceObjectId: source.id,
+                sourceSpellCardId: source.sourceSpellCardId,
+                targetObjectId: target.id,
+            },
+        },
+        controllerId: event.payload.playerId,
+        class: 'mandatory',
+        condition: { satisfied: true },
+        targetRequest: {
+            kind: 'choose-option',
+            min: 1,
+            max: 1,
+            description: 'interaction.upkeepEquipmentDirectDamage.title',
+        },
+        resolution: { type: 'choice-request' },
+        choice: {
+            requestId,
+            playerId: event.payload.playerId,
+            kind: 'choose-option',
+            candidates,
+            selection: { min: 1, max: 1 },
+            skipPolicy: 'forbidden',
+            resolution: { type: 'interaction-response', interactionId: requestId },
+            ai: { status: 'shared-policy', policyId: 'mage-wars-button-options' },
+            metadata: {
+                mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE,
+            },
+        },
+        metadata: {
+            mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE,
+            sourceAbilityId,
+            sourceObjectId: source.id,
+            sourceSpellCardId: source.sourceSpellCardId,
+            targetObjectId: target.id,
+            amount: event.payload.amount,
+        },
+    };
+}
+
 function createUpkeepHealTransferOpportunity(
     args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
     event: MageWarsUpkeepHealTransferAvailableEvent,
@@ -2381,7 +2648,8 @@ function createUpkeepBurnRollOpportunity(
 
 function createUpkeepEnchantmentDirectDamageOpportunity(
     args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
-    event: MageWarsUpkeepEnchantmentDirectDamageAvailableEvent,
+    event: MageWarsUpkeepEnchantmentDirectDamageAvailableEvent
+        | MageWarsUpkeepAreaConjurationDirectDamageAvailableEvent,
 ): Opportunity<MageWarsTimingOpportunityChoiceValue> | null {
     const sourceObject = args.state.core.objects[event.payload.sourceObjectId];
     const targetObject = args.state.core.objects[event.payload.targetObjectId];
@@ -2426,7 +2694,9 @@ function createUpkeepEnchantmentDirectDamageOpportunity(
             events: [...resolution.damageEvents, ...resolution.defeatEvents],
         },
         metadata: {
-            mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_ENCHANTMENT_DIRECT_DAMAGE,
+            mageWarsTimingOpportunity: event.type === MAGE_WARS_EVENTS.UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE_AVAILABLE
+                ? MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE
+                : MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_ENCHANTMENT_DIRECT_DAMAGE,
             sourceAbilityId,
             sourceObjectId: event.payload.sourceObjectId,
             sourceSpellCardId: event.payload.sourceSpellCardId,
@@ -2692,20 +2962,47 @@ function createEnchantmentResponseOpportunity(
     event: MageWarsEnchantmentResponseRequiredEvent,
 ): Opportunity<MageWarsEnchantmentResponseChoiceValue> {
     const context = event.payload.context;
-    const value: MageWarsEnchantmentResponseChoiceValue = {
-        action: 'reveal',
-        responseId: context.responseId,
-        responseObjectId: context.responseObjectId,
-        responseCardId: context.responseCardId,
-    };
     const sourceAbilityId = `mw.spell.${context.responseCardId}.response`;
-    const candidate: ChoiceRequestCandidate<MageWarsEnchantmentResponseChoiceValue> = {
-        id: 'reveal',
-        label: 'interaction.enchantmentResponse.options.reveal',
-        labelKey: 'interaction.enchantmentResponse.options.reveal',
-        value,
-        displayMode: 'button',
-    };
+    const candidates: ChoiceRequestCandidate<MageWarsEnchantmentResponseChoiceValue>[] =
+        isMageWarsTargetSpellTeleportResponseCardId(context.responseCardId)
+            ? args.state.core.arena.map((zone) => ({
+                id: `teleport:${zone.id}`,
+                label: 'interaction.enchantmentResponse.options.teleport',
+                labelKey: 'interaction.enchantmentResponse.options.teleport',
+                value: {
+                    action: 'teleport' as const,
+                    responseId: context.responseId,
+                    responseObjectId: context.responseObjectId,
+                    responseCardId: context.responseCardId,
+                    targetZoneId: zone.id,
+                },
+                displayMode: 'button' as const,
+            }))
+            : isMageWarsTargetSpellRedirectResponseCardId(context.responseCardId)
+                ? [{
+                    id: 'redirect',
+                    label: 'interaction.enchantmentResponse.options.redirect',
+                    labelKey: 'interaction.enchantmentResponse.options.redirect',
+                    value: {
+                        action: 'redirect' as const,
+                        responseId: context.responseId,
+                        responseObjectId: context.responseObjectId,
+                        responseCardId: context.responseCardId,
+                    },
+                    displayMode: 'button' as const,
+                }]
+            : [{
+                id: 'reveal',
+                label: 'interaction.enchantmentResponse.options.reveal',
+                labelKey: 'interaction.enchantmentResponse.options.reveal',
+                value: {
+                    action: 'reveal' as const,
+                    responseId: context.responseId,
+                    responseObjectId: context.responseObjectId,
+                    responseCardId: context.responseCardId,
+                },
+                displayMode: 'button' as const,
+            }];
 
     return {
         id: event.payload.interactionId,
@@ -2737,7 +3034,7 @@ function createEnchantmentResponseOpportunity(
             ownerFrameId: context.responseId,
             playerId: context.responseOwnerId,
             kind: 'choose-option',
-            candidates: [candidate],
+            candidates,
             selection: { min: 1, max: 1 },
             skipPolicy: 'forbidden',
             resolution: { type: 'interaction-response', interactionId: event.payload.interactionId },
@@ -2936,6 +3233,42 @@ function createLiveRevealOption(
     };
 }
 
+function createLiveRedirectOption(
+    context: MageWarsResponseContext,
+): ChoiceRequestCandidate<MageWarsEnchantmentResponseChoiceValue> {
+    return {
+        id: 'redirect',
+        label: 'interaction.enchantmentResponse.options.redirect',
+        labelKey: 'interaction.enchantmentResponse.options.redirect',
+        value: {
+            action: 'redirect',
+            responseId: context.responseId,
+            responseObjectId: context.responseObjectId,
+            responseCardId: context.responseCardId,
+        },
+        displayMode: 'button',
+    };
+}
+
+function createLiveTeleportOptions(
+    context: MageWarsResponseContext,
+    state: MageWarsCore,
+): ChoiceRequestCandidate<MageWarsEnchantmentResponseChoiceValue>[] {
+    return state.arena.map((zone) => ({
+        id: `teleport:${zone.id}`,
+        label: 'interaction.enchantmentResponse.options.teleport',
+        labelKey: 'interaction.enchantmentResponse.options.teleport',
+        value: {
+            action: 'teleport' as const,
+            responseId: context.responseId,
+            responseObjectId: context.responseObjectId,
+            responseCardId: context.responseCardId,
+            targetZoneId: zone.id,
+        },
+        displayMode: 'button' as const,
+    }));
+}
+
 export function discoverMageWarsTimingOpportunities(
     args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
 ): TimingOpportunityDiscoveryResult<MageWarsTimingOpportunityChoiceValue> {
@@ -2947,6 +3280,10 @@ export function discoverMageWarsTimingOpportunities(
     }
     if (isBattleFuryAvailableEvent(event)) {
         const opportunity = createBattleFuryOpportunity(args, event);
+        return { opportunities: opportunity ? [opportunity] : [] };
+    }
+    if (isFearHelmetAvailableEvent(event)) {
+        const opportunity = createFearHelmetOpportunity(args, event);
         return { opportunities: opportunity ? [opportunity] : [] };
     }
     if (isDefenseAvailableEvent(event)) {
@@ -3106,6 +3443,10 @@ export function discoverMageWarsTimingOpportunities(
         const opportunity = createUpkeepCostOpportunity(args, event);
         return { opportunities: opportunity ? [opportunity] : [] };
     }
+    if (isUpkeepEquipmentDirectDamageAvailableEvent(event)) {
+        const opportunity = createUpkeepEquipmentDirectDamageOpportunity(args, event);
+        return { opportunities: opportunity ? [opportunity] : [] };
+    }
     if (isUpkeepHealTransferAvailableEvent(event)) {
         const opportunity = createUpkeepHealTransferOpportunity(args, event);
         return { opportunities: opportunity ? [opportunity] : [] };
@@ -3123,6 +3464,10 @@ export function discoverMageWarsTimingOpportunities(
         return { opportunities: opportunity ? [opportunity] : [] };
     }
     if (isUpkeepEnchantmentDirectDamageAvailableEvent(event)) {
+        const opportunity = createUpkeepEnchantmentDirectDamageOpportunity(args, event);
+        return { opportunities: opportunity ? [opportunity] : [] };
+    }
+    if (isUpkeepAreaConjurationDirectDamageAvailableEvent(event)) {
         const opportunity = createUpkeepEnchantmentDirectDamageOpportunity(args, event);
         return { opportunities: opportunity ? [opportunity] : [] };
     }
@@ -3157,6 +3502,29 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
     return {
         choiceRequestOptions: (opportunity) => {
             const kind = opportunity.metadata?.mageWarsTimingOpportunity;
+            if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.BATTLE_FURY) {
+                return {
+                    title: 'interaction.battleFury.title',
+                    titleKey: 'interaction.battleFury.title',
+                    titleParams: {
+                        attackerObjectId: opportunity.metadata?.attackerObjectId,
+                    },
+                    targetType: 'button',
+                    autoResolveIfSingle: false,
+                };
+            }
+            if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.FEAR_HELMET) {
+                return {
+                    title: 'interaction.fearHelmet.title',
+                    titleKey: 'interaction.fearHelmet.title',
+                    titleParams: {
+                        attackerObjectId: opportunity.metadata?.attackerObjectId,
+                        targetPlayerId: opportunity.metadata?.targetPlayerId,
+                    },
+                    targetType: 'button',
+                    autoResolveIfSingle: false,
+                };
+            }
             if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.COUNTERSTRIKE) {
                 return {
                     title: 'interaction.counterstrike.title',
@@ -3205,7 +3573,11 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
                     autoResolveIfSingle: false,
                     responseValidationMode: 'live',
                     optionsGenerator: <TCore>(state: { core: TCore; sys: unknown }) => {
-                        const option = createLiveRevealOption(context);
+                        const options = isMageWarsTargetSpellTeleportResponseCardId(context.responseCardId)
+                            ? createLiveTeleportOptions(context, state.core as unknown as MageWarsCore)
+                            : isMageWarsTargetSpellRedirectResponseCardId(context.responseCardId)
+                                ? [createLiveRedirectOption(context)]
+                                : [createLiveRevealOption(context)];
                         const frame = getActiveResolutionFrame(
                             state as unknown as MatchState<MageWarsCore>,
                         );
@@ -3215,15 +3587,13 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
                             && activeContext.responseObjectId === context.responseObjectId
                             && activeContext.responseCardId === context.responseCardId;
 
-                        return [
-                            isCurrentResponse
-                                ? option
-                                : {
-                                    ...option,
-                                    disabled: true,
-                                    disabledReason: '响应窗口已过期或响应来源已变化',
-                                },
-                        ];
+                        return options.map((option) => isCurrentResponse
+                            ? option
+                            : {
+                                ...option,
+                                disabled: true,
+                                disabledReason: '响应窗口已过期或响应来源已变化',
+                            });
                     },
                 };
             }
@@ -3231,6 +3601,18 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
                 return {
                     title: 'interaction.upkeep.title',
                     titleKey: 'interaction.upkeep.title',
+                    titleParams: {
+                        targetObjectId: opportunity.metadata?.targetObjectId,
+                        amount: opportunity.metadata?.amount,
+                    },
+                    targetType: 'button',
+                    autoResolveIfSingle: true,
+                };
+            }
+            if (kind === MAGE_WARS_TIMING_OPPORTUNITY_KINDS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE) {
+                return {
+                    title: 'interaction.upkeepEquipmentDirectDamage.title',
+                    titleKey: 'interaction.upkeepEquipmentDirectDamage.title',
                     titleParams: {
                         targetObjectId: opportunity.metadata?.targetObjectId,
                         amount: opportunity.metadata?.amount,
@@ -3279,7 +3661,9 @@ TimingOpportunitySystemConfig<MageWarsTimingOpportunityChoiceValue, MageWarsCore
 
             const windowType = opportunity.metadata?.windowType === 'attack-evasion'
                 ? 'attack-evasion'
-                : 'spell-counter';
+                : opportunity.metadata?.windowType === 'spell-redirect'
+                    ? 'spell-redirect'
+                    : 'spell-counter';
             const sourceCommandType = opportunity.timing.command?.type ?? context.sourceCommandType;
             const timestamp = opportunity.timing.timestamp ?? 0;
             return [{

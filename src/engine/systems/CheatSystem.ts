@@ -34,6 +34,8 @@ export const CHEAT_COMMANDS = {
     SET_DICE: 'SYS_CHEAT_SET_DICE',
     /** 设置 Token 数量 */
     SET_TOKEN: 'SYS_CHEAT_SET_TOKEN',
+    /** 增加 Token 数量 */
+    ADD_TOKEN: 'SYS_CHEAT_ADD_TOKEN',
     /** 设置状态效果数量 */
     SET_STATUS: 'SYS_CHEAT_SET_STATUS',
     /** 直接设置整个游戏状态（调试用） */
@@ -73,6 +75,12 @@ export interface SetTokenPayload {
     playerId: PlayerId;
     tokenId: string;
     amount: number;
+}
+
+export interface AddTokenPayload {
+    playerId: PlayerId;
+    tokenId: string;
+    delta: number;
 }
 
 export interface SetStatusPayload {
@@ -143,6 +151,8 @@ export interface CheatResourceModifier<TCore> {
     setDice?: (core: TCore, values: number[], options?: { phase?: string }) => TCore;
     /** 设置 Token 数量（可选） */
     setToken?: (core: TCore, playerId: PlayerId, tokenId: string, amount: number) => TCore;
+    /** 获取 Token 数量（用于累加 Token，可选） */
+    getToken?: (core: TCore, playerId: PlayerId, tokenId: string) => number | undefined;
     /** 设置状态效果数量（可选） */
     setStatus?: (core: TCore, playerId: PlayerId, statusId: string, amount: number) => TCore;
     /** 根据索引发牌（可选，deck-only） */
@@ -386,6 +396,26 @@ export function createCheatSystem<TCore>(
                     state.core,
                     payload.playerId,
                     payload.cardUid
+                );
+                return {
+                    halt: true,
+                    state: { ...state, core: newCore },
+                };
+            }
+
+            // 处理增加 Token 命令
+            if (command.type === CHEAT_COMMANDS.ADD_TOKEN && modifier.getToken && modifier.setToken) {
+                const payload = command.payload as AddTokenPayload;
+                const currentValue = modifier.getToken(
+                    state.core,
+                    payload.playerId,
+                    payload.tokenId,
+                ) ?? 0;
+                const newCore = modifier.setToken(
+                    state.core,
+                    payload.playerId,
+                    payload.tokenId,
+                    currentValue + payload.delta,
                 );
                 return {
                     halt: true,

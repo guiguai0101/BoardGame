@@ -10,13 +10,14 @@ import { dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { test, expect } from '../framework';
 import { clearEvidenceScreenshotsForTest, getEvidenceScreenshotPath } from '../framework/evidenceScreenshots';
-import { dispatchDiceThroneCommand, waitForDiceThroneHarness } from '../helpers/dicethrone';
+import { dispatchDiceThroneCommand, dragDiceThroneHandCardToPlay, waitForDiceThroneHarness } from '../helpers/dicethrone';
 import { waitForTestHarness } from '../helpers/common';
-import { TOKEN_IDS } from '../../src/games/dicethrone/domain/ids';
+import { STATUS_IDS, TOKEN_IDS } from '../../src/games/dicethrone/domain/ids';
 
 const saveEvidenceScreenshot = async (page: Page, testInfo: TestInfo, name: string): Promise<string> => {
     const path = getEvidenceScreenshotPath(testInfo, name, {
         filename: `${name}.png`,
+        format: 'png',
         requireChineseName: true,
     });
     await mkdir(dirname(path), { recursive: true });
@@ -140,6 +141,79 @@ test.describe('DiceThrone 蜘蛛侠真实规则交互', () => {
         expect(eventTypes).toEqual(expect.arrayContaining(['PENDING_ATTACK_UPDATED', 'STATUS_REMOVED']));
 
         await saveEvidenceScreenshot(page, testInfo, '02-落网-普通攻击前被消费');
+    });
+
+    test('真实打出蜘蛛发射器后，施加落网应立即造成 2 点状态伤害', async ({ page, game }, testInfo) => {
+        test.setTimeout(120000);
+        await clearEvidenceScreenshotsForTest(testInfo);
+        await game.openTestGame('dicethrone', { playerID: '0', seat1: 'human' }, 45000);
+        await waitForTestHarness(page, 40000);
+        await waitForDiceThroneHarness(page);
+
+        await game.setupScene({
+            gameId: 'dicethrone',
+            player0: {
+                hand: ['card-zhizhuxia-spider-launcher'],
+                resources: { CP: 5, HP: 50 },
+            },
+            player1: {
+                hand: [],
+                resources: { CP: 5, HP: 50 },
+            },
+            currentPlayer: '0',
+            phase: 'main1',
+            extra: {
+                selectedCharacters: { '0': 'zhizhuxia', '1': 'monk' },
+                activePlayerId: '0',
+                hostStarted: true,
+            },
+        });
+
+        await game.waitForPhase('main1', 10000);
+        await expect(page.getByTestId('player-board-surface')).toHaveAttribute('data-character-id', 'zhizhuxia');
+        await expect(page.locator('[data-testid="hand-area"] [data-card-id="card-zhizhuxia-spider-launcher"]').first())
+            .toBeVisible({ timeout: 10000 });
+        await saveEvidenceScreenshot(page, testInfo, '03-蜘蛛发射器-施加落网前');
+
+        await dragDiceThroneHandCardToPlay(page, 'card-zhizhuxia-spider-launcher');
+
+        await expect.poll(async () => {
+            const state = await game.getState();
+            const entries = Array.isArray(state?.sys?.eventStream?.entries)
+                ? state.sys.eventStream.entries
+                : [];
+            const webbedDamage = entries.filter((entry: any) => (
+                (entry?.event?.type ?? entry?.type) === 'DAMAGE_DEALT'
+                && entry?.event?.payload?.sourceAbilityId === STATUS_IDS.WEBBED
+                && entry?.event?.payload?.damageOrigin === 'status'
+            ));
+            const latest = webbedDamage.at(-1)?.event?.payload ?? null;
+            return {
+                reject: await page.evaluate(() => (window as any).__BG_LAST_COMMAND_REJECTED__ ?? null),
+                hp: state?.core?.players?.['1']?.resources?.HP ?? state?.core?.players?.['1']?.resources?.hp ?? null,
+                webbed: state?.core?.players?.['1']?.statusEffects?.webbed ?? 0,
+                handIds: state?.core?.players?.['0']?.hand?.map((card: any) => card.id) ?? [],
+                discardIds: state?.core?.players?.['0']?.discard?.map((card: any) => card.id) ?? [],
+                webbedDamageCount: webbedDamage.length,
+                webbedDamage: latest,
+            };
+        }, { timeout: 15000 }).toMatchObject({
+            reject: null,
+            hp: 48,
+            webbed: 1,
+            handIds: [],
+            discardIds: ['card-zhizhuxia-spider-launcher'],
+            webbedDamageCount: 1,
+            webbedDamage: {
+                amount: 2,
+                actualDamage: 2,
+                damageScope: 'direct',
+                damageOrigin: 'status',
+                unblockable: true,
+            },
+        });
+
+        await saveEvidenceScreenshot(page, testInfo, '04-蜘蛛发射器-落网与2点状态伤害已结算');
     });
 
     test('手牌来源直接伤害不消费落网', async ({ page, game }, testInfo) => {

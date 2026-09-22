@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import '../../domain';
 import {
     canInteractDiceForCurrentBoard,
+    getDefaultDiceForCharacter,
     getInteractionDiceForRightSidebar,
     getRailDiceForCurrentBoard,
     shouldShowRailDiceTray,
@@ -96,6 +98,14 @@ describe('diceStagePolicy', () => {
             { id: 3, value: 4, isKept: false, displayOnly: true },
             { id: 4, value: 5, isKept: false, displayOnly: true },
         ]);
+    });
+
+    it('没有 core.dice 时，右侧骰盘应回到当前角色的五颗默认骰子', () => {
+        const dice = getDefaultDiceForCharacter('zhizhuxia');
+
+        expect(dice).toHaveLength(5);
+        expect(dice.every((die) => die.definitionId === 'zhizhuxia-dice')).toBe(true);
+        expect(dice.every((die) => die.value === 1 && die.displayOnly === true)).toBe(true);
     });
 
     it('非普通掷骰阶段允许把已确认临时骰作为右侧只读回看', () => {

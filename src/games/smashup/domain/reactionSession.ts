@@ -1241,6 +1241,7 @@ function executeQueuedTrigger(
         actionTargetBaseIndex: trigger.actionTargetBaseIndex,
         actionTargetType: trigger.actionTargetType,
         actionTargetMinionUid: trigger.actionTargetMinionUid,
+        actionDestinationOverride: trigger.actionDestinationOverride,
         buriedCardUid: trigger.buriedCardUid,
         buriedCardDefId: trigger.buriedCardDefId,
         buriedCardControllerId: trigger.buriedCardControllerId,

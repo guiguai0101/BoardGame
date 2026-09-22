@@ -20,10 +20,15 @@ import {
 } from './ids';
 import {
     getMageWarsZoneDistance,
+    isMageWarsLegalHiddenEnchantmentTarget,
     isMageWarsChainLightningTargetObject,
     isMageWarsElementalStaffSpell,
     isMageWarsElementalStaffBindableSpell,
+    isMageWarsSpellBindingBindableSpell,
+    isMageWarsSpellBindingStaffSpell,
     isMageWarsHiddenEnchantmentArenaObject,
+    isMageWarsImplementedManaSiphonSpell,
+    isMageWarsLivingCreatureSpellCard,
     isMageWarsLegalHiddenResponseEnchantmentTarget,
     isMageWarsLegalStealEnchantmentNewTarget,
     isMageWarsLivingArenaObject,
@@ -39,6 +44,7 @@ import {
     resolveMageWarsEquipmentManaCost,
     resolveMageWarsExplodeManaCostForTarget,
     resolveMageWarsRouseTheBeastManaCostForTarget,
+    resolveMageWarsResurrectionManaCostForTarget,
     resolveMageWarsSleepSpellManaCostForTarget,
     resolveMageWarsSpellRawCostTotal,
     resolveMageWarsStealEnchantmentManaCost,
@@ -69,9 +75,12 @@ type MageWarsSpellCastTargetMode =
     | 'target-push-zone'
     | 'object-target-zone'
     | 'object-new-anchor'
+    | 'player-target-zone'
+    | 'zone-or-object'
     | 'zone'
     | 'no-target'
     | 'player-bound-spell'
+    | 'resurrection-card'
     | 'wall-edge';
 
 interface MageWarsSpellCastEffect {
@@ -93,6 +102,7 @@ export interface MageWarsSpellCastChoiceValue {
     playerId: string;
     spellCardId: number;
     manaCost: number;
+    targetSpellCardId?: number;
     targetPlayerId?: string;
     targetObjectId?: string;
     targetZoneId?: ArenaZoneId;
@@ -115,6 +125,7 @@ function resolveMageWarsSpellCastBaseTargetMode(
     if (family === 'elemental-staff-binding') return 'player-bound-spell';
     if (family === 'self-equipment') return 'direct-player';
     if (family === 'mana-drain') return 'direct-player';
+    if (family === 'mana-siphon') return 'player-target-zone';
     if (family === 'steal-enchantment' || family === 'move-enchantment') return 'object-new-anchor';
     if (family === 'chain-lightning') return 'object-chain';
     if (family === 'jet-stream') return 'target-push-zone';
@@ -125,7 +136,9 @@ function resolveMageWarsSpellCastBaseTargetMode(
         || family === 'zone-healing'
         || family === 'visible-area-enchantment'
     ) return 'zone';
+    if (family === 'hidden-enchantment') return 'zone-or-object';
     if (family === 'call-of-the-wild') return 'no-target';
+    if (family === 'resurrection') return 'resurrection-card';
     return 'direct-object';
 }
 
@@ -181,10 +194,20 @@ function resolveDirectObjectSpellManaCost(
     }
 }
 
+export function resolveMageWarsRedirectedSpellManaCost(
+    spell: MageWarsConfigSpellCard,
+    targetObject: MageWarsArenaObjectState,
+): number | undefined {
+    const family = resolveMageWarsSpellCastChoiceFamily(spell);
+    if (!family) return undefined;
+    return resolveDirectObjectSpellManaCost(spell, family, targetObject);
+}
+
 function createMageWarsSpellCastCommand(args: {
     playerId: string;
     spellCardId: number;
     manaCost: number;
+    targetSpellCardId?: number;
     targetPlayerId?: string;
     targetObjectId?: string;
     targetZoneId?: ArenaZoneId;
@@ -206,6 +229,7 @@ function createMageWarsSpellCastCommand(args: {
         payload: {
             spellCardId: args.spellCardId,
             manaCost: args.manaCost,
+            ...(args.targetSpellCardId !== undefined ? { targetSpellCardId: args.targetSpellCardId } : {}),
             ...(args.targetPlayerId ? { targetPlayerId: args.targetPlayerId } : {}),
             ...(args.targetObjectId ? { targetObjectId: args.targetObjectId } : {}),
             ...(args.targetZoneId ? { targetZoneId: args.targetZoneId } : {}),
@@ -334,14 +358,17 @@ function buildMageWarsSpellCastCandidates(args: {
         statusTokenIds?: StatusTokenId[];
         statusTokenAmounts?: Partial<Record<StatusTokenId, number>>;
         selectedEnchantmentObjectIds?: string[];
+        targetSpellCardId?: number;
         targetMode?: MageWarsSpellCastTargetMode;
         label?: string;
     }) => {
-        const targetMode = candidateArgs.targetMode ?? (candidateArgs.pushToZoneId
+        const targetMode = candidateArgs.targetMode ?? (candidateArgs.targetSpellCardId !== undefined
+            ? 'resurrection-card'
+            : candidateArgs.pushToZoneId
             ? candidateArgs.targetPlayer ? 'player-push-zone' : 'object-push-zone'
             : candidateArgs.targetWallEdgeId
                 ? 'wall-edge'
-                : candidateArgs.targetPlayer && isMageWarsElementalStaffSpell(args.spell)
+                : candidateArgs.targetPlayer && isMageWarsSpellBindingStaffSpell(args.spell)
                     ? 'player-bound-spell'
                     : candidateArgs.targetPlayer
                         ? 'direct-player'
@@ -376,6 +403,7 @@ function buildMageWarsSpellCastCandidates(args: {
             chainLightningTargets: candidateArgs.chainLightningTargets,
             pushToZoneId: candidateArgs.pushToZoneId,
             boundSpellCardId: candidateArgs.boundSpellCardId,
+            targetSpellCardId: candidateArgs.targetSpellCardId,
             statusTokenIds: candidateArgs.statusTokenIds,
             statusTokenAmounts: candidateArgs.statusTokenAmounts,
             selectedEnchantmentObjectIds: candidateArgs.selectedEnchantmentObjectIds,
@@ -384,9 +412,10 @@ function buildMageWarsSpellCastCandidates(args: {
         const validation = validateCommand(args.state, command);
         const targetObjectId = candidateArgs.targetObject?.id;
         const targetPlayerId = candidateArgs.targetPlayer?.id;
-        const targetZoneId = candidateArgs.targetObject?.zoneId
-            ?? candidateArgs.targetPlayer?.mageZoneId
-            ?? candidateArgs.targetZoneId;
+        const targetSpellCardId = candidateArgs.targetSpellCardId;
+        const targetZoneId = candidateArgs.targetZoneId
+            ?? candidateArgs.targetObject?.zoneId
+            ?? candidateArgs.targetPlayer?.mageZoneId;
         const chainTargetObjectIds = targetObjectId && candidateArgs.chainLightningTargets
             ? [
                 targetObjectId,
@@ -412,16 +441,20 @@ function buildMageWarsSpellCastCandidates(args: {
                     : targetMode === 'player-bound-spell'
                         ? `${candidateArgs.targetPlayer.mageId} -> 不绑定法术`
                         : candidateArgs.targetPlayer.mageId
-            : candidateArgs.targetWallEdgeId ?? candidateArgs.targetZoneId ?? 'zone');
+            : targetSpellCardId !== undefined
+                ? getMageWarsSpellCardFromConfig(targetSpellCardId)?.name ?? String(targetSpellCardId)
+                : candidateArgs.targetWallEdgeId ?? candidateArgs.targetZoneId ?? 'zone');
         return {
             id: candidateArgs.id
                 ?? (targetObjectId
                     ? `target:${targetObjectId}`
                     : targetPlayerId
                         ? `target-player:${targetPlayerId}`
-                    : candidateArgs.targetWallEdgeId
-                        ? `target-wall-edge:${candidateArgs.targetWallEdgeId}`
-                        : `target-zone:${candidateArgs.targetZoneId}`),
+                        : candidateArgs.targetWallEdgeId
+                            ? `target-wall-edge:${candidateArgs.targetWallEdgeId}`
+                            : targetSpellCardId !== undefined
+                                ? `target-spell:${targetSpellCardId}`
+                            : `target-zone:${candidateArgs.targetZoneId}`),
             label,
             value: {
                 action: 'cast-spell' as const,
@@ -440,6 +473,7 @@ function buildMageWarsSpellCastCandidates(args: {
                     : {}),
                 ...(candidateArgs.pushToZoneId ? { pushToZoneId: candidateArgs.pushToZoneId } : {}),
                 ...(candidateArgs.boundSpellCardId !== undefined ? { boundSpellCardId: candidateArgs.boundSpellCardId } : {}),
+                ...(targetSpellCardId !== undefined ? { targetSpellCardId } : {}),
                 ...(candidateArgs.statusTokenIds && candidateArgs.statusTokenIds.length > 0
                     ? { statusTokenIds: [...candidateArgs.statusTokenIds] }
                     : {}),
@@ -470,6 +504,7 @@ function buildMageWarsSpellCastCandidates(args: {
                 ...(chainTargetObjectIds ? { chainTargetObjectIds } : {}),
                 ...(candidateArgs.pushToZoneId ? { pushToZoneId: candidateArgs.pushToZoneId } : {}),
                 ...(candidateArgs.boundSpellCardId !== undefined ? { boundSpellCardId: candidateArgs.boundSpellCardId } : {}),
+                ...(targetSpellCardId !== undefined ? { targetSpellCardId } : {}),
                 spellCardId: args.spell.spellCardId,
                 targetMode,
             },
@@ -485,6 +520,8 @@ function buildMageWarsSpellCastCandidates(args: {
                         ? 'player'
                         : candidateArgs.targetWallEdgeId
                             ? 'wall-edge'
+                            : targetSpellCardId !== undefined
+                                ? 'resurrection-card'
                             : candidateArgs.targetZoneId
                                 ? 'zone'
                                 : 'confirm',
@@ -505,6 +542,7 @@ function buildMageWarsSpellCastCandidates(args: {
                 ...(candidateArgs.selectedEnchantmentObjectIds
                     ? ['enchantments', ...candidateArgs.selectedEnchantmentObjectIds]
                     : []),
+                ...(targetSpellCardId !== undefined ? ['target-spell', targetSpellCardId] : []),
             ],
             ...(validation.valid
                 ? {}
@@ -551,7 +589,9 @@ function buildMageWarsSpellCastCandidates(args: {
                 .sort((left, right) => left - right)
                 .filter((spellCardId) => {
                     const bindableSpell = getMageWarsSpellCardFromConfig(spellCardId);
-                    return bindableSpell ? isMageWarsElementalStaffBindableSpell(bindableSpell) : false;
+                    return bindableSpell
+                        ? isMageWarsSpellBindingBindableSpell(args.spell.spellCardId, bindableSpell)
+                        : false;
                 });
 
             return [
@@ -567,6 +607,27 @@ function buildMageWarsSpellCastCandidates(args: {
                     id: `target-player:${args.player.id}:bound-spell:${boundSpellCardId}`,
                 })),
             ];
+        }
+        if (args.family === 'resurrection') {
+            const targetSpellCardIds = Array.from(new Set(args.player.defeatedLivingCreatureCardIds ?? []))
+                .sort((left, right) => left - right)
+                .filter((spellCardId) => args.player.discardSpellCardIds.includes(spellCardId))
+                .map((spellCardId) => getMageWarsSpellCardFromConfig(spellCardId))
+                .filter((targetSpell): targetSpell is MageWarsConfigSpellCard => (
+                    targetSpell !== undefined && isMageWarsLivingCreatureSpellCard(targetSpell)
+                ));
+            return targetSpellCardIds.flatMap((targetSpell) => {
+                const manaCost = resolveMageWarsResurrectionManaCostForTarget(targetSpell);
+                return manaCost === undefined
+                    ? []
+                    : [buildCandidate({
+                        targetSpellCardId: targetSpell.spellCardId,
+                        manaCost,
+                        targetMode: 'resurrection-card',
+                        id: `target-spell:${targetSpell.spellCardId}`,
+                        label: targetSpell.name,
+                    })];
+            });
         }
         if (args.family === 'direct-attack') {
             const manaCost = args.spell.manaCost ?? resolveMageWarsSpellRawCostTotal(args.spell) ?? 0;
@@ -626,6 +687,29 @@ function buildMageWarsSpellCastCandidates(args: {
                             targetPlayer,
                             manaCost,
                             id: `target-player:${targetPlayer.id}`,
+                        })]
+                        : []
+                )),
+            ];
+        }
+        if (args.family === 'hidden-enchantment') {
+            const manaCost = args.spell.manaCost ?? resolveMageWarsSpellRawCostTotal(args.spell) ?? 0;
+            return [
+                ...targetObjects.flatMap((targetObject) => (
+                    isMageWarsLegalHiddenEnchantmentTarget(args.state.core, args.spell, {
+                        targetObjectId: targetObject.id,
+                    })
+                        ? [buildCandidate({ targetObject, manaCost })]
+                        : []
+                )),
+                ...args.state.core.arena.flatMap((zone) => (
+                    isMageWarsLegalHiddenEnchantmentTarget(args.state.core, args.spell, {
+                        targetZoneId: zone.id,
+                    })
+                        ? [buildCandidate({
+                            targetZoneId: zone.id,
+                            manaCost,
+                            id: `target-zone:${zone.id}`,
                         })]
                         : []
                 )),
@@ -707,6 +791,18 @@ function buildMageWarsSpellCastCandidates(args: {
                     manaCost,
                     id: `target-player:${targetPlayer.id}`,
                 }));
+        }
+        if (args.family === 'mana-siphon') {
+            const manaCost = args.spell.manaCost ?? resolveMageWarsSpellRawCostTotal(args.spell) ?? 0;
+            if (!isMageWarsImplementedManaSiphonSpell(args.spell)) return [];
+            return players.flatMap((targetPlayer) => args.state.core.arena.map((zone) => buildCandidate({
+                targetPlayer,
+                targetZoneId: zone.id,
+                manaCost,
+                targetMode: 'player-target-zone',
+                id: `target-player:${targetPlayer.id}:target-zone:${zone.id}`,
+                label: `${targetPlayer.mageId} -> ${zone.id}`,
+            })));
         }
         if (args.family === 'force-push') {
             const manaCost = resolveMageWarsSpellRawCostTotal(args.spell) ?? 0;
@@ -902,6 +998,7 @@ export function buildMageWarsSpellCastOpportunity(args: {
         || family === 'life-drain'
         || family === 'direct-attack'
         || family === 'jet-stream'
+        || family === 'resurrection'
         || (
             family === 'hidden-response-enchantment'
             && spell.semantics?.attachment?.anchor === 'creature'
@@ -935,7 +1032,7 @@ export function buildMageWarsSpellCastOpportunity(args: {
             ? 'select-zone' as const
             : targetMode === 'player-bound-spell'
                 ? 'choose-option' as const
-            : targetMode === 'direct-player'
+            : targetMode === 'direct-player' || targetMode === 'player-target-zone'
                 ? 'select-player' as const
             : targetMode === 'wall-edge'
                 ? 'select-position' as const

@@ -131,7 +131,7 @@ describe('DiceThrone 即时行动牌与响应窗口边界', () => {
         const state = prepareState();
         state.core.players['0'].tokens = {};
 
-        expect(unrestrictedInstantActions).toHaveLength(22);
+        expect(unrestrictedInstantActions).toHaveLength(24);
         for (const card of unrestrictedInstantActions) {
             expect(
                 checkPlayCard(state.core, '1', card, 'main1'),
@@ -152,6 +152,8 @@ describe('DiceThrone 即时行动牌与响应窗口边界', () => {
             'card-flick',
             'card-next-time',
             'card-zhanshujia-tactical-retreat',
+            'card-zhizhuxia-invisible-punch',
+            'card-zhizhuxia-wishful-thinking',
             'ninja-card-escape',
         ]);
 
@@ -199,12 +201,15 @@ describe('DiceThrone 即时行动牌与响应窗口边界', () => {
             responderId: '1',
             isFullyEvaded: false,
         } as typeof state.core.pendingDamage;
+        state.core.players['1'].tokens[TOKEN_IDS.INVISIBLE] = 1;
         state.core.lastResolvedAttackDamage = 10;
 
         expect(beforeDamageResponseCards.map((card) => card.id).sort()).toEqual([
             'card-next-time',
             'ninja-card-escape',
             'card-artificer-mechanical-strike',
+            'card-zhizhuxia-invisible-punch',
+            'card-zhizhuxia-wishful-thinking',
             'upgrade-artificer-shock-bot-2',
         ].sort());
 

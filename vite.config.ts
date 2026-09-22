@@ -20,6 +20,7 @@ import type {
   QidahenRegionMaskSaveResult,
 } from './src/games/qidahen/regionMaskWorkspaceBridge.ts'
 import { normalizeQidahenRegionMaskSaveScope } from './src/games/qidahen/regionMaskWorkspaceBridge.ts'
+import { loadDevRuntimePorts } from './scripts/infra/dev-port-runtime.js'
 import { readyCheckPlugin } from './vite-plugins/ready-check.ts'
 
 const configDir = path.dirname(fileURLToPath(import.meta.url))
@@ -622,8 +623,21 @@ export default defineConfig(({ mode }) => {
     || process.env.BG_DEV_STRICT_PORTS === '1'
   const serverHost = cliHost || '0.0.0.0'
   const hmrHost = cliHost && cliHost !== '0.0.0.0' ? cliHost : 'localhost'
-  const gameServerPort = Number(env.GAME_SERVER_PORT) || 18000
-  const apiServerPort = Number(env.API_SERVER_PORT) || 18001
+  const liveRuntimePorts = mode === 'development' ? loadDevRuntimePorts() : null
+  const gameServerPort = Number(env.GAME_SERVER_PORT)
+    || Number(process.env.GAME_SERVER_PORT)
+    || liveRuntimePorts?.gameServer
+    || 18000
+  const apiServerPort = Number(env.API_SERVER_PORT)
+    || Number(process.env.API_SERVER_PORT)
+    || liveRuntimePorts?.apiServer
+    || 18001
+  const gameServerProxyTarget = env.GAME_SERVER_PROXY_TARGET
+    || process.env.GAME_SERVER_PROXY_TARGET
+    || `http://127.0.0.1:${gameServerPort}`
+  const apiServerProxyTarget = env.API_SERVER_PROXY_TARGET
+    || process.env.API_SERVER_PROXY_TARGET
+    || `http://127.0.0.1:${apiServerPort}`
   const suppressE2EProxyNoise = env.E2E_PROXY_QUIET === 'true'
   const useStableE2EOptimizeDeps = forceInlineVite || suppressE2EProxyNoise
   const useStableOptimizeDeps = mode === 'development' || useStableE2EOptimizeDeps
@@ -810,7 +824,7 @@ export default defineConfig(({ mode }) => {
           },
       proxy: {
         '/games': {
-          target: `http://127.0.0.1:${gameServerPort}`,
+          target: gameServerProxyTarget,
           changeOrigin: true,
           bypass: (req) => {
             const pathname = (req.url || '/').split('?')[0] || '/'
@@ -821,7 +835,7 @@ export default defineConfig(({ mode }) => {
           },
         },
         '/socket.io': {
-          target: `http://127.0.0.1:${gameServerPort}`,
+          target: gameServerProxyTarget,
           changeOrigin: true,
           ws: true,
           configure: (proxy) => {
@@ -831,7 +845,7 @@ export default defineConfig(({ mode }) => {
           },
         },
         '/lobby-socket': {
-          target: `http://127.0.0.1:${gameServerPort}`,
+          target: gameServerProxyTarget,
           changeOrigin: true,
           ws: true,
           configure: (proxy) => {
@@ -841,31 +855,31 @@ export default defineConfig(({ mode }) => {
           },
         },
         '/auth': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/game-changelogs': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/admin-api': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/feedback': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/sponsors': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/notifications': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/social-socket': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
           ws: true,
           configure: (proxy) => {
@@ -875,23 +889,23 @@ export default defineConfig(({ mode }) => {
           },
         },
         '/ugc': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/assets/ugc': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/assets/avatars': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/layout': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
         '/devtools/ai-repo-workbench': {
-          target: `http://127.0.0.1:${apiServerPort}`,
+          target: apiServerProxyTarget,
           changeOrigin: true,
         },
       },

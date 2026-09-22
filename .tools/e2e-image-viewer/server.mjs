@@ -2,6 +2,7 @@
 
 import { createServer, request as httpRequest } from "node:http";
 import {
+  closeSync,
   createReadStream,
   existsSync,
   mkdirSync,
@@ -27,7 +28,6 @@ const STATE_PATH = path.join(PROJECT_ROOT, "test-results", "evidence-screenshots
 const LOG_PATH = path.join(PROJECT_ROOT, "logs", "e2e-image-viewer.log");
 const APP_NAME = "boardgame-e2e-image-viewer";
 const DEFAULT_PORT = 4867;
-const MAX_PORT_ATTEMPTS = 20;
 const MAX_MEDIA_FILES = 1500;
 const MAX_INDEX_FILES = 80;
 const MAX_KEY_LOOKUP_DIRECTORIES = 20000;
@@ -69,6 +69,8 @@ const usage = () => {
   --port <端口>      本地查看器端口，默认 ${DEFAULT_PORT}
   --no-open          只启动 / 注册目录，不打开浏览器
   --reopen           即使该目录已打开过，也重新打开浏览器
+  --status           查看指定端口上的查看器状态
+  --stop             停止指定端口上的查看器服务
   --serve            内部参数：启动 HTTP 服务
   --help             显示帮助
 `);
@@ -83,6 +85,8 @@ const parseArgs = (argv) => {
     focus: null,
     files: [],
     serve: false,
+    status: false,
+    stop: false,
     help: false,
   };
 
@@ -94,6 +98,14 @@ const parseArgs = (argv) => {
     }
     if (current === "--serve") {
       parsed.serve = true;
+      continue;
+    }
+    if (current === "--status") {
+      parsed.status = true;
+      continue;
+    }
+    if (current === "--stop") {
+      parsed.stop = true;
       continue;
     }
     if (current === "--no-open") {
@@ -160,6 +172,12 @@ const parseArgs = (argv) => {
   if (!parsed.focus && process.env.npm_config_focus) {
     parsed.focus = process.env.npm_config_focus;
   }
+  if ((parsed.status || parsed.stop) && parsed.dir) {
+    throw new Error("--status/--stop 不需要 --dir");
+  }
+  if ((parsed.status || parsed.stop) && parsed.serve) {
+    throw new Error("--status/--stop 不能和 --serve 同时使用");
+  }
 
   return parsed;
 };
@@ -200,6 +218,54 @@ const readState = () => {
 const writeState = (nextState) => {
   mkdirSync(path.dirname(STATE_PATH), { recursive: true });
   writeFileSync(STATE_PATH, JSON.stringify(nextState, null, 2), "utf8");
+};
+
+const isProcessAlive = (pid) => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const serverStateFor = (port) => ({
+  app: APP_NAME,
+  projectRoot: PROJECT_ROOT,
+  port,
+  pid: process.pid,
+  instanceId,
+  startedAt,
+  updatedAt: new Date().toISOString(),
+});
+
+const clearServerState = ({ port = null, pid = null, instanceId: expectedInstanceId = null } = {}) => {
+  const state = readState();
+  const server = state.server;
+  if (!server) return false;
+  if (port !== null && server.port !== port) return false;
+  if (
+    pid !== null
+    && server.pid !== pid
+    && server.instanceId !== expectedInstanceId
+    && isProcessAlive(server.pid)
+  ) return false;
+  if (
+    expectedInstanceId !== null
+    && server.instanceId !== expectedInstanceId
+    && server.pid !== pid
+    && isProcessAlive(server.pid)
+  ) return false;
+
+  const nextState = { ...state };
+  delete nextState.server;
+  writeState({
+    ...nextState,
+    version: 1,
+    directories: state.directories ?? {},
+  });
+  return true;
 };
 
 const directoryKey = (dirPath) => realpathSync.native(dirPath).toLowerCase();
@@ -709,20 +775,6 @@ const canBindPort = (port) => new Promise((resolve) => {
   server.listen(port, "127.0.0.1");
 });
 
-const choosePort = async (preferredPort) => {
-  for (let offset = 0; offset < MAX_PORT_ATTEMPTS; offset += 1) {
-    const port = preferredPort + offset;
-    const health = await probeViewer(port);
-    if (health) return { port, health, alreadyRunning: true };
-  }
-
-  for (let offset = 0; offset < MAX_PORT_ATTEMPTS; offset += 1) {
-    const port = preferredPort + offset;
-    if (await canBindPort(port)) return { port, health: null, alreadyRunning: false };
-  }
-  throw new Error(`没有找到可用端口：从 ${preferredPort} 起尝试 ${MAX_PORT_ATTEMPTS} 个端口都失败`);
-};
-
 const waitForViewer = async (port) => {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
@@ -736,13 +788,17 @@ const waitForViewer = async (port) => {
 const startDetachedServer = (port) => {
   mkdirSync(path.dirname(LOG_PATH), { recursive: true });
   const out = openSync(LOG_PATH, "a");
-  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), "--serve", "--port", String(port)], {
-    cwd: PROJECT_ROOT,
-    detached: true,
-    stdio: ["ignore", out, out],
-    windowsHide: true,
-  });
-  child.unref();
+  try {
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), "--serve", "--port", String(port)], {
+      cwd: PROJECT_ROOT,
+      detached: true,
+      stdio: ["ignore", out, out],
+      windowsHide: true,
+    });
+    child.unref();
+  } finally {
+    closeSync(out);
+  }
 };
 
 const openBrowser = (url) => {
@@ -773,15 +829,7 @@ const registerServerState = (port) => {
   writeState({
     ...state,
     version: 1,
-    server: {
-      app: APP_NAME,
-      projectRoot: PROJECT_ROOT,
-      port,
-      pid: process.pid,
-      instanceId,
-      startedAt,
-      updatedAt: new Date().toISOString(),
-    },
+    server: serverStateFor(port),
     directories: state.directories ?? {},
   });
 };
@@ -795,6 +843,7 @@ const updateDirectoryState = (dirPath, port, patch = {}) => {
   writeState({
     ...state,
     version: 1,
+    server: serverStateFor(port),
     directories: {
       ...(state.directories ?? {}),
       [key]: {
@@ -1060,11 +1109,160 @@ const createViewerServer = (port) => createServer(async (req, res) => {
 });
 
 const serve = async (port) => {
-  registerServerState(port);
   const server = createViewerServer(port);
-  server.listen(port, "127.0.0.1", () => {
-    console.log(`[${APP_NAME}] listening on http://127.0.0.1:${port}`);
+  let shuttingDown = false;
+  await new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.removeListener("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.removeListener("error", onError);
+      try {
+        registerServerState(port);
+        console.log(`[${APP_NAME}] listening on http://127.0.0.1:${port}`);
+        resolve();
+      } catch (error) {
+        server.close(() => reject(error));
+      }
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, "127.0.0.1");
   });
+
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    server.close(() => {
+      clearServerState({ port, pid: process.pid, instanceId });
+      process.exit(0);
+    });
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+};
+
+const startupLockPath = (port) => path.join(EVIDENCE_ROOT, `.e2e-image-viewer-start-${port}.lock`);
+
+const acquireStartupLock = (port) => {
+  const lockPath = startupLockPath(port);
+  mkdirSync(path.dirname(lockPath), { recursive: true });
+  const lock = JSON.stringify({
+    pid: process.pid,
+    port,
+    startedAt: new Date().toISOString(),
+  });
+
+  try {
+    writeFileSync(lockPath, lock, { encoding: "utf8", flag: "wx" });
+    return { lockPath, owner: true };
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+
+  let ownerPid = null;
+  try {
+    ownerPid = JSON.parse(readFileSync(lockPath, "utf8")).pid;
+  } catch {
+  }
+  if (isProcessAlive(ownerPid)) {
+    return { lockPath, owner: false };
+  }
+
+  try {
+    unlinkSync(lockPath);
+  } catch {
+  }
+  writeFileSync(lockPath, lock, { encoding: "utf8", flag: "wx" });
+  return { lockPath, owner: true };
+};
+
+const releaseStartupLock = (lock) => {
+  if (!lock?.owner) return;
+  try {
+    unlinkSync(lock.lockPath);
+  } catch {
+  }
+};
+
+const ensureViewer = async (port) => {
+  const existing = await probeViewer(port);
+  if (existing) return { health: existing, alreadyRunning: true };
+
+  const lock = acquireStartupLock(port);
+  try {
+    if (!lock.owner) {
+      return { health: await waitForViewer(port), alreadyRunning: true };
+    }
+
+    const raced = await probeViewer(port);
+    if (raced) return { health: raced, alreadyRunning: true };
+    if (!(await canBindPort(port))) {
+      throw new Error(`端口 ${port} 在启动过程中被其它服务占用`);
+    }
+    startDetachedServer(port);
+    return { health: await waitForViewer(port), alreadyRunning: false };
+  } finally {
+    releaseStartupLock(lock);
+  }
+};
+
+const printStatus = async (port) => {
+  const health = await probeViewer(port);
+  if (!health) {
+    const state = readState();
+    if (state.server?.port === port && !isProcessAlive(state.server.pid)) {
+      clearServerState({ port, pid: state.server.pid, instanceId: state.server.instanceId });
+    }
+    console.log(`VIEWER_STATUS=DOWN`);
+    console.log(`VIEWER_PORT=${port}`);
+    return;
+  }
+  console.log(`VIEWER_STATUS=RUNNING`);
+  console.log(`VIEWER_PORT=${port}`);
+  console.log(`VIEWER_PID=${health.pid}`);
+  console.log(`VIEWER_INSTANCE_ID=${health.instanceId}`);
+  console.log(`VIEWER_STARTED_AT=${health.startedAt}`);
+};
+
+const stopViewer = async (port) => {
+  const health = await probeViewer(port);
+  if (!health) {
+    const state = readState();
+    if (state.server?.port === port && !isProcessAlive(state.server.pid)) {
+      clearServerState({ port, pid: state.server.pid, instanceId: state.server.instanceId });
+    }
+    console.log(`VIEWER_STOPPED=false`);
+    console.log(`VIEWER_PORT=${port}`);
+    return;
+  }
+
+  if (process.platform === "win32") {
+    const result = spawnSync("taskkill", ["/F", "/T", "/PID", String(health.pid)], {
+      encoding: "utf8",
+      stdio: "pipe",
+      windowsHide: true,
+    });
+    if (result.status !== 0) {
+      throw new Error(result.stderr?.trim() || result.stdout?.trim() || `停止查看器失败: ${result.status}`);
+    }
+  } else {
+    process.kill(health.pid, "SIGTERM");
+  }
+
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    if (!(await probeViewer(port))) {
+      clearServerState({ port, pid: health.pid, instanceId: health.instanceId });
+      console.log(`VIEWER_STOPPED=true`);
+      console.log(`VIEWER_PORT=${port}`);
+      console.log(`VIEWER_PID=${health.pid}`);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`查看器停止超时: ${port}`);
 };
 
 const launch = async (args) => {
@@ -1072,24 +1270,20 @@ const launch = async (args) => {
   const focus = resolveFocusFile(dirPath, args.focus);
   const files = resolveMediaSelection(dirPath, args.files);
   const key = directoryKey(dirPath);
-  const stateBefore = readState();
-  const selected = await choosePort(args.port);
-  let health = selected.health;
-  if (!selected.alreadyRunning) {
-    startDetachedServer(selected.port);
-    health = await waitForViewer(selected.port);
-  }
+  const selected = await ensureViewer(args.port);
+  const health = selected.health;
 
-  const url = buildStableViewerUrl(selected.port, dirPath);
-  const registration = await httpJson(selected.port, "/api/register", { method: "POST", body: { dir: dirPath, focus, files } });
+  const url = buildStableViewerUrl(args.port, dirPath);
+  const registration = await httpJson(args.port, "/api/register", { method: "POST", body: { dir: dirPath, focus, files } });
   const offlineViewerFile = registration.offlineViewerFile ?? path.join(dirPath, OFFLINE_VIEWER_FILE_NAME);
   const stableDirectoryKey = directoryId(dirPath);
   const mediaCount = collectMedia(dirPath, readMediaIndex(dirPath), files).length;
 
-  const previousEntry = stateBefore.directories?.[key];
+  const stateAfterRegistration = readState();
+  const previousEntry = stateAfterRegistration.directories?.[key];
   const alreadyOpen = Boolean(
     previousEntry?.lastBrowserOpenAt
-      && previousEntry.serverPort === selected.port
+      && previousEntry.serverPort === args.port
       && previousEntry.serverInstanceId === health?.instanceId
       && !args.reopen,
   );
@@ -1115,7 +1309,7 @@ const launch = async (args) => {
   }
 
   openBrowser(url);
-  await httpJson(selected.port, "/api/mark-open", { method: "POST", body: { dir: dirPath } });
+  await httpJson(args.port, "/api/mark-open", { method: "POST", body: { dir: dirPath } });
   console.log(`MEDIA_COUNT=${mediaCount}`);
   console.log(`VIEWER_URL=${url}`);
   console.log(`OFFLINE_VIEWER_FILE=${offlineViewerFile}`);
@@ -1130,7 +1324,11 @@ try {
     usage();
     process.exit(0);
   }
-  if (args.serve) {
+  if (args.status) {
+    await printStatus(args.port);
+  } else if (args.stop) {
+    await stopViewer(args.port);
+  } else if (args.serve) {
     await serve(args.port);
   } else {
     await launch(args);

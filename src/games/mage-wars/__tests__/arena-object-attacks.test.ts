@@ -1028,4 +1028,58 @@ describe('mage-wars arena object attacks', () => {
             armor: 2,
         });
     });
+
+    it('charges Pentagram once per distinct enemy creature, up to two per round', () => {
+        const baseState = setupState('creatureAction');
+        const pentagram = makeArenaObject('pentagram-0', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'conjuration',
+            sourceSpellCardId: 2209,
+            sourceObjectId: 'spell-card-2209',
+            name: '五星魔阵',
+            life: 12,
+            actionReady: false,
+            anchoredToZoneId: PLAYER_ZERO_START_ZONE,
+        });
+        const attacker1 = makeArenaObject('attacker-1', '0', PLAYER_ZERO_START_ZONE);
+        const attacker2 = makeArenaObject('attacker-2', '0', PLAYER_ZERO_START_ZONE);
+        const attacker3 = makeArenaObject('attacker-3', '0', PLAYER_ZERO_START_ZONE);
+        const attacker4 = makeArenaObject('attacker-4', '0', PLAYER_ZERO_START_ZONE);
+        const target1 = makeArenaObject('target-1', '1', PLAYER_ZERO_START_ZONE, { life: 30 });
+        const target2 = makeArenaObject('target-2', '1', PLAYER_ZERO_START_ZONE, { life: 30 });
+        const target3 = makeArenaObject('target-3', '1', PLAYER_ZERO_START_ZONE, { life: 30 });
+        const core = [pentagram, attacker1, attacker2, attacker3, attacker4, target1, target2, target3]
+            .reduce((nextCore, object) => withArenaObject(nextCore, object), baseState.core);
+
+        const first = runCommand({ core, sys: baseState.sys }, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: { attackerObjectId: attacker1.id, attackProfileId: 'attack-0', targetObjectId: target1.id },
+        });
+        const secondSameTarget = runCommand(first.state, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: { attackerObjectId: attacker2.id, attackProfileId: 'attack-0', targetObjectId: target1.id },
+        });
+        const thirdDifferentTarget = runCommand(secondSameTarget.state, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: { attackerObjectId: attacker3.id, attackProfileId: 'attack-0', targetObjectId: target2.id },
+        });
+        const fourthBeyondLimit = runCommand(thirdDifferentTarget.state, {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: { attackerObjectId: attacker4.id, attackProfileId: 'attack-0', targetObjectId: target3.id },
+        });
+
+        expect(first.success).toBe(true);
+        expect(first.events.filter((event) => event.type === MAGE_WARS_EVENTS.AREA_CONJURATION_MANA_GAINED)).toHaveLength(1);
+        expect(secondSameTarget.success).toBe(true);
+        expect(secondSameTarget.events.filter((event) => event.type === MAGE_WARS_EVENTS.AREA_CONJURATION_MANA_GAINED)).toHaveLength(0);
+        expect(thirdDifferentTarget.events.filter((event) => event.type === MAGE_WARS_EVENTS.AREA_CONJURATION_MANA_GAINED)).toHaveLength(1);
+        expect(fourthBeyondLimit.events.filter((event) => event.type === MAGE_WARS_EVENTS.AREA_CONJURATION_MANA_GAINED)).toHaveLength(0);
+        expect(fourthBeyondLimit.state.core.objects[pentagram.id]).toMatchObject({
+            mana: 2,
+            pentagramTargetObjectIdsThisRound: [target1.id, target2.id],
+        });
+    });
 });

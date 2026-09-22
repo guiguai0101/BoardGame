@@ -15,13 +15,18 @@ const basicOpeningStepValidator = (state: MatchState<unknown>, step: { id: strin
                 && core.handLimitDiscardSelection == null
                 && core.wheelActionUsed === false;
         case 'wheel-result':
+            return core.wheelActionUsed === true;
+        case 'wheel-branch-finish':
             return core.turnPhase === 'action-window'
                 && core.wheelActionUsed === true
-                && core.lastSeasonSummary?.title === '轮盘征兵/训练';
+                && core.factionActionUsed === false
+                && core.lastSeasonSummary != null
+                && core.lastSeasonSummary.title !== '轮盘征兵/训练';
         case 'pick-action':
             return core.turnPhase === 'action-window'
                 && core.wheelActionUsed === true
-                && core.factionActionUsed === false;
+                && core.factionActionUsed === false
+                && core.lastSeasonSummary?.title === '轮盘征兵/训练';
         case 'choose-grant-pardon-target':
             return core.turnPhase === 'grant-pardon-choice'
                 && core.selectedActionId === 'grant-pardon'
@@ -387,9 +392,12 @@ const QIDAHEN_BASIC_TUTORIAL: TutorialManifest = {
         {
             id: 'welcome',
             content: 'game-qidahen:tutorial.basic.steps.welcome',
-            position: 'center',
+            // 首步只是说明胜利条件；借轮盘定位卡片，但不把它做成聚焦特写。
+            highlightTarget: 'qidahen-action-wheel',
+            position: 'right',
             requireAction: false,
-            showMask: true,
+            showMask: false,
+            highlightFrame: 'none',
         },
         {
             id: 'wheel-first',
@@ -401,19 +409,25 @@ const QIDAHEN_BASIC_TUTORIAL: TutorialManifest = {
         {
             id: 'wheel-move',
             content: 'game-qidahen:tutorial.basic.steps.wheelMove',
-            highlightTarget: 'qidahen-wheel-move-move-1-free',
+            highlightTarget: 'qidahen-action-wheel',
             position: 'right',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
-            advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
+            advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED' }],
         },
         {
             id: 'wheel-result',
             content: 'game-qidahen:tutorial.basic.steps.wheelResult',
-            highlightTarget: 'qidahen-season-summary',
+            highlightTarget: 'qidahen-action-wheel',
             position: 'right',
+        },
+        {
+            id: 'wheel-branch-finish',
+            content: 'game-qidahen:tutorial.basic.steps.wheelBranchFinish',
+            highlightTarget: 'qidahen-season-summary',
+            position: 'center',
             infoStep: true,
+            showMask: true,
         },
         {
             id: 'pick-action',
@@ -422,7 +436,6 @@ const QIDAHEN_BASIC_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION],
-            allowedTargets: ['grant-pardon'],
             advanceOnEvents: [{ type: 'PREVIEW_ACTION_CONFIRMED', match: { actionId: 'grant-pardon' } }],
         },
         {
@@ -441,7 +454,6 @@ const QIDAHEN_BASIC_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [INTERACTION_COMMANDS.RESPOND, QIDAHEN_COMMANDS.RESOLVE_GRANT_PARDON_CHOICE],
-            allowedTargets: ['jinzhou->city-region-25'],
             advanceOnEvents: [{ type: 'GRANT_PARDON_CHOICE_RESOLVED', match: { choiceId: 'jinzhou->city-region-25' } }],
         },
         {
@@ -479,7 +491,6 @@ const QIDAHEN_ATTACK_AND_BATTLE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION],
-            allowedTargets: ['raid'],
             advanceOnEvents: [{ type: 'PREVIEW_ACTION_CONFIRMED', match: { actionId: 'raid' } }],
         },
         {
@@ -564,7 +575,6 @@ const QIDAHEN_SIEGE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.RESOLVE_PENDING_ACTION],
-            allowedTargets: ['defender-hold-city'],
             advanceOnEvents: [{ type: 'PENDING_ACTION_RESOLVED', match: { defenderHoldCity: true } }],
         },
         {
@@ -812,7 +822,6 @@ const QIDAHEN_WHEEL_SHARED_COST_TUTORIAL: TutorialManifest = {
             position: 'right',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-3-all-opponents'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-3-all-opponents' } }],
         },
         {
@@ -857,7 +866,6 @@ const QIDAHEN_WHEEL_RECLAIM_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
         },
         {
@@ -895,7 +903,6 @@ const QIDAHEN_WHEEL_MILITARY_FARM_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
         },
         {
@@ -933,7 +940,6 @@ const QIDAHEN_WHEEL_RECRUIT_TRAIN_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
         },
         {
@@ -971,7 +977,6 @@ const QIDAHEN_ARMAMENT_UPGRADE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION],
-            allowedTargets: ['qidahen-atlas05-1626-artillery-tech'],
             advanceOnEvents: [{ type: 'PREVIEW_ACTION_CONFIRMED', match: { actionId: 'upgrade-armament' } }],
         },
         {
@@ -1020,7 +1025,6 @@ const QIDAHEN_EVENT_ACTION_TUTORIAL: TutorialManifest = {
             requireAction: true,
             viewAs: '1',
             allowedCommands: [QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION],
-            allowedTargets: ['khan-edict'],
             advanceOnEvents: [{ type: 'PREVIEW_ACTION_CONFIRMED', match: { actionId: 'khan-edict' } }],
         },
         {
@@ -1041,7 +1045,6 @@ const QIDAHEN_EVENT_ACTION_TUTORIAL: TutorialManifest = {
             requireAction: true,
             viewAs: '1',
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_REGION, INTERACTION_COMMANDS.RESPOND],
-            allowedTargets: ['city-region-25', 'recruit-train'],
         },
         {
             id: 'result',
@@ -1080,7 +1083,6 @@ const QIDAHEN_DIPLOMACY_HIRE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
         },
         {
@@ -1097,7 +1099,6 @@ const QIDAHEN_DIPLOMACY_HIRE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_REGION, INTERACTION_COMMANDS.RESPOND],
-            allowedTargets: ['city-region-24', 'place-friendly'],
             advanceOnEvents: [{ type: 'SYS_INTERACTION_RESOLVED', match: { optionId: 'place-friendly' } }],
         },
         {
@@ -1107,7 +1108,6 @@ const QIDAHEN_DIPLOMACY_HIRE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [INTERACTION_COMMANDS.RESPOND],
-            allowedTargets: ['flip-vassal'],
             advanceOnEvents: [{ type: 'SYS_INTERACTION_RESOLVED', match: { optionId: 'flip-vassal' } }],
         },
         {
@@ -1117,7 +1117,6 @@ const QIDAHEN_DIPLOMACY_HIRE_TUTORIAL: TutorialManifest = {
             position: 'left',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_REGION, INTERACTION_COMMANDS.RESPOND],
-            allowedTargets: ['city-region-22', 'remove-marker'],
             advanceOnEvents: [{ type: 'SYS_INTERACTION_RESOLVED', match: { optionId: 'remove-marker' } }],
         },
         {
@@ -1128,7 +1127,6 @@ const QIDAHEN_DIPLOMACY_HIRE_TUTORIAL: TutorialManifest = {
             requireAction: true,
             allowManualSkip: true,
             allowedCommands: [INTERACTION_COMMANDS.RESPOND],
-            allowedTargets: ['hire-only'],
         },
         {
             id: 'finish',
@@ -1159,7 +1157,6 @@ const QIDAHEN_YEAR_AND_CHARACTERS_TUTORIAL: TutorialManifest = {
             viewAs: '1',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-2-one-opponent'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-2-one-opponent' } }],
         },
         {
@@ -1186,7 +1183,6 @@ const QIDAHEN_YEAR_AND_CHARACTERS_TUTORIAL: TutorialManifest = {
             viewAs: '2',
             requireAction: true,
             allowedCommands: [QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE],
-            allowedTargets: ['move-1-free'],
             advanceOnEvents: [{ type: 'WHEEL_MOVE_EXECUTED', match: { moveId: 'move-1-free' } }],
         },
         {
@@ -1206,7 +1202,6 @@ const QIDAHEN_YEAR_AND_CHARACTERS_TUTORIAL: TutorialManifest = {
             requireAction: true,
             allowManualSkip: true,
             allowedCommands: [INTERACTION_COMMANDS.RESPOND, QIDAHEN_COMMANDS.RESOLVE_FORTIFICATION_MAINTENANCE],
-            allowedTargets: ['auto-pay'],
         },
         {
             id: 'new-year-attrition',
@@ -1283,7 +1278,6 @@ const QIDAHEN_KOREA_SPECIAL_TUTORIAL: TutorialManifest = {
             requireAction: true,
             allowManualSkip: true,
             allowedCommands: [INTERACTION_COMMANDS.RESPOND, QIDAHEN_COMMANDS.RESOLVE_FORTIFICATION_MAINTENANCE],
-            allowedTargets: ['auto-pay'],
         },
         {
             id: 'korea-attrition',

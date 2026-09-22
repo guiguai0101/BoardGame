@@ -12,6 +12,7 @@ import {
 } from '../data/factions/international_incident';
 import { SMASHUP_ATLAS_DEFINITIONS } from '../domain/atlasCatalog';
 import { SMASHUP_ATLAS_IDS, SMASHUP_FACTION_IDS } from '../domain/ids';
+import { getSmashUpSelectableFactionIds } from '../domain/pregameDraft';
 import { expectManifestAssetHash } from './helpers/assetManifestTestUtils';
 
 const CARD_PNG = 'public/assets/i18n/zh-CN/smashup/cards/international_incident.png';
@@ -109,6 +110,17 @@ describe('国际事件四派系资源与静态合同', () => {
         expect(new Set(allSlots).size).toBe(51);
         expect(Math.max(...allSlots)).toBe(50);
         expect(allSlots).not.toEqual(expect.arrayContaining([51, 52, 53, 54, 55]));
+    });
+
+    it('实施中的四个国际事件派系仍进入真实派系选择池', () => {
+        const selectableFactionIds = getSmashUpSelectableFactionIds(['titans', 'diy']);
+
+        expect(selectableFactionIds).toEqual(expect.arrayContaining([
+            SMASHUP_FACTION_IDS.SUMO_WRESTLERS,
+            SMASHUP_FACTION_IDS.MUSKETEERS,
+            SMASHUP_FACTION_IDS.MOUNTIES,
+            SMASHUP_FACTION_IDS.LUCHADORS,
+        ]));
     });
 
     it('火枪手静态名称与中文本地化名称保持一致', () => {

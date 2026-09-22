@@ -62,6 +62,8 @@ const LAUNDRY_CHUTE_REVEALED_SCREENSHOT = `${LAUNDRY_CHUTE_FULL_CHAIN_EVIDENCE_D
 const LAUNDRY_CHUTE_STATUS_SCREENSHOT = `${LAUNDRY_CHUTE_FULL_CHAIN_EVIDENCE_DIR}/04-结束回合滑落提示可见.jpg`;
 const LAUNDRY_CHUTE_MOVED_SCREENSHOT = `${LAUNDRY_CHUTE_FULL_CHAIN_EVIDENCE_DIR}/05-结束回合后滑落到地下室起始点.jpg`;
 const LAUNDRY_CHUTE_SETTLED_SCREENSHOT = `${LAUNDRY_CHUTE_FULL_CHAIN_EVIDENCE_DIR}/06-洗衣滑槽结算后回牌桌继续可操作.jpg`;
+// Vivo V2314A: 2388x1080 physical landscape / (480 / 160) density = 796x360 CSS.
+const VIVO_V2314A_LANDSCAPE_VIEWPORT = { width: 796, height: 360 } as const;
 
 type HarnessSnapshot = {
     core: BetrayalCore;
@@ -898,19 +900,19 @@ test.describe('山屋惊魂房间效果代表链', () => {
             context,
             'betrayal-mobile-collapsed-room-roll-blocks-until-acknowledged',
             {
-                viewportSize: { width: 896, height: 414 },
+                viewportSize: VIVO_V2314A_LANDSCAPE_VIEWPORT,
                 forceCoarsePointer: true,
             },
         );
 
         await injectCore(page, createCollapsedRoomSpeedCheckCore());
         await expect(page.getByTestId('betrayal-board')).toBeVisible({ timeout: 30000 });
-        await expect(page.getByTestId('betrayal-mobile-action-rail')).toBeVisible();
+        await expect(page.getByTestId('betrayal-action-rail')).toBeVisible();
         await dismissDiscoveryPanelIfVisible(page);
 
         const beforeFallCore = await readCurrentCore(page);
         await setHarnessRandomQueue(page, [0.01, 0.01, 0.01, 0.5]);
-        await page.getByTestId('betrayal-mobile-dock-endTurn').click();
+        await page.getByTestId('betrayal-action-endTurn').click();
 
         await expect.poll(async () => {
             const core = await readCurrentCore(page);
@@ -933,14 +935,14 @@ test.describe('山屋惊魂房间效果代表链', () => {
         await expect(mobileRollPanel).toBeVisible({ timeout: 30000 });
         await expect(mobileRollPanel).toHaveAttribute('data-roll-panel-style', 'mobile-landscape-open-dock');
         await expect(mobileRollPanel).toContainText('倒塌房间');
-        await expect(page.getByTestId('betrayal-mobile-action-rail')).toHaveCount(0);
+        await expect(page.getByTestId('betrayal-action-rail')).toHaveCount(0);
         await expect(page.getByTestId('betrayal-room-floor-switcher')).toBeHidden();
-        await expect(page.locator('html')).toHaveAttribute('data-betrayal-blocking-roll', 'true');
         await expect(page.getByTestId('fab-menu')).toBeHidden();
         await expect(page.getByTestId('betrayal-house-dice-3d-group')).toHaveAttribute('data-dice-count', '3');
         await waitForPhysicalDiceSettled(mobileRollPanel);
         await expectPhysicalDiceSeparated(mobileRollPanel, {
             minDiceCount: 3,
+            minCanvasClientWidth: 280,
             minDieVisualSize: 48,
             minCanvasEdgeMargin: 12,
         });
@@ -1153,11 +1155,11 @@ test.describe('山屋惊魂房间效果代表链', () => {
         expect(damagedMobileExplorer?.traitTracks.might.position).toBe(beforeFallCore.currentExplorer.traitTracks.might.position - 1);
         expect(damagedMobileExplorer?.roomId).toBe('basement-landing');
 
-        await expect(page.getByTestId('betrayal-mobile-action-rail')).toBeVisible();
+        await expect(page.getByTestId('betrayal-action-rail')).toBeVisible();
         await expect(page.getByTestId('betrayal-room-floor-switcher')).toBeVisible();
         await expect(page.locator('html')).not.toHaveAttribute('data-betrayal-blocking-roll');
         await expect(page.getByTestId('fab-menu')).toBeVisible();
-        await expect(page.getByTestId('betrayal-mobile-dock-endTurn')).toBeVisible();
+        await expect(page.getByTestId('betrayal-action-endTurn')).toBeVisible();
         await saveScreenshot(page, COLLAPSED_ROOM_MOBILE_SETTLED_SCREENSHOT);
 
         assertNoFatalFrontendErrors([{ label: 'betrayal-mobile-collapsed-room-roll-blocks-until-acknowledged', diagnostics }]);

@@ -263,9 +263,9 @@ import {
   resolveNextPreviewStateAfterCoreChange,
   type PreviewState,
 } from "./previewStateModel";
-import { BetrayalMobileActionRailSurface } from "./mobileActionRailSurface";
 import { BetrayalLatestDiscoverySurface } from "./latestDiscoverySurface";
 import { buildBetrayalTutorialRuntimeSyncKey } from "./tutorialRuntimeSyncKey";
+import { resolveBetrayalLayoutMode } from "./layoutMode";
 
 type Props = GameBoardProps<BetrayalCore, BetrayalCommandMap>;
 
@@ -546,10 +546,13 @@ export default function BetrayalBoard({
     selectedRoomMapFloor,
     visualTransition,
   ]);
-  const isPhoneLandscapeLayout =
-    runtimeViewport.width > 0 &&
-    runtimeViewport.width <= 1023 &&
-    runtimeViewport.width > runtimeViewport.height;
+  const betrayalLayoutMode = resolveBetrayalLayoutMode({
+    viewportWidth: runtimeViewport.width,
+    viewportHeight: runtimeViewport.height,
+    mobileLayoutPreset: BETRAYAL_MANIFEST.mobileLayoutPreset,
+  });
+  const isPhoneLandscapeViewport = betrayalLayoutMode !== "desktop";
+  const isBoardShellMobileViewport = betrayalLayoutMode === "board-shell";
   const isExorciseRollReview =
     displayBaseCore.recentRoll?.kind === "hauntActionTraitCheck" &&
     (displayBaseCore.recentRoll.sourceTitle === "驱魔" ||
@@ -810,10 +813,13 @@ export default function BetrayalBoard({
     if (typeof document === "undefined") {
       return undefined;
     }
-    if (!(
-      (scenarioReaderOpen && isReferenceScenarioOpeningStage) ||
-      shouldShowScenarioStartOpening
-    )) {
+    if (
+      !(
+        shouldShowScenarioStartOpening ||
+        (scenarioReaderOpen &&
+          (isReferenceScenarioOpeningStage || isPhoneLandscapeViewport))
+      )
+    ) {
       return undefined;
     }
     const root = document.documentElement;
@@ -824,6 +830,7 @@ export default function BetrayalBoard({
     };
   }, [
     isReferenceScenarioOpeningStage,
+    isPhoneLandscapeViewport,
     scenarioReaderOpen,
     shouldShowScenarioStartOpening,
   ]);
@@ -1321,12 +1328,8 @@ export default function BetrayalBoard({
     [core.rooms, selectedRoomMapFloor],
   );
   const roomCanvasLayout = React.useMemo(
-    () =>
-      resolveRoomCanvasLayout(
-        visibleMapRooms,
-        isPhoneLandscapeLayout ? core.currentExplorer.roomId : null,
-      ),
-    [core.currentExplorer.roomId, isPhoneLandscapeLayout, visibleMapRooms],
+    () => resolveRoomCanvasLayout(visibleMapRooms, null),
+    [visibleMapRooms],
   );
   const roomCanvasStyle = roomCanvasLayout.style;
   const roomCanvasWidth =
@@ -1350,9 +1353,9 @@ export default function BetrayalBoard({
   const roomCanvasTransformStyle = React.useMemo(
     () => ({
       ...roomCanvasStyle,
-      transformOrigin: isPhoneLandscapeLayout ? "center top" : "center center",
+      transformOrigin: "center center",
     }),
-    [isPhoneLandscapeLayout, roomCanvasStyle],
+    [roomCanvasStyle],
   );
 
   const phaseItems = React.useMemo(
@@ -1429,6 +1432,27 @@ export default function BetrayalBoard({
     selectedInventoryHealPreviewTraits,
     previewInventoryCard,
   } = inventoryDisplayReadModel;
+  const visibleInventoryCardsDuringTransition = React.useMemo(() => {
+    const possessionTransition =
+      visualTransition?.kind === "possession-gain" &&
+      visualTransition.possessionCard &&
+      visualTransition.possessionOwnerPlayerId
+        ? visualTransition
+        : null;
+    if (
+      !possessionTransition ||
+      inventoryDisplayExplorer.playerId !== possessionTransition.possessionOwnerPlayerId
+    ) {
+      return visibleInventoryCards;
+    }
+    return visibleInventoryCards.filter(
+      (card) => card.id !== possessionTransition.possessionCard?.id,
+    );
+  }, [
+    inventoryDisplayExplorer.playerId,
+    visibleInventoryCards,
+    visualTransition,
+  ]);
   const {
     latestLogEntry,
     visibleBoardResultFeedback,
@@ -3284,15 +3308,9 @@ export default function BetrayalBoard({
     !shouldShowHauntRevealCue &&
     !shouldShowLatestDiscovery,
   );
-  const shouldUseMobileEventOpenTableChrome =
-    isPhoneLandscapeLayout &&
-    !activeHauntTargetGuide &&
-    Boolean(
-      pendingEventChoice ||
-      (shouldShowLatestDiscovery &&
-        !shouldAutoReturnAfterLatestDiscovery &&
-        latestDiscovery?.kind === "event"),
-    );
+  // Betrayal uses one PC-isomorphic board-shell composition on landscape mobile.
+  // The removed native mobile map/action chrome must stay unreachable.
+  const shouldUseMobileEventOpenTableChrome = false;
   // 只用于非事件发现结果 / 独立投骰结果这类需要整桌退场的阻塞层。
   // 事件选择与事件结算必须保持 PC 同构的开放桌面叠层，不得把行动栏、HUD 等整套牌桌 UI 藏掉。
   const shouldHideTableChromeForBlockingOverlay = Boolean(
@@ -3307,24 +3325,6 @@ export default function BetrayalBoard({
       !pendingEventChoice) ||
       shouldShowBlockingRecentRollOverlay),
   );
-  const shouldSuppressMobileBlockingRollChrome =
-    isPhoneLandscapeLayout && shouldShowBlockingRecentRollOverlay;
-  const shouldShowMobileEventStatusRail = shouldUseMobileEventOpenTableChrome;
-  React.useEffect(() => {
-    if (typeof document === "undefined") {
-      return undefined;
-    }
-    const root = document.documentElement;
-    const attrName = "data-betrayal-blocking-roll";
-    if (shouldSuppressMobileBlockingRollChrome) {
-      root.setAttribute(attrName, "true");
-    } else {
-      root.removeAttribute(attrName);
-    }
-    return () => {
-      root.removeAttribute(attrName);
-    };
-  }, [shouldSuppressMobileBlockingRollChrome]);
   const latestDiscoveryTitle = latestDiscovery?.title;
   const latestDiscoveryOwnerInventory = React.useMemo(() => {
     if (!latestDiscoveryOwnerPlayerId) {
@@ -3360,9 +3360,15 @@ export default function BetrayalBoard({
     viewerPlayerId,
   ]);
   const pendingDiscoveryGainVisualRef = React.useRef<{
+    resolutionId: string;
+    ownerPlayerId: string;
     card: BetrayalInventoryCard;
     visual: BetrayalPossessionAtlasVisual;
+    sourceRect: BetrayalVisualTransition["sourceRect"];
   } | null>(null);
+  const lastAnimatedPendingDiscoveryResolutionIdRef = React.useRef<string | null>(
+    null,
+  );
   const latestDiscoveryPendingResolutionSeenRef = React.useRef<{
     sourceKey: string;
     resolutionId: string;
@@ -3372,22 +3378,19 @@ export default function BetrayalBoard({
     rollId: string;
   } | null>(null);
   const startPendingDiscoveryGainVisual = React.useCallback(
-    (onComplete?: () => void) => {
-      const pendingGain = pendingDiscoveryGainVisualRef.current;
-      if (!pendingGain) {
-        return false;
-      }
-      const sourceRect = readBetrayalViewportRect(
-        findBetrayalTestElement("betrayal-discovery-card-front-atlas"),
+    (
+      pendingGain: {
+        resolutionId: string;
+        ownerPlayerId: string;
+        card: BetrayalInventoryCard;
+        visual: BetrayalPossessionAtlasVisual;
+        sourceRect: BetrayalVisualTransition["sourceRect"];
+      },
+      onComplete?: () => void,
+    ) => {
+      const ownerExplorer = allExplorers.find(
+        (explorer) => explorer.playerId === pendingGain.ownerPlayerId,
       );
-      if (!sourceRect) {
-        return false;
-      }
-      const ownerExplorer = latestDiscoveryOwnerPlayerId
-        ? allExplorers.find(
-            (explorer) => explorer.playerId === latestDiscoveryOwnerPlayerId,
-          )
-        : null;
       const ownerRoom = ownerExplorer
         ? core.rooms.find((room) => room.id === ownerExplorer.roomId)
         : null;
@@ -3398,21 +3401,13 @@ export default function BetrayalBoard({
       }
       return beginBetrayalVisualTransition({
         kind: "possession-gain",
-        sourceRect,
+        sourceRect: pendingGain.sourceRect,
         targetRect: null,
-        targetTestId: latestDiscoveryOwnerPlayerId
-          ? `betrayal-explorer-figure-token-${latestDiscoveryOwnerPlayerId}`
-          : "betrayal-explorer-figure-token-unknown",
-        fallbackRoomTestId: latestDiscoveryOwnerPlayerId
-          ? `betrayal-room-${
-              allExplorers.find(
-                (explorer) =>
-                  explorer.playerId === latestDiscoveryOwnerPlayerId,
-              )?.roomId ?? "unknown"
-            }`
-          : undefined,
+        targetTestId: `betrayal-explorer-figure-token-${pendingGain.ownerPlayerId}`,
+        fallbackRoomTestId: `betrayal-room-${ownerExplorer?.roomId ?? "unknown"}`,
         possessionCard: pendingGain.card,
         possessionVisual: pendingGain.visual,
+        possessionOwnerPlayerId: pendingGain.ownerPlayerId,
         locale: effectiveLocale,
         missingTokenLabel: t("board.hauntTokens.officialTokenMissing"),
         onComplete,
@@ -3423,7 +3418,6 @@ export default function BetrayalBoard({
       beginBetrayalVisualTransition,
       core.rooms,
       effectiveLocale,
-      latestDiscoveryOwnerPlayerId,
       t,
     ],
   );
@@ -3513,14 +3507,6 @@ export default function BetrayalBoard({
         dispatch(BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION, {
           resolutionId: latestDiscoveryPendingCardResolution.id,
         });
-      const completesCardResolution =
-        latestDiscoveryCardResolutionConfirmedCount + 1 >=
-        latestDiscoveryCardResolutionTotalCount;
-      if (!completesCardResolution) {
-        acknowledge();
-        return;
-      }
-      startPendingDiscoveryGainVisual();
       acknowledge();
       return;
     }
@@ -3535,10 +3521,7 @@ export default function BetrayalBoard({
     isVisualBusy,
     canAdvanceLatestDiscoverySearch,
     canCurrentViewerAcknowledgeCardResolution,
-    startPendingDiscoveryGainVisual,
     latestDiscoveryPendingCardResolution,
-    latestDiscoveryCardResolutionConfirmedCount,
-    latestDiscoveryCardResolutionTotalCount,
     latestDiscoverySearchSequence.length,
   ]);
   React.useEffect(() => {
@@ -3800,18 +3783,48 @@ export default function BetrayalBoard({
         : null,
     [latestDiscoveryPendingPossessionCard],
   );
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
+    const currentResolution = latestDiscoveryPendingCardResolution;
+    const previousGain = pendingDiscoveryGainVisualRef.current;
+    const currentResolutionId = currentResolution?.id ?? null;
+    if (
+      previousGain &&
+      previousGain.resolutionId !== currentResolutionId &&
+      previousGain.resolutionId !==
+        lastAnimatedPendingDiscoveryResolutionIdRef.current
+    ) {
+      const started = startPendingDiscoveryGainVisual(previousGain);
+      if (started) {
+        lastAnimatedPendingDiscoveryResolutionIdRef.current =
+          previousGain.resolutionId;
+      }
+    }
+
     pendingDiscoveryGainVisualRef.current =
+      currentResolution &&
       latestDiscoveryPendingPossessionCard &&
       latestDiscoveryPendingPossessionVisual
-        ? {
-            card: latestDiscoveryPendingPossessionCard,
-            visual: latestDiscoveryPendingPossessionVisual,
-          }
+        ? (() => {
+            const sourceRect = readBetrayalViewportRect(
+              findBetrayalTestElement("betrayal-discovery-card-front-atlas"),
+            );
+            return sourceRect
+              ? {
+                  resolutionId: currentResolution.id,
+                  ownerPlayerId: latestDiscoveryOwnerPlayerId,
+                  card: latestDiscoveryPendingPossessionCard,
+                  visual: latestDiscoveryPendingPossessionVisual,
+                  sourceRect,
+                }
+              : null;
+          })()
         : null;
   }, [
+    latestDiscoveryOwnerPlayerId,
+    latestDiscoveryPendingCardResolution,
     latestDiscoveryPendingPossessionCard,
     latestDiscoveryPendingPossessionVisual,
+    startPendingDiscoveryGainVisual,
   ]);
   const latestDiscoveryPanelVisual =
     latestDiscoveryPendingPossessionVisual ?? latestDiscoveryVisual;
@@ -5752,7 +5765,7 @@ export default function BetrayalBoard({
             core={baseCore}
             matchData={matchData}
             effectiveLocale={effectiveLocale}
-            isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+            isPhoneLandscapeLayout={false}
             viewerPlayerId={viewerPlayerId}
             selectedExplorerId={selectedExplorerId}
             onSelectExplorer={handleSelectExplorer}
@@ -5786,16 +5799,9 @@ export default function BetrayalBoard({
             "radial-gradient(circle at top, rgba(146, 116, 58, 0.18), transparent 30%)",
             "linear-gradient(180deg, rgba(11, 22, 18, 0.98) 0%, rgba(8, 15, 13, 1) 100%)",
           ].join(","),
-          ...(isPhoneLandscapeLayout
-            ? {
-                height: "100dvh",
-                minHeight: "100dvh",
-                maxHeight: "100dvh",
-              }
-            : {}),
         }}
       >
-        {!isHauntTargetingMode && !isPhoneLandscapeLayout ? (
+        {!isHauntTargetingMode ? (
           <BetrayalDebugPanel G={G} dispatch={dispatch} playerID={playerID} />
         ) : null}
         {shouldShowScenarioStartOpening && scenarioStartOpeningSection ? (
@@ -5803,7 +5809,7 @@ export default function BetrayalBoard({
             label={t(scenarioStartOpeningSection.labelKey)}
             text={t(scenarioStartOpeningSection.bodyKey)}
             continueLabel={t("board.scenario.readerContinue")}
-            compact={isPhoneLandscapeLayout}
+            compact={false}
             onContinue={dismissScenarioStartOpening}
           />
         ) : null}
@@ -5835,34 +5841,22 @@ export default function BetrayalBoard({
           />
         ) : null}
         <div
-          className={`relative h-full min-h-full w-full overflow-hidden ${
-            isPhoneLandscapeLayout ? "p-0" : "px-3 py-3 md:px-4 md:py-4"
-          }`}
-          data-testid={
-            isPhoneLandscapeLayout
-              ? "betrayal-mobile-landscape-layout"
-              : "betrayal-desktop-layout"
-          }
-          data-layout-mode={
-            isPhoneLandscapeLayout ? "phone-landscape-native" : "desktop-board"
-          }
+          className="relative h-full min-h-full w-full overflow-hidden px-3 py-3 md:px-4 md:py-4"
+          data-testid="betrayal-desktop-layout"
+          data-layout-mode="desktop-board"
         >
-          <header className="pointer-events-none absolute inset-x-4 top-3 z-30 hidden lg:block">
+          <header className="pointer-events-none absolute inset-x-4 top-3 z-30 block">
             <div
               className="relative min-h-[58px]"
               data-testid="betrayal-runtime-header-grid"
             >
               <span className="sr-only">{phaseLabel}</span>
-              {!isPhoneLandscapeLayout &&
-              !shouldHideTableChromeForBlockingOverlay ? (
-                <HudPortal>
+              {!shouldHideTableChromeForBlockingOverlay ? (
+                isBoardShellMobileViewport ? (
                   <div
                     data-testid="betrayal-phase-chip"
-                    className="fixed left-1/2 top-3 flex min-w-[210px] flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
-                    style={{
-                      zIndex: UI_Z_INDEX.hud,
-                      transform: "translateX(-50%)",
-                    }}
+                    data-mobile-role="pc-isomorphic-phase-chip"
+                    className="absolute left-1/2 top-0 flex min-w-[210px] -translate-x-1/2 flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
                   >
                     <span className="text-[11px] uppercase tracking-[0.28em] text-[#b99b5f]">
                       {t("board.hud.phaseLabel")}
@@ -5871,7 +5865,25 @@ export default function BetrayalBoard({
                       {phaseLabel}
                     </span>
                   </div>
-                </HudPortal>
+                ) : (
+                  <HudPortal>
+                    <div
+                      data-testid="betrayal-phase-chip"
+                      className="fixed left-1/2 top-3 flex min-w-[210px] flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
+                      style={{
+                        zIndex: UI_Z_INDEX.hud,
+                        transform: "translateX(-50%)",
+                      }}
+                    >
+                      <span className="text-[11px] uppercase tracking-[0.28em] text-[#b99b5f]">
+                        {t("board.hud.phaseLabel")}
+                      </span>
+                      <span className="mt-0.5 text-[21px] font-semibold uppercase tracking-[0.2em] text-[#f0d29a]">
+                        {phaseLabel}
+                      </span>
+                    </div>
+                  </HudPortal>
+                )
               ) : null}
               <div
                 className="absolute right-[244px] top-0 flex items-center justify-end gap-3 rounded-[8px] border border-[rgba(114,91,52,0.28)] bg-[rgba(8,13,11,0.58)] px-3 py-1.5 shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-md"
@@ -5946,20 +5958,14 @@ export default function BetrayalBoard({
                 revealProtocol={hauntRevealProtocol}
                 scenarioRuntime={core.scenarioRuntime}
                 readerScope={scenarioReaderScope}
-                isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                isPhoneLandscapeLayout={false}
                 onDismiss={handleDismissHauntRevealCue}
               />
             ) : null}
 
             <BetrayalTopPromptStackSurface
               variant="mobile"
-              enabled={
-                isPhoneLandscapeLayout &&
-                !shouldHideTableChromeForBlockingOverlay &&
-                !pendingEventFocusesMapTarget &&
-                !shouldUseMobileEventOpenTableChrome &&
-                shouldShowTopPromptStack
-              }
+              enabled={false}
               dustProgressItems={visibleDustProgressItems}
               showDustProgress={shouldShowDustProgressPrompt}
               dustProgressDimmed={Boolean(activeHauntTargetGuide)}
@@ -6007,22 +6013,9 @@ export default function BetrayalBoard({
             />
 
             <section
-              data-testid={
-                shouldShowMobileEventStatusRail
-                  ? "betrayal-mobile-event-status-hud"
-                  : "betrayal-left-status-rail"
-              }
-              data-mobile-role={
-                shouldShowMobileEventStatusRail
-                  ? "pc-isomorphic-explorer-rail"
-                  : undefined
-              }
-              className={`pointer-events-none absolute z-40 max-h-[calc(100vh-1.5rem)] w-[286px] min-h-0 content-start gap-2 overflow-visible ${
-                shouldShowMobileEventStatusRail
-                  ? "left-2 top-2 grid origin-top-left scale-[0.60]"
-                  : isPhoneLandscapeLayout
-                    ? "hidden"
-                    : `left-3 top-3 grid ${activeHauntTargetGuide ? "opacity-[0.72]" : ""}`
+              data-testid="betrayal-left-status-rail"
+              className={`pointer-events-none absolute left-3 top-3 z-40 grid max-h-[calc(100vh-1.5rem)] w-[286px] min-h-0 content-start gap-2 overflow-visible ${
+                activeHauntTargetGuide ? "opacity-[0.72]" : ""
               }`}
             >
               <BetrayalObservedExplorerPanelSurface
@@ -6092,7 +6085,7 @@ export default function BetrayalBoard({
             </section>
             <BetrayalInventoryRailSurface
               explorer={inventoryDisplayExplorer}
-              cards={visibleInventoryCards}
+              cards={visibleInventoryCardsDuringTransition}
               isReadOnly={isInventoryDisplayReadOnly}
               ownerLabel={
                 isInventoryDisplayReadOnly
@@ -6105,8 +6098,9 @@ export default function BetrayalBoard({
               }
               selectedDisplayText={selectedInventoryDisplayText}
               hasSelectedDisplay={hasSelectedInventoryDisplay}
+              lastUsedInventoryCardStillUsed={lastUsedInventoryCardStillUsed}
               useStatusText={useStatusText}
-              isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+              isPhoneLandscapeLayout={false}
               isDimmed={Boolean(activeHauntTargetGuide)}
               elevatedForRollModifier={
                 shouldShowLatestDiscovery &&
@@ -6173,11 +6167,10 @@ export default function BetrayalBoard({
                 data-testid="betrayal-room-panel"
                 data-tutorial-id="betrayal-room-board"
                 className={`flex min-h-0 flex-col bg-transparent p-0 ${
-                  isPhoneLandscapeLayout ? "pb-0 pt-0" : "pb-[86px] lg:pb-0"
+                  isBoardShellMobileViewport
+                    ? "pb-0 pt-0"
+                    : "pb-[86px] lg:pb-0"
                 }`}
-                data-mobile-role={
-                  isPhoneLandscapeLayout ? "primary-board-stage" : undefined
-                }
               >
                 <div className="sr-only">
                   <span data-testid="betrayal-room-latest-feedback">
@@ -6237,7 +6230,7 @@ export default function BetrayalBoard({
                     canCurrentViewerStartLatestDiscoveryEventRoll
                   }
                   continueButton={latestDiscoveryContinueButton}
-                  isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                  isPhoneLandscapeLayout={false}
                   shouldUseMobileEventOpenTableChrome={
                     shouldUseMobileEventOpenTableChrome
                   }
@@ -6269,7 +6262,7 @@ export default function BetrayalBoard({
                   )}
                   isExorciseRollReview={isExorciseRollReview}
                   isEndgameExorciseRollReview={isEndgameExorciseRollReview}
-                  isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                  isNativeMobileLayout={false}
                   canDismissByBackdrop={canDismissRecentRollByBackdrop}
                   effectiveLocale={effectiveLocale}
                   rerollSelection={recentRollRerollSelection}
@@ -6312,7 +6305,7 @@ export default function BetrayalBoard({
                     canAct={isPendingDamageAllocationForViewer}
                     ready={pendingDamageAllocationReady}
                     locale={effectiveLocale}
-                    isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                    isPhoneLandscapeLayout={false}
                     onToggleBrooch={handleToggleDamageAllocationBrooch}
                     onAdjustTrait={handleAdjustDamageAllocationTrait}
                     canIncrementTrait={canIncrementDamageAllocationTrait}
@@ -6324,7 +6317,7 @@ export default function BetrayalBoard({
                   <BetrayalEventChoiceSurface
                     choice={pendingEventChoice}
                     isEventSymbolSkip={pendingEventChoiceIsEventSymbolSkip}
-                    isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                    isPhoneLandscapeLayout={false}
                     awaitsMapTargetClick={pendingEventAwaitsMapTargetClick}
                     hasMapTargetRooms={pendingEventTargetRooms.length > 0}
                     hasResultPanel={pendingEventChoiceHasResultPanel}
@@ -6362,7 +6355,7 @@ export default function BetrayalBoard({
                   hidden={shouldHideTableChromeForBlockingOverlay}
                   forceVisible={useDogTrade}
                   phase={core.phase}
-                  isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                  isPhoneLandscapeLayout={false}
                   roomFocusLabel={
                     shouldShowRoomFocusTargetLabel
                       ? (roomFocusState?.label ?? null)
@@ -6470,7 +6463,7 @@ export default function BetrayalBoard({
                   roomCanvasTransformStyle={roomCanvasTransformStyle}
                   roomCanvasWidth={roomCanvasWidth}
                   roomCanvasHeight={roomCanvasHeight}
-                  isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                  isPhoneLandscapeLayout={false}
                   isHauntTargetingMode={isHauntTargetingMode}
                   roomFocusPanTarget={roomFocusPanTarget}
                   attackLineOfSightSegments={attackLineOfSightSegments}
@@ -6668,7 +6661,6 @@ export default function BetrayalBoard({
                   enabled={
                     !isEndgameExorciseRollReview &&
                     !shouldHideTableChromeForBlockingOverlay &&
-                    !isPhoneLandscapeLayout &&
                     shouldShowTopPromptStack
                   }
                   dustProgressItems={visibleDustProgressItems}
@@ -6719,11 +6711,12 @@ export default function BetrayalBoard({
 
                 {visibleActionItems.length > 0 &&
                 !isEndgameExorciseRollReview &&
-                !shouldHideTableChromeForBlockingOverlay &&
-                !isPhoneLandscapeLayout ? (
+                !shouldHideTableChromeForBlockingOverlay ? (
                   <div
                     data-testid="betrayal-action-rail"
-                    className="pointer-events-none absolute inset-x-0 bottom-1 z-50 hidden flex-col items-center justify-end gap-0.5 md:flex"
+                    className={`pointer-events-none absolute inset-x-0 bottom-1 z-50 flex-col items-center justify-end gap-0.5 ${
+                      isBoardShellMobileViewport ? "flex" : "hidden md:flex"
+                    }`}
                   >
                     {mummyPendingReward && isMummyRewardChooser ? (
                       <BetrayalMummyRewardActionsSurface
@@ -6933,7 +6926,7 @@ export default function BetrayalBoard({
                         }
                         isDustSicknessExchangeMode={isDustSicknessExchangeMode}
                         isHauntTargetingMode={isHauntTargetingMode}
-                        isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+                        isPhoneLandscapeLayout={false}
                         hideTradeAction={shouldShowInlineTradeConfirm}
                         actionCueText={actionCueText}
                         actionHandlers={actionHandlerMap}
@@ -6946,22 +6939,12 @@ export default function BetrayalBoard({
 
             <section
               data-testid="betrayal-status-rail"
-              data-mobile-role={
-                shouldShowMobileEventStatusRail
-                  ? "pc-isomorphic-status-rail"
-                  : undefined
-              }
-              className={`no-scrollbar pointer-events-auto absolute z-40 w-[216px] min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1 md:px-1 ${
-                shouldShowMobileEventStatusRail
-                  ? "bottom-[76px] right-2 top-8 flex origin-top-right scale-[0.56]"
-                  : "bottom-3 right-3 top-3"
-              } ${
-                shouldShowMobileEventStatusRail
-                  ? ""
-                  : isPhoneLandscapeLayout ||
-                      shouldHideTableChromeForBlockingOverlay
-                    ? "hidden"
-                    : `flex ${activeHauntTargetGuide ? "opacity-[0.72]" : ""}`
+              className={`no-scrollbar pointer-events-auto absolute bottom-3 right-3 top-3 z-40 flex w-[216px] min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1 md:px-1 ${
+                shouldHideTableChromeForBlockingOverlay
+                  ? "hidden"
+                  : activeHauntTargetGuide
+                    ? "opacity-[0.72]"
+                    : ""
               }`}
             >
               <BetrayalDeckStatusRailSurface
@@ -6977,7 +6960,6 @@ export default function BetrayalBoard({
               <article className="bg-transparent pt-1">
                 <BetrayalReferenceQuickActionsSurface
                   showScenarioReferenceButton={
-                    !isPhoneLandscapeLayout &&
                     !shouldHideTableChromeForBlockingOverlay
                   }
                   dimScenarioReferenceButton={Boolean(activeHauntTargetGuide)}
@@ -7063,7 +7045,7 @@ export default function BetrayalBoard({
             referenceOpen={referenceOpen}
             scenarioReaderOpen={scenarioReaderOpen}
             isReferenceScenarioOpeningStage={isReferenceScenarioOpeningStage}
-            isPhoneLandscapeLayout={isPhoneLandscapeLayout}
+            isPhoneLandscapeLayout={false}
             currentReferencePage={currentReferencePage}
             referenceFallbackAsset={ASSETS.playerReference.front}
             effectiveLocale={effectiveLocale}
@@ -7080,6 +7062,7 @@ export default function BetrayalBoard({
             referenceScenarioTurnSnapshot={referenceScenarioTurnSnapshot}
             referenceScenarioLeftPage={referenceScenarioLeftPage}
             referenceScenarioRightPage={referenceScenarioRightPage}
+            showScenarioReaderTitle={false}
             canTurnReferenceScenarioBack={canTurnReferenceScenarioBack}
             canTurnReferenceScenarioForward={canTurnReferenceScenarioForward}
             onClose={closeReferenceOverlay}
@@ -7098,103 +7081,6 @@ export default function BetrayalBoard({
             onCloseInventoryPreview={() => setInventoryPreviewCardId(null)}
           />
 
-          <BetrayalMobileActionRailSurface
-            hasActiveHauntTargetGuide={Boolean(activeHauntTargetGuide)}
-            isTradeDraftActive={isTradeDraftActive}
-            hasPendingSicknessExchange={Boolean(pendingSicknessExchange)}
-            hasPendingTradeAgreement={Boolean(pendingTradeAgreement)}
-            isDustSicknessExchangeMode={isDustSicknessExchangeMode}
-            shouldShowInlineTradeConfirm={shouldShowInlineTradeConfirm}
-            isEndgameExorciseRollReview={isEndgameExorciseRollReview}
-            isPhoneLandscapeLayout={isPhoneLandscapeLayout}
-            pendingEventFocusesMapTarget={pendingEventFocusesMapTarget}
-            shouldHideTableChromeForBlockingOverlay={
-              shouldHideTableChromeForBlockingOverlay
-            }
-            selectedInventoryDisplayText={selectedInventoryDisplayText}
-            useStatusText={useStatusText}
-            selectedCardUseDisabled={Boolean(selectedCardUseDisabled)}
-            shouldShowBoardActionStatus={shouldShowBoardActionStatus}
-            shouldShowMobileTradeStatus={shouldShowMobileTradeStatus}
-            hasSelectedTradeTarget={Boolean(selectedTradeTarget)}
-            tradeStatusText={tradeStatusText}
-            actionCueText={actionCueText}
-            visibleDustProgressItems={visibleDustProgressItems}
-            activeHauntCaseLabel={activeHauntCaseLabel}
-            activeHauntTitle={activeHauntTitle}
-            tradeInstructionText={tradeInstructionText}
-            tradeFlowTargetStepText={tradeFlowTargetStepText}
-            mummyReward={
-              mummyPendingReward
-                ? {
-                    isChooser: isMummyRewardChooser,
-                    damage: mummyPendingReward.damageToHero,
-                    stealableCards: mummyStealableCards,
-                  }
-                : null
-            }
-            helpingHandsReward={
-              helpingHandsPendingReward
-                ? {
-                    isChooser: isHelpingHandsRewardChooser,
-                    damage: helpingHandsPendingReward.damageToDefender,
-                    stealableCards: helpingHandsStealableCards,
-                  }
-                : null
-            }
-            isPendingSicknessForViewer={isPendingSicknessForViewer}
-            isPendingTradeForViewer={isPendingTradeForViewer}
-            helpingHandsTrollAttack={
-              helpingHandsVisibleTrollHandAttackOptions.length > 0
-                ? {
-                    attackOptions: helpingHandsVisibleTrollHandAttackOptions,
-                    attackTargetsByOptionId:
-                      helpingHandsTrollHandAttackTargetsByOptionId,
-                    trollHandIds: helpingHandsMonsterTurnStatus.trollHandIds,
-                  }
-                : null
-            }
-            scenarioReferenceAccessibleLabel={scenarioReferenceAccessibleLabel}
-            scenarioReferenceButtonLabel={scenarioReferenceButtonLabel}
-            visibleActionItems={visibleActionItems}
-            phase={core.phase}
-            recommendedAction={core.recommendedAction}
-            interactionMode={previewState.interactionMode}
-            hauntActionKind={hauntActionContext?.actionKind}
-            hauntTargetingActionKind={previewState.hauntTargetingActionKind}
-            hasSelectedInventoryCard={Boolean(selectedInventoryCard)}
-            hasRoomEndTurnEffect={Boolean(roomEndTurnEffectHint)}
-            isBloodFromStoneSetupPlacementMode={
-              isBloodFromStoneSetupPlacementMode
-            }
-            isHauntTargetingMode={isHauntTargetingMode}
-            actionHandlers={actionHandlerMap}
-            onTradeAction={handleTradeAction}
-            onResolveMummyDamage={() =>
-              handleResolveMummyAttackReward("damage")
-            }
-            onStealMummyCard={(cardId) =>
-              handleResolveMummyAttackReward("steal", cardId)
-            }
-            onResolveHelpingHandsDamage={() =>
-              handleResolveHelpingHandsAttackReward("damage")
-            }
-            onStealHelpingHandsCard={(cardId) =>
-              handleResolveHelpingHandsAttackReward("steal", cardId)
-            }
-            onAcceptSicknessExchange={() => handleResolveSicknessExchange(true)}
-            onDeclineSicknessExchange={() =>
-              handleResolveSicknessExchange(false)
-            }
-            onAcceptTradeAgreement={() => handleResolveTradeAgreement(true)}
-            onDeclineTradeAgreement={() => handleResolveTradeAgreement(false)}
-            onHelpingHandsTrollHandAttack={handleHelpingHandsTrollHandAttack}
-            onOpenScenarioReference={openScenarioReference}
-            onJumpInventory={() =>
-              scrollToSection("betrayal-inventory-section")
-            }
-            onJumpDecks={() => scrollToSection("betrayal-decks-section")}
-          />
         </div>
         {visualTransition ? (
           <BetrayalVisualTransitionLayer

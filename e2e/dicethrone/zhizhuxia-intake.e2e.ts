@@ -47,6 +47,7 @@ const ZHIZHUXIA_PROOF_HAND = [
 const saveEvidenceScreenshot = async (page: Page, testInfo: TestInfo, name: string): Promise<string> => {
     const path = getEvidenceScreenshotPath(testInfo, name, {
         filename: `${name}.png`,
+        format: 'png',
         requireChineseName: true,
     });
     await mkdir(dirname(path), { recursive: true });
@@ -110,6 +111,12 @@ test.describe('DiceThrone 蜘蛛侠真实入口', () => {
             await closeDebugPanelIfOpen(match.hostPage);
             await closeDebugPanelIfOpen(match.guestPage);
 
+            const hostDiceTray = match.hostPage.getByTestId('dicethrone-2d-dice-tray');
+            await expect(hostDiceTray).toBeVisible();
+            await expect(hostDiceTray).toHaveAttribute('data-dice-count', '5');
+            await expect(hostDiceTray.locator('[data-testid^="die-button-"]')).toHaveCount(5);
+            await expect(hostDiceTray.locator('[data-definition-id="zhizhuxia-dice"]')).toHaveCount(5);
+
             const hostBoard = match.hostPage.getByTestId('player-board-surface');
             await expect(hostBoard).toHaveAttribute('data-character-id', 'zhizhuxia', { timeout: 10000 });
             for (const [slotId, abilityId] of Object.entries(ZHIZHUXIA_SLOT_ABILITIES)) {
@@ -168,6 +175,11 @@ test.describe('DiceThrone 蜘蛛侠真实入口', () => {
         });
 
         await waitForHeroHandAtlas(page);
+        const diceTray = page.getByTestId('dicethrone-2d-dice-tray');
+        await expect(diceTray).toBeVisible();
+        await expect(diceTray).toHaveAttribute('data-dice-count', '5');
+        await expect(diceTray.locator('[data-testid^="die-button-"]')).toHaveCount(5);
+        await expect(diceTray.locator('[data-definition-id="zhizhuxia-dice"]')).toHaveCount(5);
         const atlasSnapshot = await page.evaluate((proofHand) => Object.fromEntries(
             (proofHand as Array<{ id: string; atlasIndex: number }>).map(({ id }) => {
                 const card = document.querySelector(`[data-testid="hand-area"] [data-card-id="${id}"]`);

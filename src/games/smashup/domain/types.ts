@@ -811,6 +811,7 @@ export interface TriggerInstance {
     actionTargetBaseIndex?: number;
     actionTargetType?: 'base' | 'minion';
     actionTargetMinionUid?: string;
+    actionDestinationOverride?: 'hand';
     buriedCardUid?: string;
     buriedCardDefId?: string;
     buriedCardControllerId?: PlayerId;
@@ -1486,6 +1487,8 @@ export interface ActionPlayedEvent extends GameEvent<'su:action_played'> {
         discardPlaySourceId?: string;
         /** false 表示不消耗常规行动额度。 */
         consumesNormalLimit?: boolean;
+        /** 行动本身已声明的替代去向；例如蜘蛛阿南西结算后改放其他玩家手牌。 */
+        destinationOverride?: 'hand';
         /** 行动目标基地（持续行动、特殊行动、目标随从行动均可携带） */
         targetBaseIndex?: number;
         targetType?: 'base' | 'minion';

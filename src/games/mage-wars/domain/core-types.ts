@@ -58,6 +58,8 @@ export interface MageWarsPlayerState {
     preparedSpellSlots: number;
     preparedSpellCardIds: number[];
     discardSpellCardIds: number[];
+    /** 被摧毁、仍可被起死回生选择的活体生物卡牌副本。 */
+    defeatedLivingCreatureCardIds?: number[];
 }
 
 export interface MageWarsArenaObjectState {
@@ -85,6 +87,8 @@ export interface MageWarsArenaObjectState {
     guarding: boolean;
     summonedTurnNumber?: number;
     rousedBySpellTurnNumber?: number;
+    movementActionsUsedThisTurn?: number;
+    movementActionsLimitThisTurn?: number;
     defenseUsesThisRound?: Partial<Record<string, number>>;
     temporaryTraits?: {
         swift?: boolean;
@@ -96,6 +100,8 @@ export interface MageWarsArenaObjectState {
         chargeDiceModifier?: number;
         meleeDiceModifier?: number;
         meleeDiceModifierUntilRoundNumber?: number;
+        armorModifier?: number;
+        armorModifierUntilRoundNumber?: number;
         vampiricNextMelee?: boolean;
         nextMeleePierceModifier?: number;
         nextMeleeUnavoidable?: boolean;
@@ -126,6 +132,10 @@ export interface MageWarsArenaObjectState {
     meleeAttackManaTaxAttackerObjectIdsThisRound?: string[];
     damageBarrierRoundNumber?: number;
     damageBarrierAttackerIdsThisRound?: string[];
+    pentagramRoundNumber?: number;
+    pentagramTargetObjectIdsThisRound?: string[];
+    fearHelmetRoundNumber?: number;
+    fearHelmetAttackerObjectIdsThisRound?: string[];
     abilityUseRoundNumbers?: Partial<Record<string, number>>;
 }
 

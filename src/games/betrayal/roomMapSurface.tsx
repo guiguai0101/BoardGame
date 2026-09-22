@@ -27,6 +27,7 @@ import { resolveBetrayalRoomNodeTileVisual } from "./roomAtlas";
 import { RoomTileSprite } from "./roomTileSurface";
 import {
   FLOOR_TONE,
+  resolveRoomTileRotationDegrees,
   resolveRoomTileStyle,
   type RoomCanvasLayout,
 } from "./roomMapModel";
@@ -492,6 +493,10 @@ export function BetrayalRoomMapSurface({
             room,
             isDiscovered,
           );
+          const roomTileRotationDegrees = resolveRoomTileRotationDegrees(
+            room,
+            isDiscovered,
+          );
           const identityPresentation = resolveRoomIdentityPresentation(room, {
             isDiscovered,
             isExploreTarget,
@@ -707,14 +712,24 @@ export function BetrayalRoomMapSurface({
                 }}
               >
                 <div className="pointer-events-none absolute -inset-0.5 -z-10 rounded-[6px] bg-[rgba(0,0,0,0.12)] blur-[1px]" />
-                <RoomTileSprite
-                  visual={roomTileVisual}
-                  locale={locale}
-                  alt=""
-                  className={`pointer-events-none absolute inset-0 rounded-[3px] bg-[#15110d] ${
-                    isDiscovered ? "opacity-95" : "opacity-82"
-                  }`}
-                />
+                <div
+                  className="pointer-events-none absolute inset-0 origin-center"
+                  style={{
+                    transform:
+                      roomTileRotationDegrees === undefined
+                        ? undefined
+                        : `rotate(${roomTileRotationDegrees}deg)`,
+                  }}
+                >
+                  <RoomTileSprite
+                    visual={roomTileVisual}
+                    locale={locale}
+                    alt=""
+                    className={`absolute inset-0 rounded-[3px] bg-[#15110d] ${
+                      isDiscovered ? "opacity-95" : "opacity-82"
+                    }`}
+                  />
+                </div>
                 <div
                   className={`pointer-events-none absolute inset-0 rounded-[3px] ${
                     isActive

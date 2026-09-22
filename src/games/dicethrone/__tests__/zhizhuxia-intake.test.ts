@@ -4,6 +4,7 @@ import {
     DICETHRONE_CHARACTER_CATALOG,
 } from '../domain/core-types';
 import { STATUS_IDS, TOKEN_IDS, ZHIZHUXIA_DICE_FACE_IDS } from '../domain/ids';
+import { RESOURCE_IDS } from '../domain/resources';
 import { createPendingDamage, getUsableTokensForTiming } from '../domain/tokenResponse';
 import { getCustomActionHandler } from '../domain/effects';
 import { initializeCustomActions } from '../domain/customActions';
@@ -11,6 +12,7 @@ import { createMainRollContext } from '../domain/rollContext';
 import { getUsableActiveRollToken } from '../domain/activeRollTokens';
 import { resolveOffensivePreDefenseEffects } from '../domain/attack';
 import { DiceThroneDomain } from '../domain';
+import { reduce } from '../domain/reducer';
 import { getAbilitySlotIdForCharacter } from '../ui/abilitySlotMapping';
 import {
     COMBO_STRIKE_2,
@@ -253,6 +255,12 @@ describe('蜘蛛侠素材录入与规则合同', () => {
                 unblockable: true,
             },
         });
+
+        let reduced = state;
+        for (const event of events) {
+            reduced = reduce(reduced, event as any);
+        }
+        expect(reduced.players['1'].resources[RESOURCE_IDS.HP]).toBe(48);
     });
 
     it('下一次技能区普通攻击消费落网，但不再重复造成 2 点伤害', () => {

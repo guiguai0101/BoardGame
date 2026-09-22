@@ -638,10 +638,15 @@ export function createSafeOmenPendingResolutionTutorialCore(): BetrayalCore {
   }
   const [pendingResolution] = core.pendingCardResolutionQueue;
   if (!pendingResolution || pendingResolution.playerId !== "0") {
-    throw new Error("山屋教程预兆确认夹具必须由触发玩家确认");
+    throw new Error("山屋教程预兆确认夹具必须保留触发玩家作为发现者");
   }
-  if (pendingResolution.requiredPlayerIds.length !== 1 || pendingResolution.requiredPlayerIds[0] !== "0") {
-    throw new Error("山屋教程预兆确认夹具必须使用真实触发玩家单人确认");
+  if (
+    pendingResolution.requiredPlayerIds.length !== core.playerIds.length
+    || pendingResolution.requiredPlayerIds.some(
+      (playerId, index) => playerId !== core.playerIds[index],
+    )
+  ) {
+    throw new Error("山屋教程预兆确认夹具必须等待所有玩家确认");
   }
   if (pendingResolution.acknowledgedPlayerIds.length !== 0) {
     throw new Error("山屋教程预兆确认夹具不能提前确认");
@@ -743,7 +748,7 @@ export function createNaturalHauntTriggerPendingResolutionTutorialCore(): Betray
     hauntTriggerRandom,
     false,
   );
-  core = acknowledgePendingCardResolution(core, "1");
+  core = acknowledgePendingCardResolutions(core);
   core = applyBetrayalCommand(
     core,
     BETRAYAL_COMMANDS.END_TURN,
@@ -771,7 +776,7 @@ export function createNaturalHauntTriggerPendingResolutionTutorialCore(): Betray
     hauntTriggerRandom,
     false,
   );
-  core = acknowledgePendingCardResolution(core, "2");
+  core = acknowledgePendingCardResolutions(core);
   core = applyBetrayalCommand(
     core,
     BETRAYAL_COMMANDS.END_TURN,
@@ -820,10 +825,15 @@ export function createNaturalHauntTriggerPendingResolutionTutorialCore(): Betray
   }
   const [pendingResolution] = core.pendingCardResolutionQueue;
   if (!pendingResolution || pendingResolution.playerId !== "1") {
-    throw new Error("山屋教程自然作祟流程必须由触发玩家确认");
+    throw new Error("山屋教程自然作祟流程必须保留触发玩家作为发现者");
   }
-  if (pendingResolution.requiredPlayerIds.length !== 1 || pendingResolution.requiredPlayerIds[0] !== "1") {
-    throw new Error("山屋教程自然作祟流程必须使用真实触发玩家单人确认");
+  if (
+    pendingResolution.requiredPlayerIds.length !== core.playerIds.length
+    || pendingResolution.requiredPlayerIds.some(
+      (playerId, index) => playerId !== core.playerIds[index],
+    )
+  ) {
+    throw new Error("山屋教程自然作祟流程必须等待所有玩家确认");
   }
   if (pendingResolution.acknowledgedPlayerIds.length !== 0) {
     throw new Error("山屋教程自然作祟流程不能提前确认");

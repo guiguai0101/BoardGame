@@ -64,6 +64,50 @@ type BetrayalLatestDiscoverySurfaceProps = {
   onDiceSettledChange: (rollId: string, settled: boolean) => void;
 };
 
+function resolveDisplayedDiscoveryDetail(
+  discovery: BetrayalDiscoverySummary,
+  resolutionSteps: readonly BetrayalDiscoveryResolutionStep[],
+): string {
+  const resolutionTexts = resolutionSteps
+    .filter((step) => step.kind === "event-effect")
+    .map((step) => step.text.replace(/^事件效果：\s*/, "").trim())
+    .filter(Boolean);
+  const roomResolutionTexts = resolutionSteps
+    .filter(
+      (step) =>
+        step.kind === "room-effect" ||
+        step.kind === "room-discovery-card" ||
+        step.kind === "buried-room-discovery-card",
+    )
+    .map((step) => step.text)
+    .filter(Boolean);
+  const detail = [...resolutionTexts, ...roomResolutionTexts].reduce(
+    (currentDetail, roomResolutionText) =>
+      currentDetail.replace(roomResolutionText, ""),
+    discovery.detail,
+  )
+    .replace(
+      /(?:抽到预兆后进行|选择进行|进行)?\s*作祟检定\s*[:：]\s*总点数\s*[-+]?\d+\s*[（(][^）)]*[）)]/g,
+      "",
+    )
+    .replace(
+      /预兆牌堆耗尽，自动触发作祟/g,
+      "",
+    )
+    .replace(
+      /(?:力量|速度|知识|神志)检定(?:\s*[-+]?\d+)?\s*[:：]\s*/g,
+      "",
+    )
+    .replace(
+      /投\s*\d+\s*颗骰子\s*[-+]?\d+\s*[:：]\s*/g,
+      "",
+    );
+  return detail
+    .replace(/[；;]\s*[；;]/g, "；")
+    .replace(/^[；;]\s*|[；;]\s*$/g, "")
+    .trim();
+}
+
 export function BetrayalLatestDiscoverySurface({
   visible,
   discovery,
@@ -116,7 +160,10 @@ export function BetrayalLatestDiscoverySurface({
       shouldDockRollModifierInPhoneCorner ||
       hasRollModifierActionSlot,
   );
-  const displayedDiscoveryDetail = discovery.detail
+  const displayedDiscoveryDetail = resolveDisplayedDiscoveryDetail(
+    discovery,
+    resolutionSteps,
+  )
     .replace(/[；;]\s*没有事件、物品或预兆发现牌[。.]?\s*$/, "")
     .replace(/^没有事件、物品或预兆发现牌[。.]?\s*$/, "")
     .trim();
@@ -202,6 +249,15 @@ export function BetrayalLatestDiscoverySurface({
           {displayedKindLabel} {displayedTitle} {displaySummary}{" "}
           {displayedDiscoveryDetail}
         </span>
+        {!visibleProcessCard && displayedDiscoveryDetail ? (
+          <div
+            data-testid="betrayal-discovery-visible-detail"
+            data-ui-role="visible-effect-description"
+            className="pointer-events-none z-10 max-w-[min(680px,calc(100vw-2rem))] rounded-[10px] border border-[rgba(214,181,109,0.42)] bg-[rgba(14,12,8,0.78)] px-4 py-2 text-center text-[14px] font-bold leading-snug tracking-[0.04em] text-[#f4e3b5] shadow-[0_10px_24px_rgba(0,0,0,0.30)] md:text-[16px]"
+          >
+            {displayedDiscoveryDetail}
+          </div>
+        ) : null}
         {resolutionSteps.length > 0 ? (
           <ol
             hidden

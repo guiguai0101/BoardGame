@@ -23,6 +23,7 @@ import { getStatusTokenAmount } from './statusTokens';
 import {
     canMageWarsStatusTokenAffectArenaObject,
     isMageWarsElementalStaffSpell,
+    isMageWarsSpellBindingStaffSpell,
     isMageWarsAreaTargetSpell,
     isMageWarsChainLightningTargetObject,
     isMageWarsHiddenEnchantmentArenaObject,
@@ -40,6 +41,7 @@ import {
     isMageWarsTeleportSpellTarget,
     isMageWarsEquipmentArenaObject,
     isMageWarsVisibleEnchantmentArenaObject,
+    isMageWarsManaSiphonSpell,
     isMageWarsVisibleAttachedEnchantmentArenaObject,
     isMageWarsToxinEnchantmentArenaObject,
     isMageWarsToxinStatusToken,
@@ -368,14 +370,21 @@ function createSpellMageDefenseAvailableEvent(
 }
 
 function createArenaObjectInstanceId(ctx: MageWarsSpellAbilityContext): string {
+    return createArenaObjectInstanceIdForSpell(ctx, ctx.spell.spellCardId);
+}
+
+function createArenaObjectInstanceIdForSpell(
+    ctx: MageWarsSpellAbilityContext,
+    sourceSpellCardId: number,
+): string {
     const existingCount = Object.values(ctx.state.core.objects).filter((object) => (
         object.ownerId === ctx.ownerId
-        && object.sourceSpellCardId === ctx.spell.spellCardId
+        && object.sourceSpellCardId === sourceSpellCardId
     )).length;
     return [
         'mwobj',
         normalizeObjectIdPart(ctx.ownerId),
-        ctx.spell.spellCardId,
+        sourceSpellCardId,
         existingCount + 1,
     ].join('-');
 }
@@ -397,33 +406,43 @@ function buildArenaObject(
     ctx: MageWarsSpellAbilityContext,
     kind: MageWarsArenaObjectKind,
     zoneId: string,
-    anchor?: Pick<MageWarsArenaObjectState, 'anchoredToObjectId' | 'anchoredToPlayerId'>,
+    anchor?: Pick<MageWarsArenaObjectState, 'anchoredToObjectId' | 'anchoredToPlayerId' | 'anchoredToZoneId'>,
 ): MageWarsArenaObjectState | undefined {
-    if (!ctx.spell.life || ctx.spell.armor === undefined) return undefined;
+    return buildArenaObjectFromSpell(ctx, ctx.spell, kind, zoneId, anchor);
+}
+
+function buildArenaObjectFromSpell(
+    ctx: MageWarsSpellAbilityContext,
+    sourceSpell: MageWarsConfigSpellCard,
+    kind: MageWarsArenaObjectKind,
+    zoneId: string,
+    anchor?: Pick<MageWarsArenaObjectState, 'anchoredToObjectId' | 'anchoredToPlayerId' | 'anchoredToZoneId'>,
+): MageWarsArenaObjectState | undefined {
+    if (sourceSpell.life === undefined || sourceSpell.armor === undefined) return undefined;
 
     return {
-        id: createArenaObjectInstanceId(ctx),
+        id: createArenaObjectInstanceIdForSpell(ctx, sourceSpell.spellCardId),
         kind,
         ownerId: ctx.ownerId,
-        sourceSpellCardId: ctx.spell.spellCardId,
-        sourceObjectId: ctx.spell.objectId,
-        ...(ctx.spell.spellcastingSource ? { spellcastingSource: ctx.spell.spellcastingSource } : {}),
-        ...(ctx.spell.spellcastingSource ? { mana: 0 } : {}),
-        ...(ctx.spell.combatProfiles ? { combatProfilesSource: 'config' as const } : {}),
-        ...(ctx.spell.combatTraits ? { combatTraitsSource: 'config' as const } : {}),
-        name: ctx.spell.name,
+        sourceSpellCardId: sourceSpell.spellCardId,
+        sourceObjectId: sourceSpell.objectId,
+        ...(sourceSpell.spellcastingSource ? { spellcastingSource: sourceSpell.spellcastingSource } : {}),
+        ...(sourceSpell.spellcastingSource ? { mana: 0 } : {}),
+        ...(sourceSpell.combatProfiles ? { combatProfilesSource: 'config' as const } : {}),
+        ...(sourceSpell.combatTraits ? { combatTraitsSource: 'config' as const } : {}),
+        name: sourceSpell.name,
         zoneId: zoneId as MageWarsArenaObjectState['zoneId'],
-        life: ctx.spell.life,
+        life: sourceSpell.life,
         damage: 0,
-        armor: ctx.spell.armor,
+        armor: sourceSpell.armor,
         actionReady: false,
         guarding: false,
         summonedTurnNumber: ctx.state.core.turnNumber,
         statusTokens: {},
-        typeLine: ctx.spell.typeLine,
-        schoolLine: ctx.spell.schoolLine,
-        attackOrTraitLine: ctx.spell.attackOrTraitLine,
-        rulesText: ctx.spell.rulesText,
+        typeLine: sourceSpell.typeLine,
+        schoolLine: sourceSpell.schoolLine,
+        attackOrTraitLine: sourceSpell.attackOrTraitLine,
+        rulesText: sourceSpell.rulesText,
         ...anchor,
     };
 }
@@ -456,7 +475,7 @@ function buildEquipmentObject(ctx: MageWarsSpellAbilityContext): MageWarsArenaOb
         attackOrTraitLine: ctx.spell.attackOrTraitLine,
         rulesText: ctx.spell.rulesText,
         anchoredToPlayerId: targetMage.id,
-        ...(isMageWarsElementalStaffSpell(ctx.spell) && ctx.command.payload.boundSpellCardId !== undefined
+        ...(isMageWarsSpellBindingStaffSpell(ctx.spell) && ctx.command.payload.boundSpellCardId !== undefined
             ? { boundSpellCardId: ctx.command.payload.boundSpellCardId }
             : {}),
     };
@@ -475,6 +494,40 @@ function executeSummonCreatureSpell(ctx: MageWarsSpellAbilityContext): AbilityRe
             sourceCommandType: ctx.command.type,
             timestamp: ctx.timestamp,
         }],
+    };
+}
+
+function executeResurrectionSpell(ctx: MageWarsSpellAbilityContext): AbilityResult<MageWarsEvent> {
+    const targetSpellCardId = ctx.command.payload.targetSpellCardId;
+    if (targetSpellCardId === undefined) return { events: [] };
+
+    const targetSpell = getMageWarsSpellCardFromConfig(targetSpellCardId);
+    const casterZoneId = ctx.command.payload.casterObjectId
+        ? getArenaObject(ctx.state.core, ctx.command.payload.casterObjectId)?.zoneId
+        : ctx.state.core.players[ctx.ownerId]?.mageZoneId;
+    if (!targetSpell || !casterZoneId) return { events: [] };
+
+    const object = buildArenaObjectFromSpell(ctx, targetSpell, 'creature', casterZoneId);
+    if (!object) return { events: [] };
+
+    return {
+        events: [
+            {
+                type: MAGE_WARS_EVENTS.ARENA_OBJECT_SUMMONED,
+                payload: { object },
+                sourceCommandType: ctx.command.type,
+                timestamp: ctx.timestamp,
+            },
+            {
+                type: MAGE_WARS_EVENTS.DEFEATED_CREATURE_CARD_CONSUMED,
+                payload: {
+                    playerId: ctx.ownerId,
+                    spellCardId: targetSpellCardId,
+                },
+                sourceCommandType: ctx.command.type,
+                timestamp: ctx.timestamp,
+            },
+        ],
     };
 }
 
@@ -618,8 +671,52 @@ function buildHiddenResponseEnchantmentObject(ctx: MageWarsSpellAbilityContext):
     };
 }
 
+function buildHiddenEnchantmentObject(ctx: MageWarsSpellAbilityContext): MageWarsArenaObjectState | undefined {
+    const targetObject = ctx.command.payload.targetObjectId
+        ? getArenaObject(ctx.state.core, ctx.command.payload.targetObjectId)
+        : undefined;
+    const targetZoneId = ctx.command.payload.targetZoneId ?? targetObject?.zoneId;
+    if (!targetZoneId) return undefined;
+
+    return {
+        id: createArenaObjectInstanceId(ctx),
+        kind: 'enchantment',
+        ownerId: ctx.ownerId,
+        sourceSpellCardId: ctx.spell.spellCardId,
+        sourceObjectId: ctx.spell.objectId,
+        name: ctx.spell.name,
+        zoneId: targetZoneId,
+        life: 1,
+        damage: 0,
+        armor: 0,
+        actionReady: false,
+        guarding: false,
+        statusTokens: {},
+        typeLine: ctx.spell.typeLine,
+        schoolLine: ctx.spell.schoolLine,
+        attackOrTraitLine: ctx.spell.attackOrTraitLine,
+        rulesText: ctx.spell.rulesText,
+        revealed: false,
+        ...(targetObject ? { anchoredToObjectId: targetObject.id } : { anchoredToZoneId: targetZoneId }),
+    };
+}
+
 function executeHiddenResponseEnchantmentSpell(ctx: MageWarsSpellAbilityContext): AbilityResult<MageWarsEvent> {
     const object = buildHiddenResponseEnchantmentObject(ctx);
+    if (!object) return { events: [] };
+
+    return {
+        events: [{
+            type: MAGE_WARS_EVENTS.ARENA_OBJECT_SUMMONED,
+            payload: { object },
+            sourceCommandType: ctx.command.type,
+            timestamp: ctx.timestamp,
+        }],
+    };
+}
+
+function executeHiddenEnchantmentSpell(ctx: MageWarsSpellAbilityContext): AbilityResult<MageWarsEvent> {
+    const object = buildHiddenEnchantmentObject(ctx);
     if (!object) return { events: [] };
 
     return {
@@ -1087,6 +1184,33 @@ function executeBanishSpell(ctx: MageWarsSpellAbilityContext): AbilityResult<Mag
                 sourceAbilityId: ctx.sourceId,
                 spellCardId: ctx.spell.spellCardId,
             },
+            sourceCommandType: ctx.command.type,
+            timestamp: ctx.timestamp,
+        }],
+    };
+}
+
+function executeVisibleAreaConjurationSpell(ctx: MageWarsSpellAbilityContext): AbilityResult<MageWarsEvent> {
+    const targetZoneId = ctx.command.payload.targetZoneId;
+    if (!targetZoneId) return { events: [] };
+
+    const object = buildArenaObject(
+        ctx,
+        'conjuration',
+        targetZoneId,
+        isMageWarsManaSiphonSpell(ctx.spell)
+            ? {
+                anchoredToZoneId: targetZoneId,
+                anchoredToPlayerId: ctx.command.payload.targetPlayerId,
+            }
+            : { anchoredToZoneId: targetZoneId },
+    );
+    if (!object) return { events: [] };
+
+    return {
+        events: [{
+            type: MAGE_WARS_EVENTS.ARENA_OBJECT_SUMMONED,
+            payload: { object },
             sourceCommandType: ctx.command.type,
             timestamp: ctx.timestamp,
         }],
@@ -1818,11 +1942,13 @@ const MAGE_WARS_SPELL_CAST_FAMILY_EXECUTORS: Readonly<Record<
     'force-push': executeForcePushSpell,
     'temporary-trait': executeTemporaryTraitSpell,
     'mana-drain': executeManaDrainSpell,
+    'hidden-enchantment': executeHiddenEnchantmentSpell,
     'move-enchantment': executeMoveEnchantmentSpell,
     'hidden-response-enchantment': executeHiddenResponseEnchantmentSpell,
     'jet-stream': executeAttackSpell,
     'knockdown': executeKnockdownSpell,
     'life-drain': executeLifeDrainSpell,
+    'mana-siphon': executeVisibleAreaConjurationSpell,
     'self-equipment': executeEquipmentSpell,
     'single-healing': executeHealingSpell,
     'status-healing': executeStatusHealingSpell,
@@ -1832,12 +1958,14 @@ const MAGE_WARS_SPELL_CAST_FAMILY_EXECUTORS: Readonly<Record<
     'summon-creature': executeSummonCreatureSpell,
     tanglevine: executeTanglevineSpell,
     teleport: executeTeleportSpell,
+    'visible-area-conjuration': executeVisibleAreaConjurationSpell,
     'visible-area-enchantment': executeVisibleAreaEnchantmentSpell,
     'visible-object-enchantment': executeVisibleObjectEnchantmentSpell,
     wall: executeSummonWallSpell,
     'zone-attack': executeAttackSpell,
     'zone-healing': executeHealingSpell,
     'rouse-the-beast': executeRouseTheBeastSpell,
+    resurrection: executeResurrectionSpell,
 };
 
 function executeMageWarsSpellAbilityByFamily(

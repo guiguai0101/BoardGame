@@ -35,6 +35,7 @@ export type BetrayalVisualTransition = {
   girlToken?: BetrayalHauntTokenInstanceSummary;
   possessionCard?: BetrayalInventoryCard;
   possessionVisual?: BetrayalPossessionAtlasVisual;
+  possessionOwnerPlayerId?: string;
   locale: string;
   tokenLabel?: string;
   tone?: "self" | "ally";

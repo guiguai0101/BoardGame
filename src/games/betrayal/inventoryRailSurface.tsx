@@ -19,6 +19,7 @@ type BetrayalInventoryRailSurfaceProps = {
   ownerLabel: string | null;
   selectedDisplayText: string;
   hasSelectedDisplay: boolean;
+  lastUsedInventoryCardStillUsed: boolean;
   useStatusText: string;
   isPhoneLandscapeLayout: boolean;
   isDimmed: boolean;
@@ -46,6 +47,7 @@ export function BetrayalInventoryRailSurface({
   ownerLabel,
   selectedDisplayText,
   hasSelectedDisplay,
+  lastUsedInventoryCardStillUsed,
   useStatusText,
   isPhoneLandscapeLayout,
   isDimmed,
@@ -166,12 +168,14 @@ export function BetrayalInventoryRailSurface({
           </div>
         </section>
       </div>
-      {hasSelectedDisplay ? (
+      {!isReadOnly && (!lastUsedInventoryCardStillUsed || hasSelectedDisplay) ? (
         <div
           className="sr-only"
           data-testid="betrayal-selected-inventory-card-name"
         >
-          {selectedDisplayText}
+          {hasSelectedDisplay
+            ? selectedDisplayText
+            : t("board.status.noSelectedCard")}
         </div>
       ) : null}
     </div>

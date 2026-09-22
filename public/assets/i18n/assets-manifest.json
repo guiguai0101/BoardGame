@@ -10608,8 +10608,8 @@
     "zh-CN/dicethrone/images/zhizhuxia/status-icons-atlas": {
       "variants": {
         "json": {
-          "sha256": "631cc4fa8cbee5f41675777393c2aea15fe1ee2c2e13370210da90a4fef76719",
-          "bytes": 457,
+          "sha256": "f84df5a9e0a40d77c8291c65ade6c836ba92d9c1093ad85999aacc5a08f685f0",
+          "bytes": 469,
           "mime": "application/json"
         },
         "png": {
@@ -14831,15 +14831,6 @@
         }
       }
     },
-    "zh-CN/smashup/cards/ancient_incas_pod": {
-      "variants": {
-        "png": {
-          "sha256": "1523cd2cc537a11b70c5262deb81485fb57b36b63b3c4d37d7604c573b83cd6c",
-          "bytes": 6291256,
-          "mime": "image/png"
-        }
-      }
-    },
     "zh-CN/smashup/cards/astroknights_pod": {
       "variants": {
         "png": {
@@ -14890,15 +14881,6 @@
         "webp": {
           "sha256": "6a6153d99941a1c34f820f763d22f5bc489c6193c107fe6adba6a861b545968d",
           "bytes": 1645714,
-          "mime": "image/webp"
-        }
-      }
-    },
-    "zh-CN/smashup/cards/compressed/ancient_incas_pod": {
-      "variants": {
-        "webp": {
-          "sha256": "0f57ea2aa73ba500ad3d021a7c189f44900b506feb462618341c52d8a279f5d6",
-          "bytes": 1644142,
           "mime": "image/webp"
         }
       }

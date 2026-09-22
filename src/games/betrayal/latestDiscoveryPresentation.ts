@@ -11,6 +11,7 @@ import {
   buildRecentRollDisplayKey,
   type EventRollConfirmationPresentation,
 } from "./recentRollPresentation";
+import { isPendingCardResolutionFullyAcknowledged } from "./acknowledgementReadModel";
 
 export type LatestDiscoveryDisplayEntry = {
   key: string;
@@ -834,8 +835,9 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
       activePendingCardResolution.playerId === ownerPlayerId &&
       activePendingCardResolution.discoveryTitle === discovery?.title &&
       (activePendingCardResolution.processCards?.length ?? 0) > 0 &&
-      activePendingCardResolution.acknowledgedPlayerIds?.includes(
-        viewerPlayerId,
+      isPendingCardResolutionFullyAcknowledged(
+        core,
+        activePendingCardResolution,
       ),
   );
   const shouldShow = Boolean(

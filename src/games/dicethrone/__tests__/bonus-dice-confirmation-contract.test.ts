@@ -121,6 +121,7 @@ describe('DiceThrone 奖励骰普通确认合同', () => {
             'zhanshujia-war-monger-roll',
             'zhanshujia-war-monger-2-roll',
             'zhanshujia-war-room-roll',
+            'zhizhuxia-spider-reflex-settlement',
             'powder-keg-upkeep',
             'blinded-check',
             'tianshi-dazzle-check',

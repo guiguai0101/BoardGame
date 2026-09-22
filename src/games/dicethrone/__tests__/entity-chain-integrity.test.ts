@@ -649,6 +649,7 @@ describe('Token 响应窗口契约完整性', () => {
                 '0': {
                     tokens: { [TOKEN_IDS.FIRE_MASTERY]: 5 },
                     resources: { [RESOURCE_IDS.HP]: 50 },
+                    statusEffects: {},
                 },
             },
             tokenDefinitions: ALL_TOKEN_DEFINITIONS,
@@ -704,6 +705,7 @@ describe('Token 响应窗口契约完整性', () => {
                     '0': {
                         tokens: { [def.id]: 1, [TOKEN_IDS.SYNTH]: 2 },
                         resources: { [RESOURCE_IDS.HP]: 50 },
+                        statusEffects: {},
                         artificerBotState: {
                             [TOKEN_IDS.SHOCK_BOT]: { built: true, upgraded: false, activationsUsedThisTurn: 0 },
                             [TOKEN_IDS.HEAL_BOT]: { built: true, upgraded: false, activationsUsedThisTurn: 0 },
@@ -739,6 +741,7 @@ describe('Token 响应窗口契约完整性', () => {
                     '0': {
                         tokens: { [def.id]: 1, [TOKEN_IDS.SYNTH]: 2 },
                         resources: { [RESOURCE_IDS.HP]: 50 },
+                        statusEffects: {},
                         artificerBotState: {
                             [TOKEN_IDS.SHOCK_BOT]: { built: true, upgraded: false, activationsUsedThisTurn: 0 },
                             [TOKEN_IDS.HEAL_BOT]: { built: true, upgraded: false, activationsUsedThisTurn: 0 },
@@ -756,7 +759,9 @@ describe('Token 响应窗口契约完整性', () => {
                 },
             } as any;
 
-            const result = getUsableTokensForTiming(mockState, '0', 'beforeDamageReceived');
+            const result = getUsableTokensForTiming(mockState, '0', 'beforeDamageReceived', {
+                unblockable: true,
+            });
             const found = result.some(t => t.id === def.id);
             expect(found).toBe(true);
         }
@@ -769,7 +774,13 @@ describe('Token 响应窗口契约完整性', () => {
             allTokens[def.id] = 1;
         }
         const mockState = {
-            players: { '0': { tokens: allTokens, resources: { [RESOURCE_IDS.HP]: 50 } } },
+            players: {
+                '0': {
+                    tokens: allTokens,
+                    resources: { [RESOURCE_IDS.HP]: 50 },
+                    statusEffects: {},
+                },
+            },
             tokenDefinitions: ALL_TOKEN_DEFINITIONS,
         } as any;
 
@@ -794,6 +805,7 @@ describe('Token 响应窗口契约完整性', () => {
                 '0': {
                     tokens: {},  // 所有 token 持有量为 0
                     resources: { [RESOURCE_IDS.HP]: 50 },
+                    statusEffects: {},
                 },
             },
             tokenDefinitions: ALL_TOKEN_DEFINITIONS,

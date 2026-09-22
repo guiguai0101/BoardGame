@@ -576,7 +576,7 @@ function MageWarsObservePlayerButton({
         <button
             type="button"
             className={cx(
-                'pointer-events-auto absolute left-1 top-1 z-40 grid h-7 w-7 place-items-center rounded-full border text-amber-50 shadow-[0_6px_14px_rgba(0,0,0,0.5)] transition hover:border-amber-100 hover:bg-amber-300 hover:text-stone-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100',
+                'pointer-events-auto absolute -left-3 -top-3 z-40 grid h-7 w-7 place-items-center rounded-full border text-amber-50 shadow-[0_6px_14px_rgba(0,0,0,0.5)] transition hover:border-amber-100 hover:bg-amber-300 hover:text-stone-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100',
                 observed
                     ? 'border-amber-200 bg-amber-400 text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.48)]'
                     : 'border-amber-100/55 bg-black/74',
@@ -1052,13 +1052,15 @@ function MageHud({
                     title={mageLabel}
                     alt={mageLabel}
                 />
-                <div
-                    className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-black/72 px-2.5 py-1 text-[0.78rem] font-black leading-none text-stone-50 shadow-[0_6px_16px_rgba(0,0,0,0.46)]"
-                    data-testid="mage-wars-mage-hud-name-badge"
-                    data-mage-label={mageLabel}
-                >
-                    {mageLabel}
-                </div>
+                {self ? (
+                    <div
+                        className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-black/72 px-2.5 py-1 text-[0.78rem] font-black leading-none text-stone-50 shadow-[0_6px_16px_rgba(0,0,0,0.46)]"
+                        data-testid="mage-wars-mage-hud-name-badge"
+                        data-mage-label={mageLabel}
+                    >
+                        {mageLabel}
+                    </div>
+                ) : null}
                 {onInspect ? (
                     <CardInspectButton title={mageLabel} alwaysVisible={hintCardPointerHovering} revealOnGroupHover={false} onInspect={onInspect} />
                 ) : null}
@@ -1141,13 +1143,15 @@ function MageHud({
                     title={mageLabel}
                     alt={mageLabel}
                 />
-                <div
-                    className="pointer-events-none absolute left-1 top-1 z-10 rounded-full bg-black/72 px-1.5 py-0.5 text-[0.58rem] font-black leading-none text-stone-50 shadow-[0_4px_12px_rgba(0,0,0,0.42)]"
-                    data-testid="mage-wars-mage-hud-name-badge"
-                    data-mage-label={mageLabel}
-                >
-                    {mageLabel}
-                </div>
+                {self ? (
+                    <div
+                        className="pointer-events-none absolute left-1 top-1 z-10 rounded-full bg-black/72 px-1.5 py-0.5 text-[0.58rem] font-black leading-none text-stone-50 shadow-[0_4px_12px_rgba(0,0,0,0.42)]"
+                        data-testid="mage-wars-mage-hud-name-badge"
+                        data-mage-label={mageLabel}
+                    >
+                        {mageLabel}
+                    </div>
+                ) : null}
                 {onInspect ? (
                     <CardInspectButton title={mageLabel} compact alwaysVisible={hintCardPointerHovering} revealOnGroupHover={false} onInspect={onInspect} />
                 ) : null}
@@ -4839,6 +4843,9 @@ export default function MageWarsBoard({ G, playerID, dispatch, reset, matchData,
             mageId: player.mageId,
         });
     };
+    const magnifiedSpellCard = magnifiedPreview?.sourceCardId !== undefined
+        ? getMageWarsSpellCardFromConfig(magnifiedPreview.sourceCardId)
+        : undefined;
     const desktopUiScale = 1;
     const desktopUiPlaneStyle: CSSProperties = {
         inset: 0,
@@ -5183,22 +5190,54 @@ export default function MageWarsBoard({ G, playerID, dispatch, reset, matchData,
             >
                 {magnifiedPreview ? (
                     <div
+                        className="flex max-h-[82vh] max-w-[88vw] items-start gap-5 overflow-auto rounded-xl bg-stone-950/72 p-4"
                         data-testid="mage-wars-card-magnify-content"
                         data-source-card-id={magnifiedPreview.sourceCardId}
                         data-mage-id={magnifiedPreview.mageId}
-                        style={{
-                            width: magnifiedPreview.aspectRatio >= 1
-                                ? 'min(90vw, 72rem)'
-                                : 'min(54vw, 32rem)',
-                            aspectRatio: magnifiedPreview.aspectRatio,
-                        }}
                     >
-                        <CardPreview
-                            previewRef={magnifiedPreview.previewRef}
-                            className="h-full w-full rounded-xl shadow-2xl"
-                            title={magnifiedPreview.title}
-                            alt={magnifiedPreview.title}
-                        />
+                        <div
+                            className="shrink-0"
+                            style={{
+                                width: magnifiedPreview.aspectRatio >= 1
+                                    ? 'min(64vw, 56rem)'
+                                    : 'min(42vw, 30rem)',
+                                aspectRatio: magnifiedPreview.aspectRatio,
+                            }}
+                        >
+                            <CardPreview
+                                previewRef={magnifiedPreview.previewRef}
+                                className="h-full w-full rounded-xl shadow-2xl"
+                                title={magnifiedPreview.title}
+                                alt={magnifiedPreview.title}
+                            />
+                        </div>
+                        {magnifiedSpellCard ? (
+                            <div
+                                className="w-[min(24rem,30vw)] min-w-[16rem] shrink-0 space-y-3 self-stretch overflow-y-auto rounded-lg border border-amber-100/18 bg-black/36 p-4 text-left text-stone-100"
+                                data-testid="mage-wars-card-magnify-rules"
+                            >
+                                <div className="text-sm font-black tracking-wide text-amber-100">
+                                    {t('ui.cardOriginalText')}
+                                </div>
+                                <div className="space-y-2 text-sm leading-6">
+                                    {[
+                                        ['类型', magnifiedSpellCard.typeLine],
+                                        ['派系', magnifiedSpellCard.schoolLine],
+                                        ['攻击 / 特性', magnifiedSpellCard.attackOrTraitLine],
+                                        ['规则', magnifiedSpellCard.rulesText],
+                                        ['生命', magnifiedSpellCard.life],
+                                        ['护甲', magnifiedSpellCard.armor],
+                                    ].map(([label, value]) => value !== undefined && value !== '' ? (
+                                        <div key={label} className="border-b border-white/8 pb-2 last:border-b-0">
+                                            <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-stone-400">
+                                                {label}
+                                            </div>
+                                            <div className="whitespace-pre-wrap text-stone-50">{String(value)}</div>
+                                        </div>
+                                    ) : null)}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
             </MagnifyOverlay>

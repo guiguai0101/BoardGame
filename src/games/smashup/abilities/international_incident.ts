@@ -1,4 +1,5 @@
 import type { MatchState, PlayerId } from '../../../engine/types';
+import type { PromptOption } from '../../../engine/systems/InteractionSystem';
 import {
     type AbilityRuntimeResult,
     createAbilityRuntimeSimpleChoice,
@@ -90,7 +91,7 @@ type BoardActionCandidate = {
 type ExtraActionMinionContext = PromptContext & {
     sourceId: string;
     sourceDefId: string;
-    title: string;
+    titleKey: string;
     candidates: MinionTargetCandidate[];
     count: number;
 };
@@ -148,7 +149,7 @@ type MinionTargetCandidate = {
 type MinionEffectContext = PromptContext & {
     sourceId: string;
     sourceDefId: string;
-    title: string;
+    titleKey: string;
     candidates: MinionTargetCandidate[];
     effect: 'powerCounter' | 'tempPower';
     amount: number;
@@ -178,7 +179,7 @@ type MoveDestinationContext = PromptContext & {
 type MoveMinionContext = PromptContext & {
     sourceId: string;
     sourceDefId: string;
-    title: string;
+    titleKey: string;
     candidates: MinionTargetCandidate[];
     reason: string;
     tempPowerAfter?: number;
@@ -199,7 +200,7 @@ type NorthernMoverModeContext = PromptContext & {
 
 type BaseEffectContext = PromptContext & {
     sourceId: string;
-    title: string;
+    titleKey: string;
     baseCandidates: Array<{ baseIndex: number; label: string }>;
     effect: 'ownMinionsTempPower' | 'ownMinionsPowerCounter';
     amount: number;
@@ -221,7 +222,7 @@ type HaichQMoveContext = PromptContext & {
 
 type SearchActionContext = PromptContext & {
     sourceId: string;
-    title: string;
+    titleKey: string;
     candidates: Array<CardChoice & { label: string }>;
     extraActionAfter?: boolean;
 };
@@ -251,6 +252,10 @@ type BodySlamBaseContext = PromptContext & {
 type BodySlamDestinationContext = PromptContext & {
     targetPlayerId: PlayerId;
     fromBaseIndex: number;
+};
+
+type AlwaysGetOurManContext = PromptContext & {
+    selected: MinionTargetCandidate;
 };
 
 type OngoingActionChoice = {
@@ -300,7 +305,7 @@ type BaseMoveChoice = {
 
 type BaseMovePromptContext = PromptContext & {
     sourceId: string;
-    title: string;
+    titleKey: string;
     sourceBaseIndex: number;
     candidates: Array<BaseMoveChoice & { label: string }>;
 };
@@ -729,7 +734,7 @@ const minionEffectPrompt = createPromptProgram<MinionEffectContext, SmashUpCore,
         return createAbilityRuntimeSimpleChoice(
             `${context.sourceId}_${context.now}`,
             context.playerId,
-            context.title,
+            context.titleKey,
             options,
             {
                 sourceId: context.sourceId,
@@ -737,6 +742,7 @@ const minionEffectPrompt = createPromptProgram<MinionEffectContext, SmashUpCore,
                 ...(context.multiMax
                     ? { multi: { min: context.multiMin ?? 1, max: Math.min(context.multiMax, options.length) } }
                     : {}),
+                titleKey: context.titleKey,
                 autoResolveIfSingle: false,
             },
         );
@@ -849,14 +855,14 @@ const extraActionMinionPrompt = createPromptProgram<ExtraActionMinionContext, Sm
     buildInteraction: (context) => createAbilityRuntimeSimpleChoice(
         `${context.sourceId}_${context.now}`,
         context.playerId,
-        context.title,
+        context.titleKey,
         buildMinionTargetOptions(context.candidates, {
             state: context.matchState.core,
             sourcePlayerId: context.playerId,
             sourceDefId: context.sourceDefId,
             effectType: 'buff',
         }),
-        { sourceId: context.sourceId, targetType: 'minion', autoResolveIfSingle: false },
+        { sourceId: context.sourceId, targetType: 'minion', titleKey: context.titleKey, autoResolveIfSingle: false },
     ),
     onResolve: ({ context, value, timestamp }) => {
         const selected = value as MinionChoice;
@@ -956,14 +962,14 @@ const moveMinionPrompt = createPromptProgram<MoveMinionContext, SmashUpCore, Sma
         return createAbilityRuntimeSimpleChoice(
             `${context.sourceId}_${context.now}`,
             context.playerId,
-            context.title,
+            context.titleKey,
             [
                 ...(context.allowSkip
                     ? [createSkipOption('跳过（不移动随从）', 'ui.international_incident_skip_move_minion_option')]
                     : []),
                 ...minionOptions,
             ],
-            { sourceId: context.sourceId, targetType: 'minion', autoResolveIfSingle: false },
+            { sourceId: context.sourceId, targetType: 'minion', titleKey: context.titleKey, autoResolveIfSingle: false },
         );
     },
     onResolve: ({ context, value, timestamp }) => {
@@ -1450,9 +1456,9 @@ const baseEffectPrompt = createPromptProgram<BaseEffectContext, SmashUpCore, Sma
     buildInteraction: (context) => createAbilityRuntimeSimpleChoice(
         `${context.sourceId}_${context.now}`,
         context.playerId,
-        context.title,
+        context.titleKey,
         buildBaseTargetOptions(context.baseCandidates, context.matchState.core),
-        { sourceId: context.sourceId, targetType: 'base', autoResolveIfSingle: false },
+        { sourceId: context.sourceId, targetType: 'base', titleKey: context.titleKey, autoResolveIfSingle: false },
     ),
     onResolve: (args) => {
         const { context, value, timestamp } = args;
@@ -1539,7 +1545,7 @@ const yokozunaModePrompt = createPromptProgram<YokozunaMoveContext, SmashUpCore,
                 now: timestamp,
                 sourceId: 'sumo_wrestlers_yokozuna_move',
                 sourceDefId: 'sumo_wrestlers_yokozuna',
-                title: '横纲：选择要移动的其他玩家随从',
+                titleKey: 'ui.sumo_wrestlers_yokozuna_move_title',
                 candidates,
                 reason: 'sumo_wrestlers_yokozuna',
             } satisfies MoveMinionContext,
@@ -1564,7 +1570,7 @@ function sumoTechniquePrize(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, collectOwnMinions(ctx.state, ctx.playerId), {
         sourceId: 'sumo_wrestlers_technique_prize',
         sourceDefId: 'sumo_wrestlers_technique_prize',
-        title: '技术奖：选择你的一个随从放置 3 个 +1 力量指示物',
+        titleKey: 'ui.sumo_wrestlers_technique_prize_title',
         effect: 'powerCounter',
         amount: 3,
         reason: 'sumo_wrestlers_technique_prize',
@@ -1579,7 +1585,7 @@ function sumoFightingSpiritPrize(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, collectOwnMinions(ctx.state, ctx.playerId), {
         sourceId: 'sumo_wrestlers_fighting_spirit_prize',
         sourceDefId: 'sumo_wrestlers_fighting_spirit_prize',
-        title: '斗志奖：分配 2 个 +1 力量指示物',
+        titleKey: 'ui.sumo_wrestlers_fighting_spirit_prize_title',
         effect: 'powerCounter',
         amount: 1,
         reason: 'sumo_wrestlers_fighting_spirit_prize',
@@ -1765,7 +1771,7 @@ function sumoGraspTheBelt(ctx: AbilityContext): AbilityResult {
     return runMoveMinion(ctx, candidates, {
         sourceId: 'sumo_wrestlers_grasp_the_belt',
         sourceDefId: 'sumo_wrestlers_grasp_the_belt',
-        title: '抓住腰带：选择要移动的随从',
+        titleKey: 'ui.sumo_wrestlers_grasp_the_belt_title',
         reason: 'sumo_wrestlers_grasp_the_belt',
     });
 }
@@ -1779,7 +1785,7 @@ function sumoThirdTierTalent(ctx: AbilityContext): AbilityResult {
     return runMoveMinion(ctx, candidates, {
         sourceId: 'sumo_wrestlers_third_tier',
         sourceDefId: 'sumo_wrestlers_third_tier',
-        title: '关胁：选择这里力量 3 或以下的其他玩家随从',
+        titleKey: 'ui.sumo_wrestlers_third_tier_title',
         reason: 'sumo_wrestlers_third_tier',
         drawAfter: 1,
         allowSkip: true,
@@ -1897,7 +1903,7 @@ function musketeersEnGarde(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, collectMinions(ctx.state, () => true), {
         sourceId: 'musketeers_en_garde',
         sourceDefId: 'musketeers_en_garde',
-        title: '预备姿势：选择一个随从直到回合结束 +1 力量',
+        titleKey: 'ui.musketeers_en_garde_title',
         effect: 'tempPower',
         amount: 1,
         reason: 'musketeers_en_garde',
@@ -1910,7 +1916,7 @@ function musketeersOnARoll(ctx: AbilityContext): AbilityResult {
     return runExtraActionsRestrictedToMinion(ctx, collectMinions(ctx.state, () => true), {
         sourceId: 'musketeers_on_a_roll',
         sourceDefId: 'musketeers_on_a_roll',
-        title: '连连获胜：选择一个随从作为额外行动影响目标',
+        titleKey: 'ui.musketeers_on_a_roll_title',
         count: 2,
     });
 }
@@ -1919,7 +1925,7 @@ function musketeersBidingTime(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, collectMinions(ctx.state, () => true), {
         sourceId: 'musketeers_biding_time',
         sourceDefId: 'musketeers_biding_time',
-        title: '等待时机：选择一个随从直到回合结束 +2 力量',
+        titleKey: 'ui.musketeers_biding_time_title',
         effect: 'tempPower',
         amount: 2,
         reason: 'musketeers_biding_time',
@@ -1944,7 +1950,7 @@ function musketeersMakeWay(ctx: AbilityContext): AbilityResult {
     return runMoveMinion(ctx, collectOwnMinions(ctx.state, ctx.playerId), {
         sourceId: 'musketeers_make_way',
         sourceDefId: 'musketeers_make_way',
-        title: '让路：选择你的一个随从移动',
+        titleKey: 'ui.musketeers_make_way_title',
         reason: 'musketeers_make_way',
         extraActionAfter: true,
     });
@@ -1956,7 +1962,7 @@ function musketeersOneForAll(ctx: AbilityContext): AbilityResult {
         .filter(base => collectOwnMinionsOnBase(ctx.state, ctx.playerId, base.baseIndex).length > 0);
     return runBaseEffect(ctx, baseCandidates, {
         sourceId: 'musketeers_one_for_all',
-        title: '一为全：选择一个基地',
+        titleKey: 'ui.musketeers_one_for_all_title',
         effect: 'ownMinionsTempPower',
         amount: 1,
         reason: 'musketeers_one_for_all',
@@ -1969,7 +1975,7 @@ function musketeersLastStand(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, candidates, {
         sourceId: 'musketeers_last_stand',
         sourceDefId: 'musketeers_last_stand',
-        title: '最后一搏：选择计分基地上你的一个随从',
+        titleKey: 'ui.musketeers_last_stand_title',
         effect: 'tempPower',
         amount: 2,
         reason: 'musketeers_last_stand',
@@ -2127,12 +2133,34 @@ function canTriggerMusketeersAramis(ctx: TriggerContext): boolean {
 }
 
 function mountiesWhenCallsTheBadge(ctx: AbilityContext): AbilityResult {
+    if (ctx.targetBaseIndex !== undefined) {
+        const ownMinions = collectOwnMinionsOnBase(ctx.state, ctx.playerId, ctx.targetBaseIndex);
+        if (ownMinions.length === 0) {
+            return { events: [buildAbilityFeedback(ctx.playerId, 'feedback.no_valid_targets', ctx.now)] };
+        }
+        return {
+            events: ownMinions.map(minion => addPowerCounter(
+                minion.uid,
+                ctx.targetBaseIndex!,
+                1,
+                'mounties_when_calls_the_badge',
+                ctx.now,
+                {
+                    sourcePlayerId: ctx.playerId,
+                    sourceDefId: 'mounties_when_calls_the_badge',
+                    sourceControllerId: ctx.playerId,
+                    sourceBaseIndex: ctx.targetBaseIndex!,
+                },
+            )),
+        };
+    }
+
     const baseCandidates = ctx.state.bases
         .map((_base, baseIndex) => ({ baseIndex, label: getBaseLabel(ctx.state, baseIndex) }))
         .filter(base => collectOwnMinionsOnBase(ctx.state, ctx.playerId, base.baseIndex).length > 0);
     return runBaseEffect(ctx, baseCandidates, {
         sourceId: 'mounties_when_calls_the_badge',
-        title: '呼叫警徽：选择一个基地给你的每个随从 +1 指示物',
+        titleKey: 'ui.mounties_when_calls_the_badge_title',
         effect: 'ownMinionsPowerCounter',
         amount: 1,
         reason: 'mounties_when_calls_the_badge',
@@ -2145,7 +2173,7 @@ function mountiesPowerPoutine(ctx: AbilityContext): AbilityResult {
     return runMinionEffect(ctx, candidates, {
         sourceId: 'mounties_power_poutine',
         sourceDefId: 'mounties_power_poutine',
-        title: '力量肉汁薯条：选择至多两个你的随从 +2 力量',
+        titleKey: 'ui.mounties_power_poutine_title',
         effect: 'tempPower',
         amount: 2,
         reason: 'mounties_power_poutine',
@@ -2153,6 +2181,158 @@ function mountiesPowerPoutine(ctx: AbilityContext): AbilityResult {
         multiMin: 0,
     });
 }
+
+function buildAlwaysGetOurManTargetCandidates(
+    state: SmashUpCore,
+    playerId: PlayerId,
+    source: MinionTargetCandidate,
+): MinionTargetCandidate[] {
+    const sourceMinion = state.bases[source.baseIndex]?.minions.find(minion => (
+        minion.uid === source.uid && minion.defId === source.defId && minion.controller === playerId
+    ));
+    if (!sourceMinion) return [];
+    const sourcePower = getEffectivePower(state, sourceMinion, source.baseIndex);
+    return state.bases.flatMap((base, baseIndex) => {
+        if (baseIndex === source.baseIndex) return [];
+        return base.minions
+            .filter(minion => minion.controller !== playerId)
+            .filter(minion => getEffectivePower(state, minion, baseIndex) < sourcePower)
+            .map(minion => ({
+                uid: minion.uid,
+                defId: minion.defId,
+                baseIndex,
+                label: getMinionLabel(state, minion, baseIndex),
+            }));
+    });
+}
+
+const alwaysGetOurManTargetPrompt = createPromptProgram<AlwaysGetOurManContext, SmashUpCore, SmashUpEvent>({
+    sourceId: 'mounties_always_get_our_man_target',
+    buildInteraction: (context) => {
+        const candidates = buildAlwaysGetOurManTargetCandidates(
+            context.matchState.core,
+            context.playerId,
+            context.selected,
+        );
+        return createAbilityRuntimeSimpleChoice(
+            `mounties_always_get_our_man_target_${context.now}`,
+            context.playerId,
+            'ui.mounties_always_get_our_man_target_title',
+            buildMinionTargetOptions(candidates, {
+                state: context.matchState.core,
+                sourcePlayerId: context.playerId,
+                sourceDefId: 'mounties_always_get_our_man',
+                effectType: 'move',
+            }),
+            {
+                sourceId: 'mounties_always_get_our_man_target',
+                targetType: 'minion',
+                titleKey: 'ui.mounties_always_get_our_man_target_title',
+                autoResolveIfSingle: false,
+                responseValidationMode: 'live',
+            },
+        );
+    },
+    onResolve: ({ state, context, value, timestamp }) => {
+        const selected = value as MinionChoice;
+        if (!selected.minionUid || selected.baseIndex === undefined || !selected.defId) return { events: [] };
+        const sourceMinion = state.core.bases[context.selected.baseIndex]?.minions.find(minion => (
+            minion.uid === context.selected.uid
+            && minion.defId === context.selected.defId
+            && minion.controller === context.playerId
+        ));
+        const targetMinion = state.core.bases[selected.baseIndex]?.minions.find(minion => (
+            minion.uid === selected.minionUid
+            && minion.defId === selected.defId
+            && minion.controller !== context.playerId
+        ));
+        if (!sourceMinion || !targetMinion || selected.baseIndex === context.selected.baseIndex) return { events: [] };
+        if (getEffectivePower(state.core, targetMinion, selected.baseIndex)
+            >= getEffectivePower(state.core, sourceMinion, context.selected.baseIndex)) {
+            return { events: [] };
+        }
+        const moveEvents = buildValidatedMoveEvents(state.core, {
+            minionUid: sourceMinion.uid,
+            minionDefId: sourceMinion.defId,
+            fromBaseIndex: context.selected.baseIndex,
+            toBaseIndex: selected.baseIndex,
+            reason: 'mounties_always_get_our_man',
+            now: timestamp,
+            sourcePlayerId: context.playerId,
+            sourceDefId: 'mounties_always_get_our_man',
+            sourceControllerId: context.playerId,
+            sourceBaseIndex: context.selected.baseIndex,
+            sourceKind: 'action',
+        });
+        if (moveEvents.length === 0) return { events: [] };
+        return {
+            events: [
+                ...moveEvents,
+                buildMinionMetadataUpdatedEvent(targetMinion.uid, selected.baseIndex, {
+                    [MOUNTIES_ALWAYS_GET_OUR_MAN_META]: {
+                        sourcePlayerId: context.playerId,
+                        sourceDefId: 'mounties_always_get_our_man',
+                        turnNumber: state.core.turnNumber,
+                    },
+                }, 'mounties_always_get_our_man_mark', timestamp),
+            ],
+        };
+    },
+});
+
+const alwaysGetOurManSourcePrompt = createPromptProgram<PromptContext, SmashUpCore, SmashUpEvent>({
+    sourceId: 'mounties_always_get_our_man_source',
+    buildInteraction: (context) => {
+        const candidates = collectOwnMinions(context.matchState.core, context.playerId)
+            .filter(candidate => buildAlwaysGetOurManTargetCandidates(
+                context.matchState.core,
+                context.playerId,
+                candidate,
+            ).length > 0);
+        return createAbilityRuntimeSimpleChoice(
+            `mounties_always_get_our_man_source_${context.now}`,
+            context.playerId,
+            'ui.mounties_always_get_our_man_source_title',
+            buildMinionTargetOptions(candidates, {
+                state: context.matchState.core,
+                sourcePlayerId: context.playerId,
+                sourceDefId: 'mounties_always_get_our_man',
+                effectType: 'move',
+            }),
+            {
+                sourceId: 'mounties_always_get_our_man_source',
+                targetType: 'minion',
+                titleKey: 'ui.mounties_always_get_our_man_source_title',
+                autoResolveIfSingle: false,
+                responseValidationMode: 'live',
+            },
+        );
+    },
+    onResolve: ({ state, context, value, timestamp }) => {
+        const selected = value as MinionChoice;
+        if (!selected.minionUid || selected.baseIndex === undefined || !selected.defId) return { events: [] };
+        const candidate = collectOwnMinions(state.core, context.playerId).find(entry => (
+            entry.uid === selected.minionUid
+            && entry.defId === selected.defId
+            && entry.baseIndex === selected.baseIndex
+        ));
+        if (!candidate) return { events: [] };
+        const targets = buildAlwaysGetOurManTargetCandidates(state.core, context.playerId, candidate);
+        if (targets.length === 0) {
+            return { events: [buildAbilityFeedback(context.playerId, 'feedback.no_valid_targets', timestamp)] };
+        }
+        return {
+            events: [],
+            context: {
+                matchState: state,
+                playerId: context.playerId,
+                now: timestamp,
+                selected: candidate,
+            } satisfies AlwaysGetOurManContext,
+            nextProgram: alwaysGetOurManTargetPrompt,
+        };
+    },
+});
 
 function mountiesMoveAboot(ctx: AbilityContext): AbilityResult {
     const destinationBases = ctx.state.bases
@@ -2165,7 +2345,7 @@ function mountiesMoveAboot(ctx: AbilityContext): AbilityResult {
         : candidates, {
         sourceId: 'mounties_move_aboot',
         sourceDefId: 'mounties_move_aboot',
-        title: '挪过去：选择要移动的己方随从',
+        titleKey: 'ui.mounties_move_aboot_title',
         reason: 'mounties_move_aboot',
         tempPowerAfter: 2,
         allowedToBaseIndices: destinationBases,
@@ -2173,44 +2353,17 @@ function mountiesMoveAboot(ctx: AbilityContext): AbilityResult {
 }
 
 function mountiesAlwaysGetOurMan(ctx: AbilityContext): AbilityResult {
-    for (const own of collectOwnMinions(ctx.state, ctx.playerId)) {
-        const ownMinion = ctx.state.bases[own.baseIndex]?.minions.find(minion => minion.uid === own.uid);
-        if (!ownMinion) continue;
-        for (let targetBaseIndex = 0; targetBaseIndex < ctx.state.bases.length; targetBaseIndex += 1) {
-            if (targetBaseIndex === own.baseIndex) continue;
-            const target = ctx.state.bases[targetBaseIndex].minions.find(minion =>
-                minion.controller !== ctx.playerId
-                && getEffectivePower(ctx.state, minion, targetBaseIndex) < getEffectivePower(ctx.state, ownMinion, own.baseIndex),
-            );
-            if (!target) continue;
-            const moveEvents = buildValidatedMoveEvents(ctx.state, {
-                minionUid: ownMinion.uid,
-                minionDefId: ownMinion.defId,
-                fromBaseIndex: own.baseIndex,
-                toBaseIndex: targetBaseIndex,
-                reason: 'mounties_always_get_our_man',
-                now: ctx.now,
-                sourcePlayerId: ctx.playerId,
-                sourceDefId: 'mounties_always_get_our_man',
-                sourceControllerId: ctx.playerId,
-                sourceBaseIndex: own.baseIndex,
-                sourceKind: 'action',
-            });
-            return {
-                events: [
-                    ...moveEvents,
-                    buildMinionMetadataUpdatedEvent(target.uid, targetBaseIndex, {
-                        [MOUNTIES_ALWAYS_GET_OUR_MAN_META]: {
-                            sourcePlayerId: ctx.playerId,
-                            sourceDefId: 'mounties_always_get_our_man',
-                            turnNumber: ctx.state.turnNumber,
-                        },
-                    }, 'mounties_always_get_our_man_mark', ctx.now),
-                ],
-            };
-        }
+    const candidates = collectOwnMinions(ctx.state, ctx.playerId)
+        .filter(candidate => buildAlwaysGetOurManTargetCandidates(ctx.state, ctx.playerId, candidate).length > 0);
+    if (candidates.length === 0) {
+        return { events: [buildAbilityFeedback(ctx.playerId, 'feedback.no_valid_targets', ctx.now)] };
     }
-    return { events: [buildAbilityFeedback(ctx.playerId, 'feedback.no_valid_targets', ctx.now)] };
+    if (!ctx.matchState) return { events: [] };
+    return runtimeToAbilityResult(executeAbilityProgram(alwaysGetOurManSourcePrompt, createPromptContext(
+        ctx.matchState,
+        ctx.playerId,
+        ctx.now,
+    )));
 }
 
 function mountiesAlwaysGetOurManTurnEnd(ctx: TriggerContext): SmashUpEvent[] {
@@ -2344,7 +2497,7 @@ function mountiesEhSpecial(ctx: AbilityContext): AbilityResult {
     const effect = runMinionEffect(ctx, candidates, {
         sourceId: 'mounties_eh',
         sourceDefId: 'mounties_eh',
-        title: '嗯？：选择你的一个随从直到回合结束 +1 力量',
+        titleKey: 'ui.mounties_eh_title',
         effect: 'tempPower',
         amount: 1,
         reason: 'mounties_eh',
@@ -2719,7 +2872,7 @@ const searchActionPrompt = createPromptProgram<SearchActionContext, SmashUpCore,
     buildInteraction: (context) => createAbilityRuntimeSimpleChoice(
         `${context.sourceId}_${context.now}`,
         context.playerId,
-        context.title,
+        context.titleKey,
         [
             createSkipOption(),
             ...context.candidates.map((card, index) => ({
@@ -2730,7 +2883,7 @@ const searchActionPrompt = createPromptProgram<SearchActionContext, SmashUpCore,
                 _source: card.zone,
             })),
         ],
-        { sourceId: 'international_incident_base_move', targetType: 'generic' },
+        { sourceId: 'international_incident_base_move', targetType: 'generic', titleKey: context.titleKey },
     ),
     onResolve: ({ state, context, value, timestamp, random }) => {
         const selected = value as CardChoice;
@@ -2876,7 +3029,7 @@ const baseMovePrompt = createPromptProgram<BaseMovePromptContext, SmashUpCore, S
     buildInteraction: (context) => createAbilityRuntimeSimpleChoice(
         `${context.sourceId}_${context.playerId}_${context.now}`,
         context.playerId,
-        context.title,
+        context.titleKey,
         [
             createSkipOption('跳过（不移动随从）', 'ui.international_incident_skip_move_minion_option'),
             ...context.candidates.map((candidate, index) => ({
@@ -2891,7 +3044,7 @@ const baseMovePrompt = createPromptProgram<BaseMovePromptContext, SmashUpCore, S
                 displayMode: 'button' as const,
             })),
         ],
-        { sourceId: 'international_incident_base_move', targetType: 'generic' },
+        { sourceId: 'international_incident_base_move', targetType: 'generic', titleKey: context.titleKey },
     ),
     onResolve: ({ state, context, value, timestamp }) => {
         const selected = value as BaseMoveChoice;
@@ -2937,27 +3090,26 @@ const baseMovePrompt = createPromptProgram<BaseMovePromptContext, SmashUpCore, S
 const greatWhiteNorthPrompt = createPromptProgram<GreatWhiteNorthContext, SmashUpCore, SmashUpEvent>({
     sourceId: 'base_great_white_north_eh',
     buildInteraction: (context) => {
-        const candidates = collectOwnMinionsOnBase(context.matchState.core, context.playerId, context.sourceBaseIndex);
-        const destinationIndices = context.matchState.core.bases
-            .map((_base, baseIndex) => baseIndex)
-            .filter(baseIndex => baseIndex !== context.sourceBaseIndex);
-        const options = candidates.flatMap((candidate, candidateIndex) => destinationIndices.map((toBaseIndex, destinationIndex) => ({
-            id: `north-${candidateIndex}-${destinationIndex}`,
-            label: `${candidate.label} → ${getBaseLabel(context.matchState.core, toBaseIndex)}`,
-            value: {
-                minionUid: candidate.uid,
-                minionDefId: candidate.defId,
-                fromBaseIndex: context.sourceBaseIndex,
-                toBaseIndex,
-            },
-            displayMode: 'button' as const,
-        })));
+        const options = buildGreatWhiteNorthOptions(
+            context.matchState.core,
+            context.playerId,
+            context.sourceBaseIndex,
+        );
         return createAbilityRuntimeSimpleChoice(
             `base_great_white_north_eh_${context.playerId}_${context.now}`,
             context.playerId,
             '大白北方，嗯？：可以移动你在这里的一个随从并使其 +1',
             [createSkipOption('跳过（不移动随从）', 'ui.international_incident_skip_move_minion_option'), ...options],
-            { sourceId: 'base_great_white_north_eh', targetType: 'generic' , titleKey: 'ui.base_great_white_north_eh_title'},
+            {
+                sourceId: 'base_great_white_north_eh',
+                targetType: 'generic',
+                responseValidationMode: 'live',
+                optionsGenerator: (state) => [
+                    createSkipOption('跳过（不移动随从）', 'ui.international_incident_skip_move_minion_option'),
+                    ...buildGreatWhiteNorthOptions(state.core, context.playerId, context.sourceBaseIndex),
+                ],
+                titleKey: 'ui.base_great_white_north_eh_title',
+            },
         );
     },
     onResolve: ({ state, context, value, timestamp }) => {
@@ -2992,7 +3144,7 @@ const greatWhiteNorthPrompt = createPromptProgram<GreatWhiteNorthContext, SmashU
                     sourceKind: 'nonAction',
                 });
                 events.push(...moveEvents);
-                if (moveEvents.length > 0) {
+                if (moveEvents.some(event => event.type === SU_EVENTS.MINION_MOVED)) {
                     events.push(addTempPower(minion.uid, selected.toBaseIndex, 1, 'base_great_white_north_eh', timestamp, {
                         sourcePlayerId: context.playerId,
                         sourceDefId: 'base_great_white_north_eh',
@@ -3018,6 +3170,28 @@ const greatWhiteNorthPrompt = createPromptProgram<GreatWhiteNorthContext, SmashU
         };
     },
 });
+
+function buildGreatWhiteNorthOptions(
+    state: SmashUpCore,
+    playerId: PlayerId,
+    sourceBaseIndex: number,
+): Array<PromptOption<BaseMoveChoice>> {
+    const candidates = collectOwnMinionsOnBase(state, playerId, sourceBaseIndex);
+    const destinationIndices = state.bases
+        .map((_base, baseIndex) => baseIndex)
+        .filter(baseIndex => baseIndex !== sourceBaseIndex);
+    return candidates.flatMap((candidate, candidateIndex) => destinationIndices.map((toBaseIndex, destinationIndex) => ({
+        id: `north-${candidateIndex}-${destinationIndex}`,
+        label: `${candidate.label} → ${getBaseLabel(state, toBaseIndex)}`,
+        value: {
+            minionUid: candidate.uid,
+            minionDefId: candidate.defId,
+            fromBaseIndex: sourceBaseIndex,
+            toBaseIndex,
+        },
+        displayMode: 'button' as const,
+    })));
+}
 
 function buildActionSearchCandidates(
     state: SmashUpCore,
@@ -3049,7 +3223,7 @@ function luchadorsYellowDemon(ctx: AbilityContext): AbilityResult {
     }
     return runtimeToAbilityResult(executeAbilityProgram(searchActionPrompt, createPromptContext(ctx.matchState, ctx.playerId, ctx.now, {
         sourceId: 'luchadors_yellow_demon',
-        title: '黄色恶魔：选择一张 Set-Up 行动加入手牌',
+        titleKey: 'ui.luchadors_yellow_demon_title',
         candidates,
     })));
 }
@@ -3061,7 +3235,7 @@ function musketeersTokenOfAffection(ctx: AbilityContext): AbilityResult {
     }
     return runtimeToAbilityResult(executeAbilityProgram(searchActionPrompt, createPromptContext(ctx.matchState, ctx.playerId, ctx.now, {
         sourceId: 'musketeers_token_of_affection',
-        title: '情谊信物：选择一个直接影响随从的行动加入手牌',
+        titleKey: 'ui.musketeers_token_of_affection_title',
         candidates,
         extraActionAfter: true,
     })));
@@ -3127,7 +3301,8 @@ function luchadorsSmartSetUpTrigger(ctx: TriggerContext): SmashUpEvent[] {
 }
 
 function mountiesBringEmInTrigger(ctx: TriggerContext): SmashUpEvent[] {
-    if (!ctx.sourceCardUid || ctx.sourceBaseIndex === undefined || ctx.moveToBaseIndex === undefined) return [];
+    if (!ctx.sourceCardUid || ctx.moveFromBaseIndex === undefined || ctx.moveToBaseIndex === undefined) return [];
+    if (ctx.moveFromBaseIndex === ctx.moveToBaseIndex) return [];
     if (ctx.triggerMinionUid === undefined) return [];
     const movedMinion = ctx.state.bases[ctx.moveToBaseIndex]?.minions.find(minion => minion.uid === ctx.triggerMinionUid);
     if (!movedMinion?.attachedActions.some(action => action.uid === ctx.sourceCardUid)) return [];
@@ -3149,12 +3324,16 @@ function porthosProtection(ctx: ProtectionCheckContext): boolean {
 }
 
 function battleMooseProtection(ctx: ProtectionCheckContext): boolean {
+    if (ctx.sourceKind !== 'action') return false;
     if (ctx.sourcePlayerId === ctx.targetMinion.controller) return false;
     const base = ctx.state.bases[ctx.targetBaseIndex];
     if (!base) return false;
     return base.minions.some(minion =>
         minion.controller === ctx.targetMinion.controller
-        && minion.attachedActions.some(action => action.defId === 'mounties_battle_moose'),
+        && minion.attachedActions.some(action =>
+            action.defId === 'mounties_battle_moose'
+            && getActionControllerId(action) === ctx.targetMinion.controller,
+        ),
     );
 }
 
@@ -3236,7 +3415,7 @@ function baseTheDohyoMinionPlayed(ctx: TriggerContext) {
     if (candidates.length === 0) return [];
     return executeAbilityProgram(baseMovePrompt, createPromptContext(ctx.matchState, ctx.playerId, ctx.now, {
         sourceId: 'base_the_dohyo',
-        title: '土俵：可以将这里另一位玩家的一个随从移动到另一个基地',
+        titleKey: 'ui.base_the_dohyo_title',
         sourceBaseIndex: ctx.sourceBaseIndex,
         candidates,
     }));
@@ -3298,7 +3477,7 @@ function baseStrategicSyrupReserveMinionPlayed(ctx: TriggerContext) {
     if (candidates.length === 0) return [];
     return executeAbilityProgram(baseMovePrompt, createPromptContext(ctx.matchState, ctx.playerId, ctx.now, {
         sourceId: 'base_strategic_syrup_reserve',
-        title: '战略枫糖储备：可以将另一位玩家的一个随从移动到这里',
+        titleKey: 'ui.base_strategic_syrup_reserve_title',
         sourceBaseIndex: ctx.sourceBaseIndex,
         candidates,
     }));
@@ -3505,7 +3684,7 @@ export function registerInternationalIncidentAbilities(): void {
             const currentTurnPlayerId = core.turnOrder[core.currentPlayerIndex];
             if (!currentTurnPlayerId || currentTurnPlayerId !== playerId) return [];
             const player = core.players[playerId];
-            if (!player || player.actionsPlayed < 1) return [];
+            if (!player || player.actionsPlayed !== 1) return [];
             if (player.usedDiscardPlayAbilities?.includes('mounties_eh')) return [];
             const ownMinions = collectOwnMinions(core, playerId);
             if (ownMinions.length === 0) return [];
@@ -3538,7 +3717,7 @@ export function registerInternationalIncidentAbilities(): void {
     });
     registerTrigger('mounties_always_get_our_man', 'onTurnEnd', mountiesAlwaysGetOurManTurnEnd, {
         global: true,
-        globalZones: ['discard'],
+        globalZones: ['hand', 'discard', 'deck'],
     });
     registerAbilityProgram('mounties_northern_mover', 'talent', {
         program: createEffectProgram<AbilityContext, SmashUpCore, SmashUpEvent>(mountiesNorthernMoverTalent),

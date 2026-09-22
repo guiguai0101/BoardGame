@@ -1368,6 +1368,7 @@ export function CharacterSelectScreen({
                 referenceScenarioTurnSnapshot={scenarioReaderTurnSnapshot}
                 referenceScenarioLeftPage={scenarioReaderLeftPage}
                 referenceScenarioRightPage={scenarioReaderRightPage}
+                showScenarioReaderTitle
                 canTurnReferenceScenarioBack={canTurnScenarioReaderBack}
                 canTurnReferenceScenarioForward={canTurnScenarioReaderForward}
                 onClose={handleScenarioReaderClose}

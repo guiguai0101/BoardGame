@@ -96,6 +96,7 @@ import { getAutoResponseEnabled } from './ui/responsePreferences';
 import { getAbilityChoiceText } from './ui/abilityChoiceText';
 import {
     canInteractDiceForCurrentBoard,
+    getDefaultDiceForCharacter,
     getInteractionDiceForRightSidebar,
     getRailDiceForCurrentBoard,
     shouldShowRailDiceTray,
@@ -1484,9 +1485,12 @@ export const DiceThroneBoard: React.FC<DiceThroneBoardProps> = ({ G: rawG, dispa
     }, [currentRollDice, replayOnlyRollDice, attackSnapshotInteractionDice, bonusDiceTrayDice, isCurrentPhaseMainRollPhase]);
     const rightSidebarDice = React.useMemo(() => {
         if (bonusDiceTrayDice) return bonusDiceTrayDice;
-        const baseDice = getRailDiceForCurrentBoard(interactionDice, G.dice);
+        const defaultCharacterDice = G.dice.length > 0
+            ? G.dice
+            : getDefaultDiceForCharacter(player.characterId);
+        const baseDice = getRailDiceForCurrentBoard(interactionDice, defaultCharacterDice);
         return baseDice;
-    }, [G.dice, bonusDiceTrayDice, interactionDice]);
+    }, [G.dice, bonusDiceTrayDice, interactionDice, player.characterId]);
     const rightTrayBonusDiceSettlement = pendingBonusDiceRoutedToRightTray
         ? currentPendingBonusDiceSettlement
         : undefined;

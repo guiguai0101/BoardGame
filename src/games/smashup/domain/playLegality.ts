@@ -1,6 +1,7 @@
 import type { ValidationResult } from '../../../engine/types';
 import type { ActionCardDef, FusionCardDef, PlayConstraint, SmashUpCore } from './types';
 import { getCardDef, getFusionDef, getMinionDef, getMinionLikePower } from '../data/cards';
+import { getMinionTargetBlockInfo } from './effectSemantics';
 import { hasPlayerTurnRestriction, isOperationRestricted } from './ongoingEffects';
 import { getEffectivePower, getPlayerEffectivePowerOnBase } from './ongoingModifiers';
 import {
@@ -83,6 +84,27 @@ function validateMegaAttackTarget(
     }
 
     return { valid: true };
+}
+
+function validateActionMinionTargetProtection(
+    core: SmashUpCore,
+    playerId: string,
+    defId: string,
+    baseIndex: number,
+    targetMinion: SmashUpCore['bases'][number]['minions'][number],
+): ValidationResult {
+    const blockInfo = getMinionTargetBlockInfo(core, targetMinion, baseIndex, {
+        sourcePlayerId: playerId,
+        actionProtectionSourcePlayerId: playerId,
+        sourceDefId: defId,
+        sourceKind: 'action',
+        effectType: 'affect',
+        respectActionProtection: true,
+        mode: 'preview',
+    });
+    return blockInfo.blocked
+        ? { valid: false, error: '该随从受到保护，不能成为此行动卡的目标' }
+        : { valid: true };
 }
 
 export function validateConsumableMinionQuota(
@@ -336,6 +358,14 @@ export function validateActionPlaySemantics(
         if (controllerConstraint === 'opponent' && targetMinion.controller === playerId) {
             return { valid: false, error: '该行动卡需要选择其他玩家的随从' };
         }
+        const targetProtection = validateActionMinionTargetProtection(
+            core,
+            playerId,
+            params.defId,
+            targetBaseIndex,
+            targetMinion,
+        );
+        if (!targetProtection.valid) return targetProtection;
         if (params.defId === 'extramorphs_head_grabber' && getEffectivePower(core, targetMinion, targetBaseIndex) > 3) {
             return { valid: false, error: '抱头虫只能打到当前力量≤3的佣兵' };
         }
@@ -382,6 +412,14 @@ export function validateActionPlaySemantics(
             if (controllerConstraint === 'opponent' && targetMinion.controller === playerId) {
                 return { valid: false, error: '该行动卡需要选择其他玩家的随从' };
             }
+            const targetProtection = validateActionMinionTargetProtection(
+                core,
+                playerId,
+                params.defId,
+                targetBaseIndex,
+                targetMinion,
+            );
+            if (!targetProtection.valid) return targetProtection;
             if (params.defId === 'extramorphs_head_grabber' && getEffectivePower(core, targetMinion, targetBaseIndex) > 3) {
                 return { valid: false, error: '抱头虫只能打到当前力量≤3的佣兵' };
             }

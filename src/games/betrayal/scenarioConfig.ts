@@ -131,6 +131,7 @@ export interface BetrayalRoomDiscoveryTemplate {
     tags: string[];
     visualId: Exclude<BetrayalRoomVisualId, 'startTriple' | 'startHallway' | 'upperLanding' | 'basementLanding' | 'entranceHall' | 'foyer' | 'backUpper' | 'backGround' | 'backBasement'>;
     discoverySymbol?: BetrayalRoomDiscoverySymbol;
+    discoveryCardCount?: number;
     doorways: BetrayalRoomEdge[];
     discoveryEffect?: 'gainSanity1' | 'gainKnowledge1' | 'gainMight1' | 'gainSpeed1' | 'drawUntilWeapon' | 'placeObstacleToken';
     endTurnEffect?: 'physicalDamage1' | 'speedCheckFallToBasement' | 'moveToBasementLanding';
@@ -1245,6 +1246,7 @@ export const BETRAYAL_DISCOVERY_POOLS = {
                 tags: ['一层', '目标'],
                 visualId: 'vault',
                 discoverySymbol: 'item',
+                discoveryCardCount: 2,
                 doorways: ['north'],
             },
             {

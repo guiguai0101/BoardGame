@@ -113,7 +113,16 @@ export function resolveBetrayalRoomExploredPayload(
     }
     const deckKind = resolveRoomTemplateDiscoveryDeckKind(roomTemplate);
     const roomTextResolvedCore = resolveCoreAfterRoomDiscoveryText(core, roomTemplate.discoveryEffect);
-    const roomDiscoveryCards = resolveRoomDiscoveryCards(roomTextResolvedCore, roomTemplate.discoveryEffect);
+    const requiredDiscoveryCardCount = deckKind === 'item'
+        ? Math.max(1, roomTemplate.discoveryCardCount ?? 1)
+        : 1;
+    const hasRequiredDiscoveryCards = deckKind === null
+        || hasAvailableDiscoveryDeckCard(core, deckKind, requiredDiscoveryCardCount);
+    const roomDiscoveryCards = hasRequiredDiscoveryCards
+        ? resolveRoomDiscoveryCards(roomTextResolvedCore, roomTemplate.discoveryEffect, {
+            discoveryCardCount: roomTemplate.discoveryCardCount,
+        })
+        : {};
     const roomDiscoveryEffectResolutionSteps = createRoomDiscoveryEffectResolutionSteps(
         roomTemplate.name,
         roomTemplate.discoveryEffect,
@@ -178,10 +187,12 @@ export function resolveBetrayalRoomExploredPayload(
         };
     }
 
-    if (!hasAvailableDiscoveryDeckCard(core, deckKind)) {
+    if (!hasAvailableDiscoveryDeckCard(core, deckKind, requiredDiscoveryCardCount)) {
         const emptyDeckDetailParts = [
             ...roomDiscoveryRewardDetailParts,
-            `${DECK_KIND_LABEL[deckKind]}牌堆已空，没有抽取发现牌`,
+            requiredDiscoveryCardCount > 1
+                ? `${DECK_KIND_LABEL[deckKind]}牌堆不足${requiredDiscoveryCardCount}张，没有抽取发现牌`
+                : `${DECK_KIND_LABEL[deckKind]}牌堆已空，没有抽取发现牌`,
         ];
         return {
             playerId: command.playerId,
@@ -463,7 +474,11 @@ export function resolveBetrayalRoomExploredPayload(
         ? resolveHauntRevealResolutionForTrigger(core, drawnCard)
         : undefined;
     const roomDiscoveryRewardNames = getRoomDiscoveryRewardNames(roomDiscoveryCards);
-    const drawnCardBaseDetail = drawnCardEffect ? formatEffectLabel(drawnCardEffect) : '按卡面规则持有';
+    const drawnCardBaseDetail = drawnCardEffect
+        ? formatEffectLabel(drawnCardEffect)
+        : roomDiscoveryRewardNames.gained.length > 0
+            ? `符号抽到${drawnCard.name}，按卡面规则持有`
+            : '按卡面规则持有';
     const mummyForcedOmenDetail = mummyForcedOmenDraw.forcedOmenSearch
         ? mummyForcedOmenDraw.forcedOmenSearch.role === 'hero-book'
             ? '木乃伊横行：英雄首次需要预兆时，从预兆堆找出书本并洗牌'

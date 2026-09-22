@@ -186,11 +186,16 @@ describe('diceThroneCriticalImageResolver', () => {
             tianshi: { width: 3643, height: 2234 },
             lieren: { width: 3632, height: 2234 },
             vampire_lord: { width: 3627, height: 2234 },
+            zhizhuxia: { width: 1800, height: 1089 },
         } as const;
 
         for (const [characterId, dimensions] of Object.entries(expectedDimensions)) {
             expect(getPlayerBoardLayoutVersion(characterId), `${characterId} 应使用 v2 面板布局`).toBe('v2');
             expect(getPlayerBoardDimensions(characterId)).toEqual(dimensions);
         }
+    });
+
+    it('未登记的新派系默认使用 v2 玩家板布局', () => {
+        expect(getPlayerBoardLayoutVersion('new-faction')).toBe('v2');
     });
 });

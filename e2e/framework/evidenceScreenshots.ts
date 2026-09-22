@@ -6,10 +6,13 @@ const EVIDENCE_GAME_IDS = new Set(['betrayal', 'smashup', 'dicethrone', 'summone
 export const EVIDENCE_SCREENSHOT_EXTENSION = '.jpg';
 export const EVIDENCE_SCREENSHOT_TYPE = 'jpeg';
 export const EVIDENCE_SCREENSHOT_QUALITY = 90;
+export type EvidenceScreenshotFormat = 'jpeg' | 'png';
 
 export interface EvidenceScreenshotOptions {
     subdir?: string;
     filename?: string;
+    /** 需要保留截图细节时显式使用 png；未显式传入时尊重 filename 扩展名。 */
+    format?: EvidenceScreenshotFormat;
     /** 新增或本轮重跑的主证据截图应开启，运行时硬卡英文/抽象命名。 */
     requireChineseName?: boolean;
 }
@@ -52,10 +55,32 @@ export function sanitizeEvidencePathSegment(value: string): string {
         .slice(0, 120);
 }
 
-function sanitizeEvidenceFileName(filename: string): string {
+function resolveEvidenceScreenshotFormat(
+    filename: string,
+    requestedFormat?: EvidenceScreenshotFormat,
+): EvidenceScreenshotFormat {
+    const extension = parse(filename).ext.toLowerCase();
+    const filenameFormat = extension === '.png'
+        ? 'png'
+        : extension === '.jpg' || extension === '.jpeg'
+            ? 'jpeg'
+            : undefined;
+
+    if (requestedFormat && filenameFormat && requestedFormat !== filenameFormat) {
+        throw new Error(
+            `证据截图文件名扩展名与 format 不一致：${filename} / ${requestedFormat}。` +
+            '请让文件扩展名和实际编码格式保持一致。',
+        );
+    }
+
+    return requestedFormat ?? filenameFormat ?? 'jpeg';
+}
+
+function sanitizeEvidenceFileName(filename: string, requestedFormat?: EvidenceScreenshotFormat): string {
     const parsed = parse(filename);
     const baseName = sanitizeEvidencePathSegment(parsed.name || 'screenshot') || 'screenshot';
-    return `${baseName}${EVIDENCE_SCREENSHOT_EXTENSION}`;
+    const format = resolveEvidenceScreenshotFormat(filename, requestedFormat);
+    return `${baseName}${format === 'png' ? '.png' : EVIDENCE_SCREENSHOT_EXTENSION}`;
 }
 
 function sanitizeEvidenceSubdir(value: string): string {
@@ -109,11 +134,11 @@ export function getEvidenceScreenshotPath(
     const dir = getEvidenceScreenshotDir(testInfo, options.subdir, options);
     const filename =
         options.filename ??
-        `${sanitizeEvidencePathSegment(name) || 'screenshot'}${EVIDENCE_SCREENSHOT_EXTENSION}`;
+        `${sanitizeEvidencePathSegment(name) || 'screenshot'}${options.format === 'png' ? '.png' : EVIDENCE_SCREENSHOT_EXTENSION}`;
     if (shouldRequireChineseEvidenceName(options)) {
         assertChineseEvidenceSegment(filename, '文件名');
     }
-    return join(dir, sanitizeEvidenceFileName(filename));
+    return join(dir, sanitizeEvidenceFileName(filename, options.format));
 }
 
 export function toJpegEvidenceScreenshotPath(path: string): string {

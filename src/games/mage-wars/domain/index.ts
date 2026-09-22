@@ -53,6 +53,7 @@ function createPlayerState(
         preparedSpellSlots: 0,
         preparedSpellCardIds: [],
         discardSpellCardIds: [],
+        defeatedLivingCreatureCardIds: [],
     };
 }
 

@@ -67,7 +67,7 @@ export function resolveSmashUpVariantRelationForSourceId(
         return undefined;
     }
 
-    const entity = getVariantEntity(sourceId) ?? getVariantEntity(familyId) ?? getVariantEntity(`${familyId}_pod`);
+    const entity = getVariantEntity(familyId);
     return getSmashUpVariantSurfaceRelation(surface, familyId, entity?.faction);
 }
 

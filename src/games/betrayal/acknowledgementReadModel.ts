@@ -240,7 +240,7 @@ export function resolveRoomExploredCardResolutionRequiredPlayerIds(
     );
     if (
         !hasRoomDiscoveryProcessCards
-        && (event.payload.deckKind === 'item' || event.payload.deckKind === 'omen')
+        && event.payload.deckKind === 'item'
     ) {
         return [event.payload.playerId];
     }

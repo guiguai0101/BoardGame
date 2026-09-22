@@ -1,6 +1,17 @@
 import { test, expect } from '../framework';
 import type { Page } from '@playwright/test';
 import { setChineseLocale } from '../helpers/common';
+import { initAllAbilities } from '../../src/games/smashup/abilities/index.ts';
+import {
+  advanceSmashUpReactionSession,
+  startSmashUpReactionSession,
+} from '../../src/games/smashup/domain/reactionSession.ts';
+import {
+  createScoringBaseRef,
+  createScoringSession,
+  setScoringSession,
+} from '../../src/games/smashup/domain/scoringSession.ts';
+import { stripNonSerializable } from '../../src/engine/systems/InteractionSystem.ts';
 
 const INTERNATIONAL_INCIDENT_ATLAS_ID = 'smashup:international-incident-cards';
 
@@ -139,6 +150,10 @@ async function pickFaction(
   await waitForDraftTurn(page, options.playerId, options.selectedCountBeforePick);
   await closeFactionDetailIfPresent(page);
 
+  const searchInput = page.getByTestId('faction-search-input');
+  await expect(searchInput).toBeVisible({ timeout: 10000 });
+  await searchInput.fill(options.factionId);
+
   const faction = page.getByTestId(`faction-option-${options.factionId}`);
   await faction.scrollIntoViewIfNeeded({ timeout: 15000 });
   await expect(faction).toBeVisible({ timeout: 15000 });
@@ -156,16 +171,26 @@ async function pickFaction(
   await expect(confirmButton).toBeEnabled({ timeout: 10000 });
   await confirmButton.click();
 
-  await page.waitForFunction(
-    ({ playerId, factionId }) => {
+  const selectionDeadline = Date.now() + 20000;
+  let lastSelectionState: Record<string, unknown> | null = null;
+  while (Date.now() < selectionDeadline) {
+    lastSelectionState = await page.evaluate(({ playerId, factionId }) => {
       const state = (window as SmashUpE2EWindow).__BG_TEST_HARNESS__?.state?.get?.();
       const selected = state?.core?.factionSelection?.playerSelections?.[playerId] ?? [];
       const finalFactions = state?.core?.players?.[playerId]?.factions ?? [];
-      return selected.includes(factionId) || finalFactions.includes(factionId);
-    },
-    { playerId: options.playerId, factionId: options.factionId },
-    { timeout: 20000, polling: 200 },
-  );
+      const currentPlayerId = state?.core?.turnOrder?.[state?.core?.currentPlayerIndex ?? 0] ?? null;
+      return {
+        matched: selected.includes(factionId) || finalFactions.includes(factionId),
+        phase: state?.sys?.phase ?? null,
+        currentPlayerId,
+        selected,
+        finalFactions,
+      };
+    }, { playerId: options.playerId, factionId: options.factionId });
+    if (lastSelectionState.matched === true) return;
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`派系选择未落地: ${options.playerId}/${options.factionId} ${JSON.stringify(lastSelectionState)}`);
 }
 
 async function dismissSpotlightIfPresent(page: Page): Promise<void> {
@@ -174,6 +199,83 @@ async function dismissSpotlightIfPresent(page: Page): Promise<void> {
     await spotlightQueue.getByRole('button', { name: /^(关闭特写|Close spotlight)$/i }).click({ force: true });
     await page.waitForTimeout(200);
   }
+}
+
+const FIXED_SMASHUP_RANDOM = {
+  random: () => 0.5,
+  d: () => 1,
+  range: (min: number) => min,
+  shuffle: <T>(items: T[]) => [...items],
+};
+
+async function setHarnessState(page: Page, nextState: any): Promise<void> {
+  await page.evaluate(async (state) => {
+    const harness = (window as any).__BG_TEST_HARNESS__;
+    if (!harness?.state?.set) {
+      throw new Error('TestHarness state.set 不可用');
+    }
+    await harness.state.set(state);
+  }, nextState);
+  await page.waitForTimeout(500);
+}
+
+function createInternationalIncidentMeFirstState(baseState: any, frameId: string, baseIndex: number): any {
+  initAllAbilities();
+
+  let state = {
+    ...baseState,
+    core: {
+      ...baseState.core,
+      scoringEligibleBaseIndices: [baseIndex],
+      triggerQueue: baseState.core?.triggerQueue ?? [],
+    },
+    sys: {
+      ...baseState.sys,
+      phase: 'scoreBases',
+      interaction: { current: undefined, queue: [] },
+      responseWindow: { current: undefined },
+    },
+  };
+
+  const baseRef = createScoringBaseRef(state.core, baseIndex);
+  if (!baseRef) {
+    throw new Error(`无法构造国际事件计分基地引用: ${baseIndex}`);
+  }
+
+  state = setScoringSession(state, {
+    ...createScoringSession(state.core, [baseIndex]),
+    currentBaseRef: baseRef,
+    currentStep: 'awaiting-response-window',
+  });
+  state = startSmashUpReactionSession(state, {
+    frameId,
+    frameKind: 'score-before',
+    phase: 'optional',
+    currentPlayerId: '0',
+    activePlayerId: '0',
+    consecutivePasses: 0,
+    sourceBaseIndex: baseIndex,
+    responseWindowType: 'meFirst',
+  });
+
+  const advancedState = advanceSmashUpReactionSession(
+    state,
+    FIXED_SMASHUP_RANDOM as any,
+    20260921,
+  )?.state ?? state;
+  return {
+    ...advancedState,
+    sys: {
+      ...advancedState.sys,
+      interaction: {
+        ...advancedState.sys.interaction,
+        current: stripNonSerializable(advancedState.sys.interaction?.current),
+        queue: (advancedState.sys.interaction?.queue ?? [])
+          .map((interaction: any) => stripNonSerializable(interaction))
+          .filter(Boolean),
+      },
+    },
+  };
 }
 
 async function playDiscardSpecialOnMinion(page: Page, cardUid: string, minionUid: string): Promise<void> {
@@ -741,17 +843,13 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
           ],
         },
       ],
-      responseWindow: {
-        id: 'me-first-badge-special',
-        windowType: 'meFirst',
-        sourceId: 'scoreBases',
-        responderQueue: ['0', '1'],
-        currentResponderIndex: 0,
-        passedPlayers: [],
-        actionTakenThisRound: false,
-        consecutivePassRounds: 0,
-      },
     });
+
+    const baseState = await game.getState();
+    await setHarnessState(
+      page,
+      createInternationalIncidentMeFirstState(baseState, 'score-before:international-badge-special', 0),
+    );
 
     await page.waitForFunction(
       () => {
@@ -770,11 +868,12 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
     );
     await game.screenshot('14-呼叫警徽-计分前响应窗口', testInfo);
 
-    await game.playCard('mounties_when_calls_the_badge', { targetBaseIndex: 0 });
-    await game.waitForInteraction('mounties_when_calls_the_badge', 10000);
-    await game.screenshot('15-呼叫警徽-选择加指示物基地', testInfo);
-    await game.selectInteractionOptionBy(option => optionHasBaseIndex(option, 0), '呼叫警徽选择计分基地');
+    const badgeCard = page.locator('[data-testid="su-hand-area"] [data-card-uid="badge-special"]');
+    await expect(badgeCard).toBeVisible({ timeout: 10000 });
+    await badgeCard.click({ force: true });
+    await game.selectBase(0);
     await dismissSpotlightIfPresent(page);
+    await game.screenshot('15-呼叫警徽-选择基地并结算', testInfo);
 
     await expect.poll(async () => {
       const state = await game.getState();
@@ -815,10 +914,9 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
       bases: [
         {
           defId: 'base_ringside',
-          breakpoint: 7,
           minions: [
-            { uid: 'pin-flor', defId: 'luchadors_flor_loca', owner: '0', controller: '0', power: 3 },
-            { uid: 'pin-enemy-small', defId: 'musketeers_young_musketeer', owner: '1', controller: '1', power: 2 },
+            { uid: 'pin-flor', defId: 'luchadors_flor_loca', owner: '0', controller: '0', basePower: 11 },
+            { uid: 'pin-enemy-small', defId: 'musketeers_young_musketeer', owner: '1', controller: '1', basePower: 10 },
             { uid: 'pin-enemy-big', defId: 'musketeers_dartagnan', owner: '1', controller: '1', power: 6 },
           ],
         },
@@ -826,6 +924,11 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
     });
 
     await game.playCard('luchadors_pin', { targetMinionUid: 'pin-enemy-big' });
+    await game.waitForInteraction('smashup_reaction_choose', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasTriggerId(option, 'base_ringside'),
+      '压制选择擂台边强制反应',
+    );
     await game.waitForNoInteraction(10000);
     await dismissSpotlightIfPresent(page);
     await expect.poll(async () => {
@@ -836,11 +939,6 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
     await game.screenshot('17-压制-真实附着后', testInfo);
 
     await page.getByTestId('su-end-turn-action-button').click();
-    await game.waitForInteraction('multi_base_scoring', 10000);
-    await game.selectInteractionOptionBy(
-      option => optionHasBaseIndex(option, 0) || optionHasBaseDefId(option, 'base_ringside'),
-      '压制选择擂台边计分',
-    );
     await expect.poll(async () => {
       const state = await game.getState();
       return {
@@ -935,6 +1033,16 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
       option => optionHasCardUid(option, 'rev-smart'),
     ]);
 
+    await game.waitForInteraction('smashup_reaction_choose', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasTriggerId(option, 'base_ringside'),
+      '逆转夺控后选择擂台边强制反应',
+    );
+    await game.waitForInteraction('smashup_reaction_choose', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasTriggerId(option, 'musketeers_all_for_one'),
+      '逆转后选择全为一强制反应',
+    );
     await game.waitForNoInteraction(10000);
     await dismissSpotlightIfPresent(page);
     await expect.poll(async () => {
@@ -1839,7 +1947,10 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
     });
     await game.screenshot('54-连连获胜-第一张额外行动结算后', testInfo);
 
-    await game.playCard('musketeers_en_garde', { targetMinionUid: 'roll-target' });
+    await page.click('[data-card-uid="roll-en-garde"]');
+    await page.waitForTimeout(300);
+    await page.click('[data-minion-uid="roll-target"]');
+    await page.waitForTimeout(300);
     await game.waitForNoInteraction(10000);
     await dismissSpotlightIfPresent(page);
     await game.screenshot('55-连连获胜-第二张额外行动作用于限定随从后', testInfo);
@@ -1868,5 +1979,742 @@ test.describe('大杀四方《环游世界：国际事件》四派系真实入�
       interactionSource: null,
     });
     await game.screenshot('56-连连获胜-第二张额外行动结算并清理后', testInfo);
+  });
+
+  test('让路可从真实手牌入口移动己方随从并消费额外行动', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'make-way', defId: 'musketeers_make_way', type: 'action', owner: '0' },
+          { uid: 'make-way-technique', defId: 'sumo_wrestlers_technique_prize', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'make-way-draw', defId: 'musketeers_biding_time', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_bastion_saint_gervais',
+          minions: [
+            { uid: 'make-way-target', defId: 'musketeers_young_musketeer', owner: '0', controller: '0', power: 3 },
+          ],
+        },
+        { defId: 'base_the_golden_lily', minions: [] },
+      ],
+    });
+
+    await game.screenshot('57-让路-真实手牌入口前', testInfo);
+    await game.playCard('musketeers_make_way');
+    await game.waitForInteraction('musketeers_make_way', 10000);
+    await game.screenshot('58-让路-选择己方随从', testInfo);
+    await game.selectInteractionOptionBy(
+      option => optionHasMinionUid(option, 'make-way-target'),
+      '让路选择己方随从',
+    );
+    await game.waitForInteraction('musketeers_make_way_destination', 10000);
+    await game.screenshot('59-让路-选择目标基地', testInfo);
+    await game.selectInteractionOptionBy(option => optionHasBaseIndex(option, 1), '让路选择第二座基地');
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const player = state.core.players['0'];
+      return {
+        source: state.core.bases[0]?.minions.map((minion: { uid?: string }) => minion.uid),
+        destination: state.core.bases[1]?.minions.map((minion: { uid?: string }) => minion.uid),
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      source: [],
+      destination: ['make-way-target'],
+      handUids: ['make-way-technique'],
+      discardUids: ['make-way'],
+      actionsPlayed: 1,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('60-让路-移动并获得额外行动后', testInfo);
+
+    await game.playCard('sumo_wrestlers_technique_prize');
+    await game.waitForInteraction('sumo_wrestlers_technique_prize', 10000);
+    await game.screenshot('61-让路-额外行动消费时选择移动后的随从', testInfo);
+    await game.selectInteractionOptionBy(
+      option => optionHasMinionUid(option, 'make-way-target'),
+      '让路后的额外行动选择移动后的随从',
+    );
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const target = state.core.bases[1]?.minions.find((minion: { uid?: string }) => minion.uid === 'make-way-target');
+      const player = state.core.players['0'];
+      return {
+        targetCounters: target?.powerCounters ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      targetCounters: 3,
+      handUids: [],
+      discardUids: ['make-way', 'make-way-technique'],
+      actionsPlayed: 2,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('62-让路-额外行动结算并清理后', testInfo);
+  });
+
+  test('情谊信物可从真实手牌入口按来源检索直接影响随从的行动并获得额外行动', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'token-main', defId: 'musketeers_token_of_affection', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'token-deck-direct', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+          { uid: 'token-deck-invalid', defId: 'musketeers_make_way', type: 'action', owner: '0' },
+        ],
+        discard: [
+          { uid: 'token-discard-direct', defId: 'musketeers_all_for_one', type: 'action', owner: '0' },
+          { uid: 'token-discard-invalid', defId: 'luchadors_tag_team', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_bastion_saint_gervais',
+          minions: [
+            { uid: 'token-target', defId: 'musketeers_porthos', owner: '0', controller: '0', power: 4 },
+          ],
+        },
+      ],
+    });
+
+    await game.screenshot('69-情谊信物-真实手牌入口前', testInfo);
+    await game.playCard('musketeers_token_of_affection');
+    await game.waitForInteraction('international_incident_base_move', 10000);
+
+    const searchOptions = await game.getInteractionOptions();
+    expect(searchOptions.some(option => option.value?.cardUid === 'token-deck-direct' && option.value?.zone === 'deck')).toBe(true);
+    expect(searchOptions.some(option => option.value?.cardUid === 'token-discard-direct' && option.value?.zone === 'discard')).toBe(true);
+    expect(searchOptions.some(option => option.value?.cardUid === 'token-deck-invalid')).toBe(false);
+    expect(searchOptions.some(option => option.value?.cardUid === 'token-discard-invalid')).toBe(false);
+    await game.screenshot('70-情谊信物-牌库与弃牌堆候选', testInfo);
+
+    await game.selectInteractionOptionBy(
+      option => option.value?.cardUid === 'token-deck-direct' && option.value?.zone === 'deck',
+      '情谊信物从牌库取回预备姿势',
+    );
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const player = state.core.players['0'];
+      return {
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        deckUids: player.deck.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid).sort(),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      handUids: ['token-deck-direct'],
+      deckUids: ['token-deck-invalid'],
+      discardUids: ['token-discard-direct', 'token-discard-invalid', 'token-main'].sort(),
+      actionsPlayed: 1,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('71-情谊信物-取回行动并获得额外行动后', testInfo);
+  });
+
+  test('情谊信物真实入口跳过搜索时保持牌区和行动额度不变', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'token-skip', defId: 'musketeers_token_of_affection', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'token-skip-deck', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+        ],
+        discard: [
+          { uid: 'token-skip-discard', defId: 'musketeers_all_for_one', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        { defId: 'base_bastion_saint_gervais', minions: [] },
+      ],
+    });
+
+    await game.screenshot('72-情谊信物-跳过路径入口前', testInfo);
+    await game.playCard('musketeers_token_of_affection');
+    await game.waitForInteraction('international_incident_base_move', 10000);
+    await game.screenshot('73-情谊信物-跳过搜索交互', testInfo);
+    await game.selectInteractionOptionBy(option => option.value?.skip === true, '情谊信物跳过搜索');
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const player = state.core.players['0'];
+      return {
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        deckUids: player.deck.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      handUids: [],
+      deckUids: ['token-skip-deck'],
+      discardUids: ['token-skip-discard', 'token-skip'],
+      actionsPlayed: 1,
+      actionLimit: 1,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('74-情谊信物-跳过后清理完成', testInfo);
+  });
+
+  test('投入战斗可从真实手牌入口打出额外随从并消费其限定额外行动', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'to-battle', defId: 'musketeers_to_battle', type: 'action', owner: '0' },
+          { uid: 'to-battle-extra-minion', defId: 'musketeers_young_musketeer', type: 'minion', owner: '0' },
+          { uid: 'to-battle-en-garde', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'to-battle-follow-up', defId: 'musketeers_make_way', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        { defId: 'base_the_golden_lily', minions: [] },
+        { defId: 'base_bastion_saint_gervais', minions: [] },
+      ],
+    });
+
+    await game.screenshot('63-投入战斗-真实手牌入口前', testInfo);
+    await game.playCard('musketeers_to_battle');
+    await game.waitForInteraction('smashup_immediate_extra_minion', 10000);
+    await game.screenshot('64-投入战斗-选择额外随从', testInfo);
+    await game.selectInteractionOptionBy(
+      option => optionHasCardUid(option, 'to-battle-extra-minion'),
+      '投入战斗选择额外随从',
+    );
+    await game.waitForInteraction('smashup_immediate_extra_minion_base', 10000);
+    await game.screenshot('65-投入战斗-选择额外随从基地', testInfo);
+    await game.selectInteractionOptionBy(option => optionHasBaseIndex(option, 0), '投入战斗选择额外随从基地');
+    await game.waitForInteraction('smashup_immediate_extra_action', 10000);
+    await game.screenshot('66-投入战斗-选择限定额外行动', testInfo);
+    await game.selectInteractionOptionBy(
+      option => optionHasCardUid(option, 'to-battle-en-garde'),
+      '投入战斗选择限定额外行动预备姿势',
+    );
+    await game.waitForInteraction('smashup_immediate_extra_action_minion', 10000);
+    await game.screenshot('67-投入战斗-选择额外随从作为行动目标', testInfo);
+    await game.selectInteractionOptionBy(
+      option => optionHasMinionUid(option, 'to-battle-extra-minion'),
+      '投入战斗选择额外随从作为行动目标',
+    );
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const player = state.core.players['0'];
+      const target = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'to-battle-extra-minion');
+      return {
+        baseZeroMinions: state.core.bases[0]?.minions.map((minion: { uid?: string }) => minion.uid),
+        targetTempPower: target?.tempPowerModifier ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        pendingMinionPlayEffects: player.pendingMinionPlayEffects ?? [],
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      baseZeroMinions: ['to-battle-extra-minion'],
+      targetTempPower: 2,
+      handUids: ['to-battle-follow-up'],
+      discardUids: ['to-battle', 'to-battle-en-garde'],
+      actionsPlayed: 2,
+      actionLimit: 3,
+      pendingMinionPlayEffects: [],
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('68-投入战斗-额外随从与额外行动额度结算并清理后', testInfo);
+  });
+
+  test('波尔托斯从真实对手行动入口拒绝影响并保留普通随从目标', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      numPlayers: 2,
+      playerID: '1',
+      seat0: 'human',
+      seat1: 'human',
+      disableLocalAiAutomation: true,
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'musketeers,luchadors',
+      skipInitialization: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '1',
+      phase: 'playCards',
+      player0: {
+        hand: [],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: {
+        hand: [
+          { uid: 'porthos-opponent-action', defId: 'musketeers_en_garde', type: 'action', owner: '1' },
+        ],
+        deck: [
+          { uid: 'porthos-opponent-draw', defId: 'musketeers_biding_time', type: 'action', owner: '1' },
+        ],
+        factions: ['musketeers', 'luchadors'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      bases: [
+        {
+          defId: 'base_bastion_saint_gervais',
+          minions: [
+            { uid: 'porthos-protected', defId: 'musketeers_porthos', owner: '0', controller: '0', power: 4 },
+            { uid: 'porthos-control', defId: 'sumo_wrestlers_rookie_sumo', owner: '0', controller: '0', power: 2 },
+          ],
+        },
+      ],
+    });
+
+    await game.waitForCurrentPlayer('1');
+    await game.screenshot('75-波尔托斯-对手行动入口前', testInfo);
+    await page.locator('[data-card-uid="porthos-opponent-action"]').click({ force: true });
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-minion-uid="porthos-protected"]')).toHaveAttribute('data-highlighted', 'false');
+    await expect(page.locator('[data-minion-uid="porthos-control"]')).toHaveAttribute('data-highlighted', 'true');
+    await game.screenshot('76-波尔托斯-对手行动目标过滤后', testInfo);
+    await page.locator('[data-minion-uid="porthos-control"]').click({ force: true });
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const protectedMinion = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'porthos-protected');
+      const ordinaryMinion = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'porthos-control');
+      const player = state.core.players['1'];
+      return {
+        porthosTempPower: protectedMinion?.tempPowerModifier ?? 0,
+        ordinaryTempPower: ordinaryMinion?.tempPowerModifier ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      porthosTempPower: 0,
+      ordinaryTempPower: 1,
+      handUids: ['porthos-opponent-draw'],
+      discardUids: ['porthos-opponent-action'],
+      actionsPlayed: 1,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('77-波尔托斯-对手行动被拒绝且普通随从正常受影响后', testInfo);
+  });
+
+  test('波尔托斯控制者可从真实手牌入口用行动影响自身并获得额外行动', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'porthos-own-action', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'porthos-own-draw', defId: 'musketeers_biding_time', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_bastion_saint_gervais',
+          minions: [
+            { uid: 'porthos-own-target', defId: 'musketeers_porthos', owner: '0', controller: '0', power: 4 },
+          ],
+        },
+      ],
+    });
+
+    await game.waitForCurrentPlayer('0');
+    await game.screenshot('78-波尔托斯-控制者行动入口前', testInfo);
+    await page.locator('[data-card-uid="porthos-own-action"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-minion-uid="porthos-own-target"]')).toHaveAttribute('data-highlighted', 'true');
+    await game.screenshot('79-波尔托斯-控制者可选择自身目标', testInfo);
+    await page.locator('[data-minion-uid="porthos-own-target"]').click({ force: true });
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const porthos = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'porthos-own-target');
+      const player = state.core.players['0'];
+      return {
+        tempPower: porthos?.tempPowerModifier ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      tempPower: 1,
+      handUids: ['porthos-own-draw'],
+      discardUids: ['porthos-own-action'],
+      actionsPlayed: 1,
+      actionLimit: 3,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('80-波尔托斯-控制者行动正常结算后', testInfo);
+  });
+
+  test('阿多斯从真实手牌入口在同基地内强化被直接影响的己方随从', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'athos-action', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'athos-draw', defId: 'musketeers_biding_time', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_the_golden_lily',
+          minions: [
+            { uid: 'athos-source', defId: 'musketeers_athos', owner: '0', controller: '0', power: 4 },
+            { uid: 'athos-target', defId: 'sumo_wrestlers_rookie_sumo', owner: '0', controller: '0', power: 2 },
+          ],
+        },
+      ],
+    });
+
+    await game.waitForCurrentPlayer('0');
+    await game.screenshot('81-阿多斯-控制者行动入口前', testInfo);
+    await page.locator('[data-card-uid="athos-action"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-minion-uid="athos-target"]')).toHaveAttribute('data-highlighted', 'true');
+    await game.screenshot('82-阿多斯-选择同基地己方目标', testInfo);
+    await page.locator('[data-minion-uid="athos-target"]').click({ force: true });
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const source = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'athos-source');
+      const target = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'athos-target');
+      const player = state.core.players['0'];
+      return {
+        sourceTempPower: source?.tempPowerModifier ?? 0,
+        targetTempPower: target?.tempPowerModifier ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      sourceTempPower: 0,
+      targetTempPower: 2,
+      handUids: ['athos-draw'],
+      discardUids: ['athos-action'],
+      actionsPlayed: 1,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('83-阿多斯-直接影响后目标获得双重加力并清理', testInfo);
+  });
+
+  test('达达尼昂从真实手牌入口被直接影响后抽两张牌并完成清理', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipFactionSelect: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'dartagnan-action', defId: 'musketeers_en_garde', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'dartagnan-draw-a', defId: 'musketeers_biding_time', type: 'action', owner: '0' },
+          { uid: 'dartagnan-draw-b', defId: 'musketeers_make_way', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_the_golden_lily',
+          minions: [
+            { uid: 'dartagnan-target', defId: 'musketeers_dartagnan', owner: '0', controller: '0', power: 4 },
+          ],
+        },
+      ],
+    });
+
+    await game.waitForCurrentPlayer('0');
+    await game.screenshot('84-达达尼昂-控制者行动入口前', testInfo);
+    await page.locator('[data-card-uid="dartagnan-action"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-minion-uid="dartagnan-target"]')).toHaveAttribute('data-highlighted', 'true');
+    await game.screenshot('85-达达尼昂-选择自身目标', testInfo);
+    await page.locator('[data-minion-uid="dartagnan-target"]').click({ force: true });
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const target = state.core.bases[0]?.minions.find((minion: { uid?: string }) => minion.uid === 'dartagnan-target');
+      const player = state.core.players['0'];
+      return {
+        targetTempPower: target?.tempPowerModifier ?? 0,
+        handUids: player.hand.map((card: { uid?: string }) => card.uid).sort(),
+        discardUids: player.discard.map((card: { uid?: string }) => card.uid),
+        deckUids: player.deck.map((card: { uid?: string }) => card.uid),
+        actionsPlayed: player.actionsPlayed,
+        actionLimit: player.actionLimit,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      targetTempPower: 1,
+      handUids: ['dartagnan-draw-a', 'dartagnan-draw-b'],
+      discardUids: ['dartagnan-action'],
+      deckUids: [],
+      actionsPlayed: 1,
+      actionLimit: 2,
+      interactionSource: null,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('86-达达尼昂-直接影响后抽两张牌并清理', testInfo);
+  });
+
+  test('黄金百合花从真实结束回合入口在有己方随从时抽一张牌', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      numPlayers: 2,
+      playerID: '0',
+      seat0: 'human',
+      seat1: 'human',
+      disableLocalAiAutomation: true,
+      p0: 'musketeers,sumo_wrestlers',
+      p1: 'mounties,luchadors',
+      skipInitialization: true,
+      seed: 20260920,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [],
+        deck: [
+          { uid: 'golden-lily-draw', defId: 'musketeers_biding_time', type: 'action', owner: '0' },
+        ],
+        factions: ['musketeers', 'sumo_wrestlers'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+      },
+      player1: { factions: ['mounties', 'luchadors'] },
+      bases: [
+        {
+          defId: 'base_the_golden_lily',
+          minions: [
+            { uid: 'golden-lily-ally', defId: 'sumo_wrestlers_rookie_sumo', owner: '0', controller: '0', power: 2 },
+          ],
+        },
+      ],
+    });
+
+    await game.waitForCurrentPlayer('0');
+    await game.screenshot('87-黄金百合花-结束回合入口前', testInfo);
+    await page.getByTestId('su-end-turn-action-button').click();
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const player = state.core.players['0'];
+      return {
+        handUids: player.hand.map((card: { uid?: string }) => card.uid),
+        deckUids: player.deck.map((card: { uid?: string }) => card.uid),
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+        interactionSource: state.sys.interaction?.current?.data?.sourceId ?? null,
+      };
+    }, { timeout: 15000 }).toEqual({
+      handUids: ['golden-lily-draw'],
+      deckUids: [],
+      triggerQueueLength: 0,
+      interactionSource: null,
+    });
+    await game.screenshot('88-黄金百合花-回合结束抽牌并清理', testInfo);
   });
 });

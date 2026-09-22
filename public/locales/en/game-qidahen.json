@@ -175,6 +175,7 @@
       "wheelNextStepBadge": "Next",
       "wheelNextStepTitle": "Advance public wheel",
       "wheelNextStepHint": "Choose how many spaces to move",
+      "wheelTutorialMoveHint": "Use the rule-based wheel choices: move 1 with no opponent draw, name one opponent to draw 2 and move 2, or make all opponents draw 2 and move 3; click a destination to execute it",
       "wheelExecutePrompt": "Choose a wheel segment",
       "directExecute": "Execute now",
       "victoryAchieved": "{{winnerName}} has achieved {{condition}}",
@@ -383,14 +384,15 @@
       "description": "Start at the first real decision: push the shared wheel, read its result, then complete one hand action.",
       "steps": {
         "welcome": "Seven Hatreds has three victory paths: control 16 regions at New Year, capture an opponent's capital, or reach 3 prestige first.",
-        "wheelFirst": "Once the formal opening is complete, the first real decision of this turn is the shared wheel push. Moving it by 1, 2, or 3 spaces decides whether other players draw and which wheel-result action this turn will use.",
-        "wheelMove": "Now choose how far to push the shared wheel. Click the free 1-space move; in this setup it moves from Military Farm to Recruit / Train, whose effect resolves immediately.",
-        "wheelResult": "The wheel has landed on Recruit / Train, and its result is already resolved. Return to this turn's hand action and click Grant Pardon to continue.",
-        "pickAction": "Hand action: Grant Pardon. Choose the action first, not a map region; the target troop and receiving Ming region are chosen in the next step.",
-        "chooseGrantPardonTarget": "Choose the pardon target on the map: click Shanhaiguan to move 1 Later Jin troop out of Jinzhou into that adjacent Ming-controlled region.",
-        "payCards": "The target is locked. Now discard 3 cards to pay for Grant Pardon; the map changes only after payment resolves.",
-        "actionResult": "Jinzhou loses an enemy troop, and Shanhaiguan gains a Ming troop. Hand resources have turned into direct board control.",
-        "finish": "This real first-turn segment is complete: push the shared wheel, read the Recruit / Train result, then spend 3 cards to resolve Grant Pardon."
+        "wheelFirst": "The starting setup gives Ming 3 hand cards, and Ming's hand limit is 15. The turn begins by checking whether the hand is over the limit; 3 is not over 15, so this check passes automatically and no card is discarded. The rules then move to the shared wheel.",
+        "wheelMove": "The wheel has three rule choices: move 1 with no opponent draw; name one opponent to draw 2 cards and move 2; or make every opponent draw 2 cards and move 3. The green destinations only show clickable choices; none is selected yet. Click one destination to execute that exact rule choice.",
+        "wheelResult": "This tutorial chooses the free move of 1, advancing the wheel from Military Farm to Recruit / Train. Recruit / Train builds 2 level-2 regular troops; if Artillery Technology has already been developed, existing artillery also trains up to that technology level. Read the troop changes on the map and in the summary, then continue to the hand action.",
+        "wheelBranchFinish": "The wheel action is complete. Each turn contains one hand action and one wheel action, in either order; this run now takes Ming's hand action, so the next rule is Grant Pardon.",
+        "pickAction": "It is now the hand-action window. Ming's Grant Pardon rule is: discard 3 hand cards, name one opponent, and have the named player choose one troop adjacent to a Ming-controlled region to move into that adjacent Ming-controlled region and become a Ming troop. Click Grant Pardon to begin paying its cost.",
+        "payCards": "Grant Pardon is selected, but the map has not changed because its rule requires payment first. Select 3 hand cards and confirm; this step only pays the cost. The map choice appears after the payment is complete.",
+        "chooseGrantPardonTarget": "The cost is paid. Now apply the troop choice required by the rule: in this run, 1 Later Jin troop moves from Jinzhou into the adjacent Ming-controlled Shanhaiguan and becomes a Ming troop. Click Shanhaiguan to submit that real map choice.",
+        "actionResult": "Grant Pardon is complete: Jinzhou has 1 fewer Later Jin troop, and Shanhaiguan has 1 more Ming troop. This action changes troop position and faction; it does not directly change Shanhaiguan's control marker to Ming. Control still follows the Shanhaiguan and Jizhen occupation rules.",
+        "finish": "This first-turn segment now follows the rules: Ming starts with 3 cards, below the 15-card limit, so no discard occurs; the shared wheel resolves Recruit / Train; then the hand action pays 3 cards and resolves Grant Pardon."
       }
     },
     "attackAndBattle": {
@@ -398,10 +400,10 @@
       "description": "Raid starts from a hand action, then flows into field battle, tactics, damage assignment, and retreat handling.",
       "steps": {
         "overview": "This chapter starts from Ming's normal action window. First take the hand action Raid, pay 1 card, and then read how it creates a field battle.",
-        "chooseAction": "Click Raid. This is Ming's faction action: discard 1 hand card to make an attack action, without using attack dispatch.",
-        "payRaid": "Discard 1 hand card as the cost. Once the cost is paid, Raid actually triggers and pushes the adjacent front into a pending battle.",
+        "chooseAction": "It is now the hand-action window. Ming's Raid rule is to discard 1 hand card and make an attack action; it cannot use wheel attack dispatch. Click Raid to begin paying the cost.",
+        "payRaid": "Raid costs 1 hand card. Discard it and confirm; only then does the attack happen. In this run Ming moves from Keshiketeng into adjacent Chahar, so a field battle begins immediately.",
         "borderWidth": "Raid has now brought the battle to Chahar. The side panel shows the battle width from Keshiketeng to Chahar: plains can deploy 3 troops, and that width decides how many troops actually fight.",
-        "battleOpen": "Now the battle is waiting to resolve. First read the revealed troops on both sides, then decide whether to play a tactic card; tactic cards are used only in this battle window.",
+        "battleOpen": "When one player's troops enter a region occupied by another player's troops, a battle begins. Both sides reveal all troops first, then the tactic phase allows one tactic card or no tactic card; tactics are used only in this battle phase.",
         "tacticWindow": "Look at the hand area, click Cavalry Charge to select it, then click Play Tactic Card to confirm. The selected card lifts up; click it again to cancel if you picked the wrong card.",
         "battleDamage": "The tactic card is now in the battle. Click Rear Guard in the right battle panel to finish this battle resolution; the system rolls artillery, cavalry, then infantry, and each 3 points deals 1 damage.",
         "battleResult": "After the field battle resolves, compare the surviving infantry and cavalry on both sides. If the totals tie, the defender wins. This result has now moved into post-battle handling.",
@@ -439,7 +441,7 @@
         "overview": "Cavalry in field battle does not always have to make a normal attack. When the conditions are right, it can declare plunder.",
         "choosePlunder": "Click \"Cavalry plunder\". This sample plunders the defender deck, then removes population, draws cards, and retreats the cavalry.",
         "plunderResult": "The plunder result is now in the resolution summary: population was removed, and the deck and hand changed together.",
-        "finish": "Cavalry plunder is a pending-battle choice, not just an after-the-fact note."
+        "finish": "Cavalry plunder happens during the battle: the plundering cavalry first takes the defender's artillery and cavalry attacks, then removes population, draws cards, and retreats based on surviving cavalry. It is not only a post-battle note."
       }
     },
     "cavalryEvasion": {
@@ -449,15 +451,15 @@
         "overview": "Cavalry can also evade in field battle. Once the defenders leave, the original battle still resolves whether the attacker breaks through.",
         "chooseEvasion": "Click the highlighted retreat destination to move the defending cavalry into an adjacent friendly region.",
         "evasionResult": "The evasion result is now in the resolution summary: cavalry leaves the battle and enters the retreat destination.",
-        "finish": "Cavalry evasion is a pending-battle choice, and it changes troop positions before the battle continues."
+        "finish": "Cavalry evasion happens before the battle continues. Eligible defending cavalry may retreat by its movement value to another friendly controlled region without retreat loss or a defeat marker; it changes troop positions before the remaining battle resolves."
       }
     },
     "neutralInvasion": {
       "title": "Neutral Invasion",
       "description": "When you attack an unoccupied neutral region with population, neutral defenders are generated for the battle.",
       "steps": {
-        "overview": "Neutral regions are not always empty. If a region has population but no troops, dispatching an attack can generate neutral defenders during resolution.",
-        "resolveNeutral": "Click the pending-resolution button. This sample attacks Tumed, where population becomes neutral defenders.",
+        "overview": "A neutral region is not empty when it has population. If an attack enters a neutral region with no player troops, the rule creates level-2 neutral troops from the remaining population (cavalry when the region has horses, otherwise infantry, up to 3) before the battle is resolved.",
+        "resolveNeutral": "This run attacks Tumed. Click the battle-resolution control so the rule creates neutral defenders from Tumed's population; the region's control changes only after the battle result.",
         "neutralResult": "The resolution summary now records neutral defenders: the attacker did not break through, so the region stays neutral.",
         "finish": "Neutral invasion is a battle-resolution rule, not just a map note. Control changes only if the attack actually breaks through."
       }
@@ -466,10 +468,10 @@
       "title": "Water Dispatch",
       "description": "Ming can dispatch through anchor-region sea routes; cavalry dispatch can reach farther, but each sea route still commits at most 2 troops.",
       "steps": {
-        "overview": "Water movement is not just a map note. This sample relieves Dongjiang from Pidao through a real coast/sea-route dispatch candidate, and shows that a sea route can only continue through sea routes.",
-        "chooseWaterTarget": "Click Dongjiang in the dispatch candidates. The option shows coast/sea route, cost 2, and limit 2; follow-up candidates do not turn a sea route into a land route.",
-        "waterBoundary": "The pending battle is now locked to the sea-route boundary: even with cavalry dispatch, this sea route has battle width 2 and commits at most 2 troops.",
-        "finish": "Water dispatch has entered a pending battle; breakthrough still follows normal battle resolution."
+        "overview": "Water movement is a formal movement rule. Ming may use sea routes without another card; between two anchor regions, one action moves at most 2 troops, and troops that use water cannot switch to land movement during that action. This run moves from Pidao into Dongjiang.",
+        "chooseWaterTarget": "Under the water-route rule, click Dongjiang as the map destination. The interface shows the route cost and the limit of 2 troops; the route must continue by water and cannot switch back to land during this action.",
+        "waterBoundary": "Once the troops enter battle by sea route, this coast boundary has battle width 2, so at most 2 troops can fight on this line. That limit comes from the boundary rule, not from a tutorial-only lock.",
+        "finish": "After water movement, the normal battle rules still apply: reveal troops, handle tactics, resolve attack order, damage, and victory. Water changes the route and battle width; it does not replace battle resolution."
       }
     },
     "wheelSharedCost": {
@@ -479,7 +481,7 @@
         "overview": "The shared-wheel push is never free. The farther you move, the more cards your opponents recover, and the more it changes this turn's landing gate.",
         "chooseMove": "Pick the shared-wheel move \"All opponents draw 2, move 3.\" This is still the wheel push, not the fight itself.",
         "drawResult": "After the shared wheel moves 3 spaces, both the Mongols and Later Jin each draw 2 cards.",
-        "dispatchReady": "Once that cost is paid, this turn's wheel-result action is Attack / Dispatch. The point here is not to fight immediately, but to see how the shared wheel brings you into another system gate.",
+        "dispatchReady": "Both opponents have drawn 2 cards and the wheel has moved 3 spaces, so this turn lands on Attack / Dispatch. Under that rule, discard 1 card, move up to 6 troops, and trigger battle only when entering an enemy or non-friendly region.",
         "finish": "The shared wheel does more than move a few spaces. It decides which wheel-result action this turn will enter, and who gets cards back because of that push."
       }
     },
@@ -578,7 +580,7 @@
         "newYearMaintenance": "Now click \"Auto pay\" to handle New Year maintenance. After maintenance resolves, troops in Korea also enter attrition resolution.",
         "koreaAttrition": "Korean regions provide no population support. Troops left in Korea must be paid entirely with cards during New Year, or Korea attrition removes them directly.",
         "shanhaiguan": "Shanhaiguan is both a city and a special border between Jizhen and Liaoxi. While it stands, the border stays narrow; once ruined, that border collapses into open plain.",
-        "finish": "These are not optional notes. They are formal rules that directly decide whether you can hold, defend, or seize key prestige."
+        "finish": "These special cases produce real turn results: Korea decides who draws tribute at New Year, waterways decide how troops move, Shanhaiguan changes borders and city defense, and Hanseong changes prestige. They are not merely optional notes."
       }
     }
   },

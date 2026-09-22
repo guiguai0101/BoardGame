@@ -80,6 +80,39 @@ describe('阿南西传说代表性玩法行为', () => {
         ]);
     });
 
+    it('行动自身已有目标交互时，阿南西之网触发不得抢在行动目标选择之前', () => {
+        const core = makeState({
+            players: {
+                '0': makePlayer('0', {
+                    hand: [makeCard('broadside-card', 'pirate_broadside', 'action', '0')],
+                    deck: [
+                        makeCard('draw-1', 'anansi_tales_pot_of_beans', 'action', '0'),
+                        makeCard('draw-2', 'anansi_tales_feather_gifts', 'action', '0'),
+                    ],
+                }),
+                '1': makePlayer('1'),
+            },
+            bases: [
+                makeBase('base_anansis_web', [
+                    makeMinion('web-ally', 'anansi_tales_akye_the_turtle', '0', 3),
+                    makeMinion('web-enemy', 'ninja_acolyte', '1', 2),
+                ]),
+                makeBase('base_storytellers_hut'),
+            ],
+        });
+
+        const result = runCommand(makeMatchState(core), {
+            type: SU_COMMANDS.PLAY_ACTION,
+            playerId: '0',
+            payload: { cardUid: 'broadside-card' },
+            timestamp: 1,
+        } as any, FIXED_RANDOM);
+
+        const currentSourceId = (result.finalState.sys.interaction?.current?.data as { sourceId?: string } | undefined)?.sourceId;
+        expect(currentSourceId).toBe('pirate_broadside_choose_base');
+        expect(result.events.some(event => event.type === SU_EVENTS.TRIGGER_QUEUED)).toBe(true);
+    });
+
     it('阿南西传说核心主动能力入口已注册', () => {
         const registrations = [
             ['anansi_tales_anansi_the_spider', 'talent'],
@@ -773,7 +806,6 @@ describe('阿南西传说代表性玩法行为', () => {
             playerId: '0',
             baseIndex: 0,
             baseDefId: 'base_anansis_web',
-            actionTargetBaseIndex: 0,
             triggerCardUid: 'web-action',
             triggerCardDefId: 'anansi_tales_trading_stories',
             triggerCardOwnerId: '0',
@@ -807,7 +839,6 @@ describe('阿南西传说代表性玩法行为', () => {
             playerId: '0',
             baseIndex: 0,
             baseDefId: 'base_anansis_web',
-            actionTargetBaseIndex: 0,
             triggerCardUid: 'second-action',
             triggerCardDefId: 'anansi_tales_pot_of_wisdom',
             triggerCardOwnerId: '0',

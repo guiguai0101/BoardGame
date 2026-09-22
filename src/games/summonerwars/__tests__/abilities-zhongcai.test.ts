@@ -181,6 +181,28 @@ describe('仲裁派系行为合同', () => {
     expect(cleared.board[2][5].unit?.suppressedUntilTurnEnd).toBeUndefined();
   });
 
+  it('抹消按卡面“一个士兵”允许指定范围内敌方士兵', () => {
+    const state = createState();
+    state.phase = 'move';
+    const source = placeUnit(state, { row: 2, col: 3 }, CHAMPION_UNITS_ZHONGCAI[2], '0');
+    const enemy = placeUnit(state, { row: 2, col: 5 }, {
+      ...COMMON_UNITS_ZHONGCAI[1],
+      id: 'enemy-soldier-for-erase',
+      faction: 'necromancer',
+      name: '敌方士兵',
+    }, '1');
+
+    const { events, newState } = executeAndReduce(state, SW_COMMANDS.ACTIVATE_ABILITY, {
+      abilityId: 'zhongcai_erase',
+      sourceUnitId: source.instanceId,
+      targetPosition: enemy.position,
+    });
+
+    expect(events.some((event) => event.type === SW_EVENTS.ABILITY_TRIGGERED)).toBe(true);
+    expect(newState.board[2][5].unit?.suppressedUntilTurnEnd).toBe(true);
+    expect(getUnitAbilities(newState.board[2][5].unit!, newState)).toEqual([]);
+  });
+
   it('鼓舞只治疗相邻受伤友方士兵', () => {
     const state = createState();
     const source = placeUnit(state, { row: 2, col: 3 }, COMMON_UNITS_ZHONGCAI[2], '0');

@@ -1260,6 +1260,15 @@ export const GameDetailsModal = ({ isOpen, onClose, gameId, titleKey, descriptio
                 }
             }
             if (existingGameName && existingMatchID) {
+                if (!options?.forceReplaceOwnerRoom && canForceReplace && getOwnerType() === 'user') {
+                    const claimResult = await tryClaimSeat(existingMatchID, existingGameName);
+                    if (claimResult.success) {
+                        lobbySocket.requestRefresh(normalizedGameId);
+                        shouldPreserveLoading = true;
+                        return;
+                    }
+                }
+
                 if (!options?.forceReplaceOwnerRoom && canForceReplace) {
                     setPendingForceReplaceCreate({
                         config,

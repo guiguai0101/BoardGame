@@ -390,6 +390,7 @@ test.describe('仲裁派系真实入口与交互', () => {
       putOwnSummoner(eraseCore, base);
       putUnit(eraseCore, { row: 7, col: 1 }, CHAMPION_UNITS_ZHONGCAI[2], '0');
       putUnit(eraseCore, { row: 6, col: 1 }, COMMON_UNITS_ZHONGCAI[3], '0');
+      putUnit(eraseCore, { row: 6, col: 2 }, COMMON_UNITS_ZHONGCAI[1], '1');
       await applyCoreState(hostPage, eraseCore);
       await closeDebugPanelIfOpen(hostPage);
       await waitForPhase(hostPage, 'summon');
@@ -397,23 +398,25 @@ test.describe('仲裁派系真实入口与交互', () => {
       await hostPage.getByTestId('sw-end-phase').click();
       await waitForInteractionType(match.matchId, hostPage, 'activated_ability_target');
       await expect(hostPage.getByTestId('sw-cell-6-1')).toHaveAttribute('data-valid-ability-unit', 'true');
+      await expect(hostPage.getByTestId('sw-cell-6-2')).toHaveAttribute('data-valid-ability-unit', 'true');
       await assertVisibleCellHighlight(hostPage, '[data-testid="sw-cell-6-1"]', '抹消选择目标');
+      await assertVisibleCellHighlight(hostPage, '[data-testid="sw-cell-6-2"]', '抹消选择目标');
       await assertAllVisibleCellHighlights(hostPage, '[data-valid-ability-unit="true"]', '抹消选择目标');
-      await screenshot(hostPage, testInfo, '仲裁抹消选择目标');
-      await clickBoardElement(hostPage, '[data-testid="sw-unit-6-1"][data-owner="0"]');
+      await screenshot(hostPage, testInfo, '仲裁抹消选择己方与敌方士兵');
+      await clickBoardElement(hostPage, '[data-testid="sw-unit-6-2"][data-owner="1"]');
       await waitForNoInteraction(match.matchId, hostPage);
       const eraseAfter = await readCoreState(hostPage);
       const eraseLive = await getMatchState(match.matchId, hostPage) as CoreState;
       console.log('[DEBUG 仲裁抹消响应]', JSON.stringify({
         phase: eraseAfter.phase,
         currentPlayer: eraseAfter.currentPlayer,
-        target: eraseAfter.board[6][1].unit,
+        target: eraseAfter.board[6][2].unit,
         sourceAbilities: eraseAfter.board[7][1].unit?.card?.abilities,
         abilityUsageCount: eraseAfter.abilityUsageCount,
         interaction: eraseLive?.sys?.interaction,
         actionLogTail: eraseLive?.sys?.actionLog?.entries?.slice?.(-5),
       }));
-      await expect.poll(async () => (await readCoreState(hostPage)).board[6][1].unit?.suppressedUntilTurnEnd ?? false).toBe(true);
+      await expect.poll(async () => (await readCoreState(hostPage)).board[6][2].unit?.suppressedUntilTurnEnd ?? false).toBe(true);
       await screenshot(hostPage, testInfo, '仲裁抹消结算完成');
 
       const inspireCore = clearAndPrepareCore(await readCoreState(hostPage), 'summon');
@@ -473,6 +476,41 @@ test.describe('仲裁派系真实入口与交互', () => {
       await waitForNoInteraction(match.matchId, guestPage);
       await expect.poll(async () => (await getMatchState(match.matchId, guestPage) as CoreState).core?.players?.['1']?.activeEvents?.[0]?.charges ?? null).toBe(1);
       await screenshot(guestPage, testInfo, '仲裁律令保留持续效果后');
+    } finally {
+      await hostContext.close();
+      await guestContext.close();
+    }
+  });
+
+  test('多个持续事件同时存在时真实棋盘按放大尺寸完整显示', async ({ browser }, testInfo) => {
+    test.setTimeout(120000);
+    await clearEvidenceScreenshotsForTest(testInfo);
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const match = await setupSWOnlineMatch(browser, baseURL, 'zhongcai', 'necromancer');
+    if (!match) {
+      test.skip(true, '游戏服务器不可用或真实联机房间创建失败');
+      return;
+    }
+    const { hostPage, hostContext, guestContext } = match;
+    try {
+      const source = await readCoreState(hostPage);
+      const core = clearAndPrepareCore(source, 'draw');
+      putOwnSummoner(core, source);
+      putOpponentSummoner(core, source);
+      core.currentPlayer = '0';
+      core.players['0'].activeEvents = [
+        cardWithInstanceId({ ...EVENT_CARDS_ZHONGCAI[1], charges: 1 }, 'zhongcai-holy-decree-0-0'),
+        cardWithInstanceId({ ...EVENT_CARDS_ZHONGCAI[2], charges: 1 }, 'zhongcai-loyalty-decree-0-0'),
+      ];
+      await applyCoreState(hostPage, core);
+      await closeDebugPanelIfOpen(hostPage);
+      await waitForPhase(hostPage, 'draw');
+
+      await expect(hostPage.getByTestId('sw-my-active-events')).toBeVisible();
+      await expect(hostPage.getByTestId('sw-player-active-event-zhongcai-holy-decree-0-0')).toBeVisible();
+      await expect(hostPage.getByTestId('sw-player-active-event-zhongcai-loyalty-decree-0-0')).toBeVisible();
+      await expect(hostPage.locator('[data-testid^="sw-player-active-event-"]')).toHaveCount(2);
+      await screenshot(hostPage, testInfo, '仲裁多个持续事件同时显示');
     } finally {
       await hostContext.close();
       await guestContext.close();

@@ -86,6 +86,9 @@ export const diceThroneCheatModifier: CheatResourceModifier<DiceThroneCore> = {
     getResource: (core, playerId, resourceId) => {
         return core.players[playerId]?.resources[resourceId];
     },
+    getToken: (core, playerId, tokenId) => {
+        return core.players[playerId]?.tokens[tokenId];
+    },
     setResource: (core, playerId, resourceId, value) => {
         const player = core.players[playerId];
         if (!player) return core;

@@ -391,7 +391,20 @@ test.describe('SmashUp - 迪士尼四派系代表性交互', () => {
         await expect(page.locator('[data-minion-uid="elsa-talent-source"]')).toBeVisible({ timeout: 15000 });
         await game.screenshot('frozen-elsa-talent-ready', testInfo);
 
-        await page.getByTestId('su-minion-frame-elsa-talent-source').click();
+        const elsaFrame = page.getByTestId('su-minion-frame-elsa-talent-source');
+        const elsaBox = await elsaFrame.boundingBox();
+        expect(elsaBox, '艾莎牌面应有可点击的真实几何区域').not.toBeNull();
+        if (!elsaBox) throw new Error('艾莎牌面缺少可点击几何区域');
+        const elsaClickPoint = {
+            x: elsaBox.x + elsaBox.width / 2,
+            y: elsaBox.y + elsaBox.height / 2,
+        };
+        const foregroundHit = await page.evaluate(({ x, y }) => {
+            const element = document.elementFromPoint(x, y);
+            return element?.closest<HTMLElement>('[data-testid]')?.dataset.testid ?? null;
+        }, elsaClickPoint);
+        expect(foregroundHit, '艾莎点击中心必须命中艾莎牌面本体，而不是透明遮罩或其它入口').toBe('su-minion-frame-elsa-talent-source');
+        await page.mouse.click(elsaClickPoint.x, elsaClickPoint.y);
         await game.waitForInteraction('disney_four_factions_prompt', 10000);
         await expect(page.getByText('艾莎：选择天赋效果')).toBeVisible({ timeout: 10000 });
 
@@ -406,8 +419,7 @@ test.describe('SmashUp - 迪士尼四派系代表性交互', () => {
             (option: InteractionOption) => option?.value?.mode === 'elsa_extra_minion',
             '艾莎选择额外打出雪宝或迷你雪人',
         );
-        await game.waitForInteraction('smashup_immediate_extra_minion', 10000);
-        await expect(page.getByText('选择一张额外打出的随从')).toBeVisible({ timeout: 10000 });
+        await game.waitForInteraction('disney_four_factions_prompt', 10000);
 
         const extraMinionOptions = await game.getInteractionOptions() as InteractionOption[];
         expect(extraMinionOptions.map(option => option.value?.cardUid)).toEqual(['elsa-snowgie-hand']);
@@ -417,9 +429,21 @@ test.describe('SmashUp - 迪士尼四派系代表性交互', () => {
             (option: InteractionOption) => option?.value?.cardUid === 'elsa-snowgie-hand',
             '艾莎选择额外打出迷你雪人',
         );
+        await game.waitForInteraction('smashup_immediate_extra_minion', 10000);
+
+        const grantedMinionOptions = await game.getInteractionOptions() as InteractionOption[];
+        expect(grantedMinionOptions.map(option => option.value?.cardUid)).toEqual(['elsa-snowgie-hand']);
+        await game.selectInteractionOptionBy(
+            (option: InteractionOption) => option?.value?.cardUid === 'elsa-snowgie-hand',
+            '艾莎确认立即打出迷你雪人',
+        );
         await game.waitForInteraction('smashup_immediate_extra_minion_base', 10000);
         const baseOptions = await game.getInteractionOptions() as InteractionOption[];
-        expect(baseOptions.map(option => option.value?.baseIndex)).toEqual([0, 1]);
+        expect(baseOptions
+            .map(option => option.value?.baseIndex)
+            .filter((baseIndex): baseIndex is number => typeof baseIndex === 'number'))
+            .toEqual([0, 1, 2]);
+        expect(baseOptions.some(option => option.id === 'skip')).toBe(true);
         await game.screenshot('frozen-elsa-extra-minion-base-choice', testInfo);
 
         await game.selectInteractionOptionBy(
@@ -508,6 +532,27 @@ test.describe('SmashUp - 迪士尼四派系代表性交互', () => {
         await game.selectInteractionOptionBy(
             (option: InteractionOption) => option?.value?.cardUid === 'snowman-snowgie',
             '堆雪人选择迷你雪人',
+        );
+
+        await game.waitForInteraction('smashup_immediate_extra_minion', 10000);
+        const grantedMinionOptions = await game.getInteractionOptions() as InteractionOption[];
+        expect(grantedMinionOptions.map(option => option.value?.cardUid)).toEqual(['snowman-snowgie']);
+        await game.screenshot('frozen-snowman-extra-minion-confirmation', testInfo);
+        await game.selectInteractionOptionBy(
+            (option: InteractionOption) => option?.value?.cardUid === 'snowman-snowgie',
+            '堆雪人确认立即打出迷你雪人',
+        );
+
+        await game.waitForInteraction('smashup_immediate_extra_minion_base', 10000);
+        const baseOptions = await game.getInteractionOptions() as InteractionOption[];
+        expect(baseOptions
+            .map(option => option.value?.baseIndex)
+            .filter((baseIndex): baseIndex is number => typeof baseIndex === 'number'))
+            .toEqual([0, 1, 2]);
+        expect(baseOptions.some(option => option.id === 'skip')).toBe(true);
+        await game.selectInteractionOptionBy(
+            (option: InteractionOption) => option?.value?.baseIndex === 0,
+            '堆雪人选择打出基地',
         );
         await game.waitForNoInteraction(10000);
 

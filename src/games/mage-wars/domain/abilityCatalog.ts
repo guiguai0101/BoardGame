@@ -16,7 +16,7 @@ export type MageWarsAbilityImplementationStatus = 'implemented' | 'needs-code';
 export type MageWarsAbilityTrigger = 'spell-cast';
 
 export type MageWarsObjectAbilityTrigger = 'arena-object-ability';
-export type MageWarsObjectAbilitySourceKind = 'creature' | 'attached-equipment';
+export type MageWarsObjectAbilitySourceKind = 'creature' | 'attached-equipment' | 'area-conjuration' | 'hidden-enchantment';
 export type MageWarsObjectAbilityActionSpeed = 'quick' | 'normal' | 'source-trait';
 export type MageWarsObjectAbilityActionCost = 'normal' | 'none';
 export type MageWarsObjectAbilityTargetMode =
@@ -221,6 +221,43 @@ export const mageWarsObjectAbilityDefs: MageWarsObjectAbilityDef[] = [
         },
     },
     {
+        id: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+        name: '宾莎拉之手',
+        description: '每回合一次，在任意友方生物的行动阶段之前或之后，使距离神殿 1 格内的一个活体生物获得护甲 +1，或治疗 1 点伤害。',
+        trigger: 'arena-object-ability',
+        effects: [{ type: 'object-ability-runtime', summary: 'grant round-scoped armor or heal one damage' }],
+        tags: ['mage-wars', 'object-ability', 'source:area-conjuration', 'implementation:implemented'],
+        meta: {
+            abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+            sourceKind: 'area-conjuration',
+            sourceSpellCardId: 2219,
+            actionSpeed: 'source-trait',
+            actionCost: 'none',
+            manaCost: { type: 'fixed', amount: 0 },
+            targetMode: 'living-object',
+            implementationStatus: 'implemented',
+            stateDebt: ['temporaryTraits', 'abilityUseRoundNumbers'],
+        },
+    },
+    {
+        id: MAGE_WARS_OBJECT_ABILITY_IDS.DECOY_REVEAL,
+        name: '展示诱饵',
+        description: '展示诱饵并立即摧毁它。',
+        trigger: 'arena-object-ability',
+        effects: [{ type: 'object-ability-runtime', summary: 'reveal and consume decoy' }],
+        tags: ['mage-wars', 'object-ability', 'source:hidden-enchantment', 'implementation:implemented'],
+        meta: {
+            abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.DECOY_REVEAL,
+            sourceKind: 'hidden-enchantment',
+            sourceSpellCardId: 1811,
+            actionSpeed: 'source-trait',
+            actionCost: 'none',
+            manaCost: { type: 'fixed', amount: 0 },
+            targetMode: 'self',
+            implementationStatus: 'implemented',
+        },
+    },
+    {
         id: MAGE_WARS_OBJECT_ABILITY_IDS.BEAST_STAFF,
         name: '群兽法杖',
         description: '兽王装备主动能力，给友方动物临时近战加成或治疗。',
@@ -250,6 +287,24 @@ export const mageWarsObjectAbilityDefs: MageWarsObjectAbilityDef[] = [
             abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.ELEMENTAL_STAFF_BIND,
             sourceKind: 'attached-equipment',
             sourceSpellCardId: 3716,
+            actionSpeed: 'quick',
+            actionCost: 'none',
+            manaCost: { type: 'fixed', amount: 3 },
+            targetMode: 'bound-spell',
+            implementationStatus: 'implemented',
+        },
+    },
+    {
+        id: MAGE_WARS_OBJECT_ABILITY_IDS.MAGE_STAFF_BIND,
+        name: '法师魔杖',
+        description: '法师魔杖重新绑定一个合法咒语类法术。',
+        trigger: 'arena-object-ability',
+        effects: [{ type: 'object-ability-runtime', summary: 'rebind a non-epic incantation spell card' }],
+        tags: ['mage-wars', 'object-ability', 'source:attached-equipment', 'implementation:implemented'],
+        meta: {
+            abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.MAGE_STAFF_BIND,
+            sourceKind: 'attached-equipment',
+            sourceSpellCardId: 3725,
             actionSpeed: 'quick',
             actionCost: 'none',
             manaCost: { type: 'fixed', amount: 3 },

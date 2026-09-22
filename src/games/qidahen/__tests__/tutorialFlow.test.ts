@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
     createActionLogSystem,
@@ -97,7 +98,6 @@ const advanceAttackAndBattleTutorialToPendingBattle = (
     });
     expect(state.sys.tutorial.step?.id).toBe('choose-action');
     expect(state.sys.tutorial.step?.highlightTarget).toBe('qidahen-action-raid');
-    expect(state.sys.tutorial.step?.allowedTargets).toEqual(['raid']);
     expect((state.core as any).turnPhase).toBe('action-window');
     expect((state.core as any).factionActionUsed).toBe(false);
     expect((state.core as any).pendingTargetAction).toBeNull();
@@ -122,6 +122,8 @@ const advanceAttackAndBattleTutorialToPendingBattle = (
         playerId: '0',
         payload: { cardId: paymentCard.id },
     });
+    expect(state.sys.tutorial.step?.id).toBe('pay-raid');
+    expect((state.core as any).payment.selected).toBe(1);
     state = dispatch(state, {
         type: QIDAHEN_COMMANDS.EXECUTE_SELECTED_ACTION,
         playerId: '0',
@@ -137,7 +139,7 @@ const advanceAttackAndBattleTutorialToPendingBattle = (
 };
 
 describe('qidahen tutorial flow', () => {
-    it('教程目录用 6 个玩家主章节串起隐藏续章，并保留关键步骤合同', () => {
+    it('教程目录保留 6 个玩家主章节，隐藏专题独立入口且保留关键步骤合同', () => {
         const tutorials = QIDAHEN_TUTORIALS.tutorials;
         const visibleTutorialIds = Object.entries(tutorials)
             .filter(([, tutorial]) => !tutorial.hiddenFromCatalog)
@@ -190,6 +192,7 @@ describe('qidahen tutorial flow', () => {
             'wheel-first',
             'wheel-move',
             'wheel-result',
+            'wheel-branch-finish',
             'pick-action',
             'pay-cards',
             'choose-grant-pardon-target',
@@ -361,6 +364,38 @@ describe('qidahen tutorial flow', () => {
         expect(state.sys.tutorial.step).toBeNull();
     });
 
+    it('七大恨教程文案必须先解释规则结果，不能用实现词冒充教学', () => {
+        const zh = JSON.parse(readFileSync('public/locales/zh-CN/game-qidahen.json', 'utf8')) as {
+            tutorial: Record<string, unknown>;
+        };
+        const en = JSON.parse(readFileSync('public/locales/en/game-qidahen.json', 'utf8')) as {
+            tutorial: Record<string, unknown>;
+        };
+        const zhTutorialText = JSON.stringify(zh.tutorial);
+        const enTutorialText = JSON.stringify(en.tutorial);
+        const basic = (zh.tutorial.basic as { steps: Record<string, string> }).steps;
+
+        expect(basic.wheelFirst).toContain('3 张手牌');
+        expect(basic.wheelFirst).toContain('15 张');
+        expect(basic.wheelFirst).toContain('不需要弃牌');
+        expect(basic.wheelMove).toContain('前进 1 格');
+        expect(basic.wheelMove).toContain('指定一名对手摸 2 张');
+        expect(basic.wheelMove).toContain('所有对手各摸 2 张');
+        expect(basic.wheelResult).toContain('建立 2 个等级 2 正规军');
+        expect(basic.pickAction).toContain('弃 3 张手牌');
+        expect(basic.actionResult).toContain('不是直接把山海关的控制权改成大明');
+
+        for (const text of [zhTutorialText, enTutorialText]) {
+            expect(text).not.toContain('正式效果已经结算');
+            expect(text).not.toContain('若画面仍有调度或其它选择');
+            expect(text).not.toContain('按正式提示完成');
+            expect(text).not.toContain('手牌资源换成了直接的版图控制');
+            expect(text).not.toContain('formal result has resolved');
+            expect(text).not.toContain('pending-resolution button');
+            expect(text).not.toContain('another system gate');
+        }
+    });
+
     it('进攻与野战教程从行动窗口选择突袭作战并支付后，再进入边界说明', () => {
         const manifest = QIDAHEN_TUTORIALS.tutorials['attack-and-battle']?.manifest;
         expect(manifest).toBeTruthy();
@@ -491,6 +526,42 @@ describe('qidahen tutorial flow', () => {
             payload: { reason: 'manual' },
         });
         expect(state.sys.tutorial.step?.id).toBe('finish');
+    });
+
+    it('基础教程轮盘步骤不再用教程白名单拦截正式合法的走3分支', () => {
+        const manifest = QIDAHEN_TUTORIALS.tutorials['basic-opening']?.manifest;
+        expect(manifest).toBeTruthy();
+
+        let state = buildStateForTutorial('basic-opening');
+        state = dispatch(state, {
+            type: TUTORIAL_COMMANDS.START,
+            playerId: '0',
+            payload: { manifest },
+        });
+        state = dispatch(state, {
+            type: TUTORIAL_COMMANDS.NEXT,
+            playerId: '0',
+            payload: { reason: 'manual' },
+        });
+        state = dispatch(state, {
+            type: TUTORIAL_COMMANDS.NEXT,
+            playerId: '0',
+            payload: { reason: 'manual' },
+        });
+
+        expect(state.sys.tutorial.step?.id).toBe('wheel-move');
+        expect(state.sys.tutorial.step?.allowedTargets).toBeUndefined();
+
+        state = dispatch(state, {
+            type: QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE,
+            playerId: '0',
+            payload: { moveId: 'move-3-all-opponents' },
+        });
+
+        expect(state.sys.tutorial.step?.id).toBe('wheel-result');
+        expect((state.core as any).wheelActionUsed).toBe(true);
+        expect((state.core as any).wheelMoveSummary).toBeTruthy();
+        expect((state.core as any).turnPhase).toBe('dispatch-targeting');
     });
 
     it('轮盘代价教程在走 3 格后会让两家对手各抽 2，并进入进攻调度', () => {

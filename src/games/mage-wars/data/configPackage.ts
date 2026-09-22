@@ -65,11 +65,11 @@ export type MageWarsSpellActionSpeed = 'quick' | 'standard';
 export type MageWarsMageAbilityActionSpeed = 'quick' | 'standard';
 export type MageWarsMageAbilityStatusTokenScope = 'single-status-type' | 'multiple-status-types';
 export type MageWarsStatusTokenRemovalCostRule = 'fixed' | 'target-creature-level' | 'none';
-export type MageWarsConfigSpellSemanticsAbilityKind = 'visible-object-enchantment' | 'visible-area-enchantment' | 'hidden-response-enchantment';
-export type MageWarsConfigSpellResponseKind = 'quick-spell-counter' | 'target-spell-counter' | 'attack-reversal';
+export type MageWarsConfigSpellSemanticsAbilityKind = 'visible-object-enchantment' | 'visible-area-enchantment' | 'visible-area-conjuration' | 'hidden-response-enchantment' | 'hidden-enchantment';
+export type MageWarsConfigSpellResponseKind = 'quick-spell-counter' | 'target-spell-counter' | 'target-spell-redirect' | 'attack-reversal';
 export type MageWarsConfigSpellContinuousModifierStat = 'life' | 'armor' | 'meleeDice' | 'rangedDice' | 'attackDice';
 export type MageWarsConfigSpellModifierOperation = 'add';
-export type MageWarsConfigSpellGrantedTraitId = 'slow' | 'regeneration' | 'counterstrike' | 'vampiric' | 'restrained' | 'death-mark' | 'aegis' | 'mental-calm' | 'flying' | 'remove-flying' | 'channeling' | 'swift' | 'elusive' | 'limited-life';
+export type MageWarsConfigSpellGrantedTraitId = 'slow' | 'regeneration' | 'counterstrike' | 'vampiric' | 'restrained' | 'death-mark' | 'aegis' | 'mental-calm' | 'flying' | 'remove-flying' | 'channeling' | 'swift' | 'elusive' | 'limited-life' | 'charge' | 'melee-pierce';
 export type MageWarsConfigCombatAction = 'quick' | 'full';
 export type MageWarsConfigCombatRangeKind = 'melee' | 'ranged';
 export type MageWarsConfigDamageType = '火焰' | '水流' | '圣光' | '闪电' | '毒素' | '精神' | '风力' | '霜冻' | 'aether';
@@ -154,10 +154,32 @@ export interface MageWarsConfigCombatTraits {
     beastStaff?: MageWarsConfigBeastStaffTrait;
 }
 
+export interface MageWarsConfigEquipmentSpellCostReduction {
+    amount: number;
+    oncePerRound: boolean;
+    spellType?: string;
+    typeLineIncludes?: string[];
+    schoolLineIncludes?: string[];
+    revealOnlyForEnchantments?: boolean;
+}
+
+export interface MageWarsConfigEquipmentUpkeepEffect {
+    kind: 'direct-damage';
+    target: 'creature-with-controlled-curse';
+    amount: number;
+    damageType: MageWarsConfigDamageType;
+}
+
+export interface MageWarsConfigEquipmentTraits {
+    channeling?: number;
+    spellCostReduction?: MageWarsConfigEquipmentSpellCostReduction;
+    upkeepEffects?: MageWarsConfigEquipmentUpkeepEffect[];
+}
+
 export interface MageWarsConfigSpellAttachmentSemantics {
-    kind: 'enchantment';
+    kind: 'enchantment' | 'conjuration';
     visibility: 'revealed' | 'hidden';
-    anchor: 'object' | 'creature' | 'zone';
+    anchor: 'object' | 'creature' | 'zone' | 'object-or-zone';
 }
 
 export interface MageWarsConfigSpellContinuousModifier {
@@ -195,6 +217,11 @@ export type MageWarsConfigSpellUpkeepEffect =
 
 export type MageWarsConfigSpellMovementEffect = MageWarsConfigSpellDirectDamageEffect;
 
+export interface MageWarsConfigSpellMovementRestriction {
+    kind: 'max-movement-actions-per-turn';
+    maxActions: number;
+}
+
 export interface MageWarsConfigSpellSemantics {
     abilityKind: MageWarsConfigSpellSemanticsAbilityKind;
     attachment?: MageWarsConfigSpellAttachmentSemantics;
@@ -203,6 +230,7 @@ export interface MageWarsConfigSpellSemantics {
     grants?: MageWarsConfigSpellGrantedTrait[];
     upkeepEffects?: MageWarsConfigSpellUpkeepEffect[];
     movementEffects?: MageWarsConfigSpellMovementEffect[];
+    movementRestrictions?: MageWarsConfigSpellMovementRestriction[];
     unsupportedRules?: string[];
 }
 
@@ -236,6 +264,7 @@ export interface MageWarsConfigSpellCard {
     semantics?: MageWarsConfigSpellSemantics;
     combatProfiles?: MageWarsConfigCombatProfiles;
     combatTraits?: MageWarsConfigCombatTraits;
+    equipmentTraits?: MageWarsConfigEquipmentTraits;
     spellcastingSource?: MageWarsSpellcastingSource;
     sourceContract?: string;
     requiresCodeSupport?: boolean;
@@ -658,6 +687,98 @@ function readOptionalCombatTraits(
     };
 }
 
+function readOptionalEquipmentTraits(
+    value: unknown,
+    context: string,
+): MageWarsConfigEquipmentTraits | undefined {
+    if (value === undefined) return undefined;
+    const data = assertRecord(value, context);
+    const channeling = data.channeling === undefined
+        ? undefined
+        : assertNonNegativeInteger(data.channeling, `${context}.channeling`);
+
+    const upkeepEffects = data.upkeepEffects === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(data.upkeepEffects)) {
+                throw new Error(`invalid Mage Wars equipment upkeep effects at ${context}.upkeepEffects`);
+            }
+            return data.upkeepEffects.map((entry, index) => {
+                const effect = assertRecord(entry, `${context}.upkeepEffects[${index}]`);
+                if (effect.kind !== 'direct-damage') {
+                    throw new Error(`invalid Mage Wars equipment upkeep effect kind at ${context}.upkeepEffects[${index}].kind`);
+                }
+                if (effect.target !== 'creature-with-controlled-curse') {
+                    throw new Error(`invalid Mage Wars equipment upkeep effect target at ${context}.upkeepEffects[${index}].target`);
+                }
+                return {
+                    kind: 'direct-damage' as const,
+                    target: 'creature-with-controlled-curse' as const,
+                    amount: assertPositiveInteger(
+                        effect.amount,
+                        `${context}.upkeepEffects[${index}].amount`,
+                    ),
+                    damageType: readDamageType(
+                        effect.damageType,
+                        `${context}.upkeepEffects[${index}].damageType`,
+                    ),
+                };
+            });
+        })();
+
+    const reductionData = data.spellCostReduction === undefined
+        ? undefined
+        : assertRecord(data.spellCostReduction, `${context}.spellCostReduction`);
+    if (!reductionData) {
+        if (channeling === undefined && upkeepEffects === undefined) return undefined;
+        return {
+            ...(channeling === undefined ? {} : { channeling }),
+            ...(upkeepEffects === undefined ? {} : { upkeepEffects }),
+        };
+    }
+
+    const oncePerRound = readOptionalBoolean(
+        reductionData.oncePerRound,
+        `${context}.spellCostReduction.oncePerRound`,
+    );
+    if (oncePerRound === undefined) {
+        throw new Error(`missing Mage Wars equipment spell cost reduction round flag at ${context}.spellCostReduction.oncePerRound`);
+    }
+    const spellType = readOptionalString(reductionData.spellType);
+    const typeLineIncludes = readOptionalStringArray(
+        reductionData.typeLineIncludes,
+        `${context}.spellCostReduction.typeLineIncludes`,
+    );
+    const schoolLineIncludes = readOptionalStringArray(
+        reductionData.schoolLineIncludes,
+        `${context}.spellCostReduction.schoolLineIncludes`,
+    );
+    if (!spellType && (!typeLineIncludes || typeLineIncludes.length === 0)
+        && (!schoolLineIncludes || schoolLineIncludes.length === 0)) {
+        throw new Error(`missing Mage Wars equipment spell cost reduction matcher at ${context}.spellCostReduction`);
+    }
+    const revealOnlyForEnchantments = readOptionalBoolean(
+        reductionData.revealOnlyForEnchantments,
+        `${context}.spellCostReduction.revealOnlyForEnchantments`,
+    );
+
+    return {
+        ...(channeling === undefined ? {} : { channeling }),
+        ...(upkeepEffects === undefined ? {} : { upkeepEffects }),
+        spellCostReduction: {
+            amount: assertPositiveInteger(
+                reductionData.amount,
+                `${context}.spellCostReduction.amount`,
+            ),
+            oncePerRound,
+            ...(spellType === undefined ? {} : { spellType }),
+            ...(typeLineIncludes === undefined ? {} : { typeLineIncludes }),
+            ...(schoolLineIncludes === undefined ? {} : { schoolLineIncludes }),
+            ...(revealOnlyForEnchantments === undefined ? {} : { revealOnlyForEnchantments }),
+        },
+    };
+}
+
 function readOptionalCombatProfiles(
     value: unknown,
     context: string,
@@ -759,7 +880,9 @@ function readSpellSemanticsAbilityKind(
     if (
         value === 'visible-object-enchantment'
         || value === 'visible-area-enchantment'
+        || value === 'visible-area-conjuration'
         || value === 'hidden-response-enchantment'
+        || value === 'hidden-enchantment'
     ) return value;
     throw new Error(`invalid Mage Wars spell semantics ability kind at ${context}`);
 }
@@ -769,7 +892,12 @@ function readOptionalSpellResponseKind(
     context: string,
 ): MageWarsConfigSpellResponseKind | undefined {
     if (value === undefined) return undefined;
-    if (value === 'quick-spell-counter' || value === 'target-spell-counter' || value === 'attack-reversal') {
+    if (
+        value === 'quick-spell-counter'
+        || value === 'target-spell-counter'
+        || value === 'target-spell-redirect'
+        || value === 'attack-reversal'
+    ) {
         return value;
     }
     throw new Error(`invalid Mage Wars spell response kind at ${context}`);
@@ -804,6 +932,8 @@ function readSpellGrantedTraitId(value: unknown, context: string): MageWarsConfi
         || value === 'swift'
         || value === 'elusive'
         || value === 'limited-life'
+        || value === 'charge'
+        || value === 'melee-pierce'
     ) return value;
     throw new Error(`invalid Mage Wars spell semantics granted trait at ${context}`);
 }
@@ -815,17 +945,22 @@ function readOptionalSpellAttachmentSemantics(
 ): MageWarsConfigSpellAttachmentSemantics | undefined {
     if (value === undefined) return undefined;
     const data = assertRecord(value, context);
-    const validAnchor = abilityKind === 'visible-area-enchantment'
+    const validAnchor = abilityKind === 'visible-area-enchantment' || abilityKind === 'visible-area-conjuration'
         ? data.anchor === 'zone'
         : abilityKind === 'hidden-response-enchantment'
             ? data.anchor === 'object' || data.anchor === 'creature'
-            : data.anchor === 'object';
-    const expectedVisibility = abilityKind === 'hidden-response-enchantment' ? 'hidden' : 'revealed';
-    if (data.kind !== 'enchantment' || data.visibility !== expectedVisibility || !validAnchor) {
+            : abilityKind === 'hidden-enchantment'
+                ? data.anchor === 'object-or-zone'
+                : data.anchor === 'object';
+    const expectedVisibility = abilityKind === 'hidden-response-enchantment' || abilityKind === 'hidden-enchantment'
+        ? 'hidden'
+        : 'revealed';
+    const expectedKind = abilityKind === 'visible-area-conjuration' ? 'conjuration' : 'enchantment';
+    if (data.kind !== expectedKind || data.visibility !== expectedVisibility || !validAnchor) {
         throw new Error(`invalid Mage Wars spell attachment semantics at ${context}`);
     }
     return {
-        kind: 'enchantment',
+        kind: expectedKind,
         visibility: expectedVisibility,
         anchor: data.anchor as MageWarsConfigSpellAttachmentSemantics['anchor'],
     };
@@ -928,6 +1063,26 @@ function readOptionalSpellMovementEffects(
     });
 }
 
+function readOptionalSpellMovementRestrictions(
+    value: unknown,
+    context: string,
+): MageWarsConfigSpellMovementRestriction[] | undefined {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) {
+        throw new Error(`invalid Mage Wars spell movement restrictions at ${context}`);
+    }
+    return value.map((entry, index) => {
+        const data = assertRecord(entry, `${context}[${index}]`);
+        if (data.kind !== 'max-movement-actions-per-turn') {
+            throw new Error(`invalid Mage Wars spell movement restriction kind at ${context}[${index}].kind`);
+        }
+        return {
+            kind: 'max-movement-actions-per-turn',
+            maxActions: assertPositiveInteger(data.maxActions, `${context}[${index}].maxActions`),
+        };
+    });
+}
+
 function readOptionalSpellSemantics(
     value: unknown,
     context: string,
@@ -936,6 +1091,10 @@ function readOptionalSpellSemantics(
     const data = assertRecord(value, context);
     const upkeepEffects = readOptionalSpellUpkeepEffects(data.upkeepEffects, `${context}.upkeepEffects`);
     const movementEffects = readOptionalSpellMovementEffects(data.movementEffects, `${context}.movementEffects`);
+    const movementRestrictions = readOptionalSpellMovementRestrictions(
+        data.movementRestrictions,
+        `${context}.movementRestrictions`,
+    );
     const abilityKind = readSpellSemanticsAbilityKind(data.abilityKind, `${context}.abilityKind`);
     const responseKind = readOptionalSpellResponseKind(data.responseKind, `${context}.responseKind`);
     if (abilityKind === 'hidden-response-enchantment' && responseKind === undefined) {
@@ -955,6 +1114,7 @@ function readOptionalSpellSemantics(
         grants: readOptionalSpellGrantedTraits(data.grants, `${context}.grants`),
         ...(upkeepEffects === undefined ? {} : { upkeepEffects }),
         ...(movementEffects === undefined ? {} : { movementEffects }),
+        ...(movementRestrictions === undefined ? {} : { movementRestrictions }),
         unsupportedRules: readOptionalStringArray(data.unsupportedRules, `${context}.unsupportedRules`),
     };
 }
@@ -1091,6 +1251,7 @@ function buildSpellCardFromObject(object: GameConfigObject): MageWarsConfigSpell
     const requiresCodeSupport = typeof data.requiresCodeSupport === 'boolean' ? data.requiresCodeSupport : undefined;
     const combatProfiles = readOptionalCombatProfiles(data.combatProfiles, `${object.id}.data.combatProfiles`);
     const combatTraits = readOptionalCombatTraits(data.combatTraits, `${object.id}.data.combatTraits`);
+    const equipmentTraits = readOptionalEquipmentTraits(data.equipmentTraits, `${object.id}.data.equipmentTraits`);
     const spellcastingSource = readOptionalSpellcastingSource(
         data.spellcastingSource,
         `${object.id}.data.spellcastingSource`,
@@ -1120,6 +1281,7 @@ function buildSpellCardFromObject(object: GameConfigObject): MageWarsConfigSpell
         semantics: readOptionalSpellSemantics(data.semantics, `${object.id}.data.semantics`),
         combatProfiles,
         combatTraits,
+        equipmentTraits,
         spellcastingSource,
         sourceContract: readOptionalString(data.sourceContract),
         requiresCodeSupport,
@@ -1566,6 +1728,12 @@ export function getMageWarsCombatTraitsFromConfig(
     spellCardId: number,
 ): MageWarsConfigCombatTraits | undefined {
     return getMageWarsSpellCardFromConfig(spellCardId)?.combatTraits;
+}
+
+export function getMageWarsEquipmentTraitsFromConfig(
+    spellCardId: number,
+): MageWarsConfigEquipmentTraits | undefined {
+    return getMageWarsSpellCardFromConfig(spellCardId)?.equipmentTraits;
 }
 
 export function getMageWarsStatusTokenFromConfig(

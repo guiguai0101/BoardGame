@@ -500,6 +500,19 @@ export const DiceThroneDebugConfig: React.FC<DiceThroneDebugConfigProps> = ({ G,
                     >
                         {t('debug.token.set_amount')}
                     </button>
+                    <button
+                        onClick={() => {
+                            dispatch('SYS_CHEAT_ADD_TOKEN', {
+                                playerId: tokenPlayer,
+                                tokenId: tokenType,
+                                delta: Number(tokenValue),
+                            });
+                        }}
+                        className="w-full px-3 py-1.5 bg-green-500 text-white rounded text-xs font-bold hover:bg-green-600"
+                        data-testid="dt-debug-token-add"
+                    >
+                        {t('debug.token.add_amount')}
+                    </button>
                 </div>
             </div>
 

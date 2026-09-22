@@ -1790,8 +1790,9 @@ describe('炽天使领域行为', () => {
         state.sys.responseWindow = {
             current: {
                 windowId: 'afterRollConfirmed-defense-flight',
-                responderQueue: ['1'],
+                responderQueue: ['0', '1'],
                 currentResponderIndex: 0,
+                passedPlayers: [],
                 windowType: 'afterRollConfirmed',
                 sourceId: 'defense-roll-confirmed-before-flight',
             } as any,
@@ -1842,12 +1843,22 @@ describe('炽天使领域行为', () => {
         });
         expect(confirmed.state.sys.responseWindow?.current?.windowType).toBe('afterRollConfirmed');
 
+        const responsePassed = executePipeline(
+            { domain: DiceThroneDomain, systems: testSystems },
+            confirmed.state,
+            command('RESPONSE_PASS', '0'),
+            createQueuedRandom([]),
+            playerIds,
+        );
+        expect(responsePassed.success).toBe(true);
+        if (!responsePassed.success) return;
+
         const giveHand = getCardById('card-give-hand');
-        expect(checkPlayCard(confirmed.state.core, '1', giveHand, 'defensiveRoll', 'afterRollConfirmed')).toEqual({ ok: true });
+        expect(checkPlayCard(responsePassed.state.core, '1', giveHand, 'defensiveRoll', 'afterRollConfirmed')).toEqual({ ok: true });
 
         const played = executePipeline(
             { domain: DiceThroneDomain, systems: testSystems },
-            confirmed.state,
+            responsePassed.state,
             command('PLAY_CARD', '1', { cardId: 'card-give-hand' }),
             createQueuedRandom([6]),
             playerIds,

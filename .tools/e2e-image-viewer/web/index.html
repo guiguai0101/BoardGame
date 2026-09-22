@@ -40,6 +40,20 @@
         <section id="viewport" class="viewport" aria-label="E2E 图片画布">
           <div id="empty" class="empty">正在读取截图目录...</div>
           <div id="board" class="board"></div>
+          <section id="imageDetail" class="image-detail" aria-hidden="true" aria-label="原图详情">
+            <header class="image-detail-header">
+              <div class="image-detail-title">
+                <strong id="imageDetailTitle">原图详情</strong>
+                <span id="imageDetailDescription"></span>
+              </div>
+              <button id="imageDetailClose" class="image-detail-close" type="button" aria-label="关闭原图详情" title="关闭原图详情">×</button>
+            </header>
+            <div id="imageDetailViewport" class="image-detail-viewport" aria-label="原图查看区域"></div>
+            <footer class="image-detail-status">
+              <span id="imageDetailSummary">点击图片后加载原图。</span>
+              <span>滚轮缩放，拖拽平移，Esc 返回总览</span>
+            </footer>
+          </section>
         </section>
       </div>
       <footer class="statusbar">

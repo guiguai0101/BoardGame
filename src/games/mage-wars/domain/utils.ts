@@ -169,6 +169,32 @@ export function moveArenaObject(
         const currentObject = getArenaObject(currentCore, currentObjectId);
         if (!currentObject) return currentCore;
 
+        if (currentFromZoneId === currentToZoneId) {
+            return {
+                ...currentCore,
+                objects: {
+                    ...currentCore.objects,
+                    [currentObjectId]: {
+                        ...currentObject,
+                        zoneId: currentToZoneId,
+                    },
+                },
+                arena: currentCore.arena.map((zone) => {
+                    if (zone.id !== currentToZoneId) return zone;
+                    return {
+                        ...zone,
+                        objectIds: zone.objectIds.includes(currentObjectId)
+                            ? zone.objectIds
+                            : [...zone.objectIds, currentObjectId],
+                        conjurationIds: currentObject.kind === 'conjuration'
+                            && !zone.conjurationIds.includes(currentObjectId)
+                            ? [...zone.conjurationIds, currentObjectId]
+                            : zone.conjurationIds,
+                    };
+                }),
+            };
+        }
+
         return {
             ...currentCore,
             objects: {

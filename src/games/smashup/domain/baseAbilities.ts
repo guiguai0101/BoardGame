@@ -118,6 +118,8 @@ export interface BaseAbilityContext {
     triggerCardUid?: string;
     triggerCardDefId?: string;
     triggerCardOwnerId?: PlayerId;
+    /** onActionPlayed 时：行动是否已声明替代去向。 */
+    actionDestinationOverride?: 'hand';
     /** queued trigger 所属 frame 身份；用于排序/诊断/后续上下文对齐 */
     frameId?: string;
     /** queued trigger 源事件身份；用于运行时上下文恢复 */
@@ -146,6 +148,8 @@ export type BaseAbilityRegistrationOptions = {
     effectContract?: import('./types').SmashUpReactionResourceFootprint;
     /** 显式 program-style footprint；用于无法通过 runtime artifacts 还原的只读依赖。 */
     deriveFootprint?: (ctx: BaseAbilityContext) => import('./types').SmashUpReactionResourceFootprint | undefined;
+    /** onActionPlayed 的触发作用域；默认只检查行动目标基地。 */
+    onActionPlayedScope?: 'targetBase' | 'allBases';
 };
 
 export type ActiveBaseAbilityRegistrationOptions = {
@@ -381,7 +385,7 @@ function getPlayerIdsFromCurrentPlayersLeft(state: SmashUpCore): PlayerId[] {
 type BaseAbilityEntry = {
     executor: BaseAbilityExecutor;
     options: Required<Pick<BaseAbilityRegistrationOptions, 'mandatory'>>
-        & Pick<BaseAbilityRegistrationOptions, 'canTrigger' | 'ownerPlayerId' | 'effectContract' | 'deriveFootprint'>;
+        & Pick<BaseAbilityRegistrationOptions, 'canTrigger' | 'ownerPlayerId' | 'effectContract' | 'deriveFootprint' | 'onActionPlayedScope'>;
 };
 type ActiveBaseAbilityEntry = {
     executor: BaseAbilityExecutor;
@@ -420,7 +424,8 @@ export function registerBaseAbility(
                 ...(options.ownerPlayerId ? { ownerPlayerId: options.ownerPlayerId } : {}),
                 ...(options.canTrigger ? { canTrigger: options.canTrigger } : {}),
                 ...(options.deriveFootprint ? { deriveFootprint: options.deriveFootprint } : {}),
-                ...(options.effectContract ? { effectContract: options.effectContract } : {}) } });
+                ...(options.effectContract ? { effectContract: options.effectContract } : {}),
+                ...(options.onActionPlayedScope ? { onActionPlayedScope: options.onActionPlayedScope } : {}) } });
     // Make this base ability runnable by the global reaction queue.
     registerBaseAbilityAsQueuedTrigger(baseDefId, timing);
 }

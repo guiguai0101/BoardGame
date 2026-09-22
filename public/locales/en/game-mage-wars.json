@@ -115,7 +115,8 @@
     "observeOpponentPublicView": "Observe opponent public area",
     "opponentPublicView": "Opponent public view",
     "backToSelfView": "Back to your view",
-    "phaseProgressTitle": "Turn Flow"
+    "phaseProgressTitle": "Turn Flow",
+    "cardOriginalText": "Card text"
   },
   "zonesPanel": {
     "title": "Private And Attached Zones",
@@ -190,6 +191,21 @@
       "manaCost": "Mana {{manaCost}}",
       "cancel": "Cancel"
     },
+    "battleFury": {
+      "title": "{{attackerObjectId}} may make one additional quick melee attack",
+      "options": {
+        "attack": "Make extra attack",
+        "pass": "Pass extra attack"
+      }
+    },
+    "fearHelmet": {
+      "title": "{{attackerObjectId}}'s attack was canceled by Fear Helmet",
+      "options": {
+        "retarget": "Attack a different target",
+        "guard": "Guard instead",
+        "cancel": "Cancel attack"
+      }
+    },
     "counterstrike": {
       "title": "{{defenderObjectId}} may counterstrike {{attackerObjectId}}",
       "options": {
@@ -211,6 +227,13 @@
         "destroy": "Destroy enchantment"
       }
     },
+    "upkeepEquipmentDirectDamage": {
+      "title": "{{targetObjectId}} may take {{amount}} damage from Moloch's Torment",
+      "options": {
+        "pay": "Pay mana and deal damage",
+        "skip": "Do not deal damage"
+      }
+    },
     "upkeepHealTransfer": {
       "title": "Death Link on {{targetObjectId}} may heal up to {{availableHealing}} damage",
       "options": {
@@ -221,7 +244,9 @@
     "enchantmentResponse": {
       "title": "Reveal response enchantment {{responseObjectId}}",
       "options": {
-        "reveal": "Reveal and resolve"
+        "reveal": "Reveal and resolve",
+        "redirect": "Reveal and redirect the spell",
+        "teleport": "Teleport to {{targetZoneId}}"
       }
     },
     "spellCastChoice": {
@@ -254,7 +279,13 @@
     "targetOutOfRange": "The target is out of range.",
     "wallEdgeOccupied": "That edge already has a wall.",
     "missingTarget": "Choose a legal target first.",
-    "spellRequiresCodeSupport": "That spell is not in the current playable scope yet."
+    "spellRequiresCodeSupport": "That spell is not in the current playable scope yet.",
+    "resurrectionTargetNotLivingCreature": "Resurrection can only choose a defeated living creature from your discard pile.",
+    "resurrectionTargetNotInSpellbook": "That creature is not in your spellbook.",
+    "resurrectionTargetNotDefeated": "That creature is not in your defeated living-creature pool.",
+    "resurrectionTargetNotDiscarded": "That creature is not currently in your discard pile.",
+    "resurrectionTargetMissingCost": "The target creature is missing mana-cost or spell-level data.",
+    "resurrectionTargetMissingStats": "The target creature is missing life or armor data."
   },
   "spellbook": {
     "previousPage": "Previous page",
@@ -428,6 +459,7 @@
       "deploySelectWolf": "Click Jungle Wolf in your prepared spells.",
       "deployTargetZone": "Click the Beastmaster's zone.",
       "wolfSummoned": "After Jungle Wolf enters play, its action marker is on the spent side, so it cannot act yet. Next, Rouse the Beast turns it ready.",
+      "armorReading": "Read the armor field on the wolf card. Armor cancels the matching amount of damage during damage resolution; “Piercing +N” on an attack bar cancels that many points of armor.",
       "rouseSelectSpell": "Click Rouse the Beast in your prepared spells.",
       "rouseTargetWolf": "Click the Jungle Wolf card body in the arena so Rouse the Beast targets it.",
       "passYourDeployment": "Jungle Wolf's action marker is ready, but this is still the deployment phase. Click “End deployment” first; after the action phase begins, click the Jungle Wolf card body to move it.",

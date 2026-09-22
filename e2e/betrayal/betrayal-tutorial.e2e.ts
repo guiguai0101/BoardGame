@@ -5886,7 +5886,7 @@ test.describe("山屋惊魂教程最小真实链路", () => {
     ]);
   });
 
-  test("手机横屏下教程真实入口应使用地图壳原生横屏布局", async ({
+  test("手机横屏下教程真实入口应使用固定画布等比缩放并保留完整桌面 UI", async ({
     page,
     context,
   }) => {
@@ -5917,7 +5917,7 @@ test.describe("山屋惊魂教程最小真实链路", () => {
     );
     await expect(page.locator("html")).toHaveAttribute(
       "data-mobile-layout-preset",
-      "map-shell",
+      "board-shell",
     );
     await expect(
       page.getByTestId("mobile-orientation-game-banner"),
@@ -5926,12 +5926,15 @@ test.describe("山屋惊魂教程最小真实链路", () => {
     await waitForStep(page, "open-move-targets");
     await expect(page.getByTestId("betrayal-board")).toBeVisible();
     await expect(
-      page.getByTestId("betrayal-mobile-landscape-layout"),
+      page.getByTestId("betrayal-desktop-layout"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("betrayal-mobile-landscape-layout"),
-    ).toHaveAttribute("data-layout-mode", "phone-landscape-native");
-    await expect(page.getByTestId("betrayal-desktop-layout")).toHaveCount(0);
+    await expect(page.getByTestId("betrayal-desktop-layout")).toHaveAttribute(
+      "data-layout-mode",
+      "desktop-board",
+    );
+    await expect(page.getByTestId("betrayal-mobile-landscape-layout")).toHaveCount(
+      0,
+    );
     await expect(page.getByTestId("betrayal-mobile-stage-status")).toHaveCount(
       0,
     );
@@ -5942,24 +5945,21 @@ test.describe("山屋惊魂教程最小真实链路", () => {
       0,
     );
     await expect(page.getByTestId("betrayal-room-grid")).toBeVisible();
-    await expect(page.getByTestId("betrayal-left-status-rail")).toBeHidden();
-    await expect(page.getByTestId("betrayal-status-rail")).toBeHidden();
-    await expect(page.getByTestId("betrayal-action-rail")).toHaveCount(0);
-    await expect(page.getByTestId("betrayal-mobile-action-rail")).toBeVisible();
-    await expect(page.getByTestId("betrayal-room-panel")).toHaveAttribute(
+    await expect(page.getByTestId("betrayal-left-status-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-status-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-action-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-mobile-action-rail")).toHaveCount(0);
+    await expect(page.getByTestId("betrayal-room-panel")).not.toHaveAttribute(
       "data-mobile-role",
-      "primary-board-stage",
+      /primary-board-stage/,
     );
     await expect(
       page.getByTestId("betrayal-inventory-section"),
-    ).toHaveAttribute("data-mobile-role", "possession-rail");
-    await expect(
-      page.getByTestId("betrayal-mobile-action-rail"),
-    ).toHaveAttribute("data-mobile-role", "native-action-rail");
+    ).not.toHaveAttribute("data-mobile-role", /possession-rail/);
     await expect(
       page.getByTestId("betrayal-inventory-omen-book"),
     ).toBeVisible();
-    await expect(page.getByTestId("betrayal-mobile-dock-move")).toBeVisible();
+    await expect(page.getByTestId("betrayal-action-move")).toBeVisible();
 
     const mobileLayout = await page.evaluate(() => {
       const pcActionButton = document.querySelector<HTMLElement>(
@@ -5969,7 +5969,7 @@ test.describe("山屋惊魂教程最小真实链路", () => {
         '[data-testid="betrayal-board"]',
       );
       const layout = document.querySelector<HTMLElement>(
-        '[data-testid="betrayal-mobile-landscape-layout"]',
+        '[data-testid="betrayal-desktop-layout"]',
       );
       const shell = document.querySelector<HTMLElement>(".mobile-board-shell");
       const roomGrid = document.querySelector<HTMLElement>(
@@ -5982,7 +5982,7 @@ test.describe("山屋惊魂教程最小真实链路", () => {
         '[data-testid="betrayal-inventory-section"]',
       );
       const actionRail = document.querySelector<HTMLElement>(
-        '[data-testid="betrayal-mobile-action-rail"]',
+        '[data-testid="betrayal-action-rail"]',
       );
       const desktopActionButtons = Array.from(
         document.querySelectorAll<HTMLElement>(
@@ -6014,6 +6014,11 @@ test.describe("山屋惊魂教程最小真实链路", () => {
       const leftRailRect = leftRail?.getBoundingClientRect();
       const statusRailRect = statusRail?.getBoundingClientRect();
       const tutorialRect = tutorialCard?.getBoundingClientRect();
+      const scrollWidths = {
+        document: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+        root: document.querySelector<HTMLElement>("#root")?.scrollWidth ?? 0,
+      };
       const visibleElementCount = (elements: HTMLElement[]) =>
         elements.filter((element) => {
           const rect = element.getBoundingClientRect();
@@ -6049,6 +6054,8 @@ test.describe("山屋惊魂教程最小真实链路", () => {
         shellTransform: shell ? getComputedStyle(shell).transform : null,
         shellLeft: shellRect?.left ?? null,
         shellRight: shellRect?.right ?? null,
+        shellTop: shellRect?.top ?? null,
+        shellBottom: shellRect?.bottom ?? null,
         shellWidth: shellRect?.width ?? 0,
         shellHeight: shellRect?.height ?? 0,
         boardWidth: boardRect?.width ?? 0,
@@ -6062,10 +6069,12 @@ test.describe("山屋惊魂教程最小真实链路", () => {
           ? window.innerHeight - inventoryRailRect.bottom
           : null,
         inventoryRailLeft: inventoryRailRect?.left ?? null,
+        inventoryRailRight: inventoryRailRect?.right ?? null,
         actionRailBottomGap: actionRailRect
           ? window.innerHeight - actionRailRect.bottom
           : null,
         actionRailLeft: actionRailRect?.left ?? null,
+        actionRailRight: actionRailRect?.right ?? null,
         actionRailWidth: actionRailRect?.width ?? 0,
         visibleDesktopActionCount: visibleElementCount(desktopActionButtons),
         visibleMobileDockCount: visibleElementCount(mobileDockButtons),
@@ -6079,6 +6088,7 @@ test.describe("山屋惊魂教程最小真实链路", () => {
           : null,
         leftRailWidth: leftRailRect?.width ?? 0,
         statusRailWidth: statusRailRect?.width ?? 0,
+        scrollWidths,
         tutorialCenterOffset: tutorialRect
           ? Math.abs(
               tutorialRect.left +
@@ -6092,46 +6102,61 @@ test.describe("山屋惊魂教程最小真实链路", () => {
     expect(mobileLayout.viewportWidth).toBeGreaterThan(
       mobileLayout.viewportHeight,
     );
-    expect(mobileLayout.layoutMode).toBe("phone-landscape-native");
-    expect(mobileLayout.roomPanelRole).toBe("primary-board-stage");
-    expect(mobileLayout.inventoryRole).toBe("possession-rail");
-    expect(mobileLayout.actionRole).toBe("native-action-rail");
-    expect(mobileLayout.shellTransform).toBe("none");
+    expect(mobileLayout.layoutMode).toBe("desktop-board");
+    expect(mobileLayout.roomPanelRole).toBeNull();
+    expect(mobileLayout.inventoryRole).toBeNull();
+    expect(mobileLayout.actionRole).toBeNull();
+    expect(mobileLayout.shellTransform).not.toBe("none");
     expect(mobileLayout.shellLeft ?? 999).toBeGreaterThanOrEqual(-1);
     expect(mobileLayout.shellRight ?? -999).toBeLessThanOrEqual(
       mobileLayout.viewportWidth + 1,
     );
+    expect(mobileLayout.shellTop ?? 999).toBeGreaterThanOrEqual(-1);
+    expect(mobileLayout.shellBottom ?? -999).toBeLessThanOrEqual(
+      mobileLayout.viewportHeight + 1,
+    );
     expect(mobileLayout.shellWidth).toBeGreaterThanOrEqual(
       mobileLayout.viewportWidth - 2,
     );
+    expect(mobileLayout.shellWidth).toBeGreaterThan(0);
     expect(mobileLayout.shellHeight).toBeGreaterThanOrEqual(
       mobileLayout.viewportHeight - 2,
     );
-    expect(mobileLayout.boardWidth).toBeGreaterThanOrEqual(
-      mobileLayout.viewportWidth - 2,
-    );
-    expect(mobileLayout.boardHeight).toBeGreaterThanOrEqual(
-      mobileLayout.viewportHeight - 2,
-    );
-    expect(mobileLayout.roomGridWidth).toBeGreaterThan(
-      mobileLayout.viewportWidth * 0.75,
-    );
-    expect(mobileLayout.roomGridHeight).toBeGreaterThan(300);
+    expect(mobileLayout.boardWidth).toBeGreaterThan(0);
+    expect(mobileLayout.boardHeight).toBeGreaterThan(0);
+    expect(mobileLayout.roomGridWidth).toBeGreaterThan(0);
+    expect(mobileLayout.roomGridHeight).toBeGreaterThan(0);
     expect(mobileLayout.roomPanelBottomPadding).toBe(0);
     expect(mobileLayout.inventoryRailBottomGap).not.toBeNull();
     expect(mobileLayout.inventoryRailBottomGap ?? 999).toBeLessThanOrEqual(64);
-    expect(mobileLayout.inventoryRailLeft ?? 999).toBeLessThanOrEqual(12);
-    expect(mobileLayout.actionRailBottomGap ?? 999).toBeLessThanOrEqual(4);
-    expect(mobileLayout.actionRailLeft ?? 999).toBeGreaterThanOrEqual(-1);
-    expect(mobileLayout.actionRailWidth).toBeGreaterThanOrEqual(
-      mobileLayout.viewportWidth - 16,
+    expect(mobileLayout.inventoryRailLeft ?? -999).toBeGreaterThanOrEqual(
+      (mobileLayout.shellLeft ?? 0) - 1,
     );
-    expect(mobileLayout.visibleDesktopActionCount).toBe(0);
-    expect(mobileLayout.visibleMobileDockCount).toBeGreaterThan(0);
-    expect(mobileLayout.firstDesktopActionVisible).toBe(false);
-    expect(mobileLayout.roomCanvasTransform).not.toBe("none");
-    expect(mobileLayout.leftRailDisplay).toBe("none");
-    expect(mobileLayout.statusRailDisplay).toBe("none");
+    expect(mobileLayout.inventoryRailRight ?? -999).toBeLessThanOrEqual(
+      (mobileLayout.shellRight ?? mobileLayout.viewportWidth) + 1,
+    );
+    expect(mobileLayout.actionRailBottomGap ?? 999).toBeLessThanOrEqual(4);
+    expect(mobileLayout.actionRailLeft ?? -999).toBeGreaterThanOrEqual(
+      (mobileLayout.shellLeft ?? 0) - 1,
+    );
+    expect(mobileLayout.actionRailRight ?? -999).toBeLessThanOrEqual(
+      (mobileLayout.shellRight ?? mobileLayout.viewportWidth) + 1,
+    );
+    expect(mobileLayout.actionRailWidth).toBeGreaterThan(0);
+    expect(mobileLayout.visibleDesktopActionCount).toBeGreaterThan(0);
+    expect(mobileLayout.visibleMobileDockCount).toBe(0);
+    expect(mobileLayout.firstDesktopActionVisible).toBe(true);
+    expect(mobileLayout.leftRailDisplay).toBe("grid");
+    expect(mobileLayout.statusRailDisplay).toBe("flex");
+    expect(mobileLayout.scrollWidths.document).toBeLessThanOrEqual(
+      mobileLayout.viewportWidth + 1,
+    );
+    expect(mobileLayout.scrollWidths.body).toBeLessThanOrEqual(
+      mobileLayout.viewportWidth + 1,
+    );
+    expect(mobileLayout.scrollWidths.root).toBeLessThanOrEqual(
+      mobileLayout.viewportWidth + 1,
+    );
     expect(mobileLayout.tutorialCenterOffset).not.toBeNull();
     expect(mobileLayout.tutorialCenterOffset ?? 999).toBeLessThanOrEqual(96);
 

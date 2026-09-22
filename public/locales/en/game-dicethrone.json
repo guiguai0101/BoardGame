@@ -5877,7 +5877,8 @@
     "token": {
       "section_title": "Token Controls",
       "lotus": "Lotus 🪷",
-      "set_amount": "Set Token Amount"
+      "set_amount": "Set Token Amount",
+      "add_amount": "+Add Tokens"
     },
     "deal": {
       "section_title": "Deal Debug (Atlas Index)",

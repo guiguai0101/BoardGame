@@ -25,9 +25,12 @@ import {
     hasMageWarsStunStatus,
     isMageWarsAnimalArenaObject,
     isMageWarsElementalStaffBindableSpell,
+    isMageWarsHiddenEnchantmentArenaObject,
     isMageWarsLivingArenaObject,
     resolveMageWarsAttachedBeastStaff,
     resolveMageWarsAttachedElementalStaff,
+    resolveMageWarsAttachedSpellBindingStaff,
+    isMageWarsSpellBindingBindableSpell,
     resolveMageWarsObjectAbilityActionTrack,
 } from './spellRules';
 import type {
@@ -93,13 +96,14 @@ function hasSpellbookCard(player: MageWarsPlayerState, spellCardId: number): boo
 
 function resolveMageWarsElementalStaffBoundSpell(
     player: MageWarsPlayerState,
+    staffSpellCardId: number,
     spellCardId: number | undefined,
 ): MageWarsConfigSpellCard | undefined {
     if (spellCardId === undefined || !Number.isInteger(spellCardId)) return undefined;
     const spell = getMageWarsSpellCardFromConfig(spellCardId);
     return spell
         && hasSpellbookCard(player, spellCardId)
-        && isMageWarsElementalStaffBindableSpell(spell)
+        && isMageWarsSpellBindingBindableSpell(staffSpellCardId, spell)
         ? spell
         : undefined;
 }
@@ -118,18 +122,26 @@ function resolveReadyCreatureSource(ctx: MageWarsObjectAbilityValidationContext)
 }
 
 function validateElementalStaffBind(ctx: MageWarsObjectAbilityValidationContext): ValidationResult {
-    const source = resolveMageWarsAttachedElementalStaff(ctx.state.core, ctx.player.id);
+    const source = resolveMageWarsAttachedSpellBindingStaff(
+        ctx.state.core,
+        ctx.player.id,
+        ctx.ability.meta.sourceSpellCardId,
+    );
     if (!source) return invalid('invalidArenaObjectAbilitySource');
     if (ctx.command.payload.objectId !== source.object.id) return invalid('invalidArenaObjectAbilitySource');
     if (ctx.phase !== 'initiativeQuickcast' && ctx.phase !== 'finalQuickcast') return invalid('wrongPhase');
     if (ctx.command.payload.targetObjectId || ctx.command.payload.mode !== undefined) {
         return invalid('invalidTargetMode');
     }
-    if (source.object.boundSpellCardId === undefined) return invalid('elementalStaffNotBound');
+    if (source.object.boundSpellCardId === undefined) return invalid('staffNotBound');
     if (ctx.command.payload.boundSpellCardId === source.object.boundSpellCardId) {
         return invalid('sameBoundSpell');
     }
-    if (!resolveMageWarsElementalStaffBoundSpell(ctx.player, ctx.command.payload.boundSpellCardId)) {
+    if (!resolveMageWarsElementalStaffBoundSpell(
+        ctx.player,
+        ctx.ability.meta.sourceSpellCardId,
+        ctx.command.payload.boundSpellCardId,
+    )) {
         return invalid('invalidBoundSpell');
     }
     if (ctx.command.payload.manaCost !== 3) return invalid('manaCostMismatch');
@@ -223,12 +235,75 @@ function validateGreyAngelRedemptionSacrifice(ctx: MageWarsObjectAbilityValidati
     return { valid: true };
 }
 
+function resolveBinsaraHandSource(ctx: MageWarsObjectAbilityValidationContext):
+    | { object: MageWarsArenaObjectState }
+    | { result: ValidationResult } {
+    if (ctx.phase !== 'creatureAction') return { result: invalid('wrongPhase') };
+    const object = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    if (!object) return { result: invalid('invalidSourceObject') };
+    if (object.ownerId !== ctx.player.id) return { result: invalid('notYourObject') };
+    if (
+        object.kind !== 'conjuration'
+        || object.sourceSpellCardId !== 2219
+        || object.anchoredToZoneId === undefined
+    ) {
+        return { result: invalid('invalidArenaObjectAbilitySource') };
+    }
+    return { object };
+}
+
+function validateBinsaraHand(ctx: MageWarsObjectAbilityValidationContext): ValidationResult {
+    const source = resolveBinsaraHandSource(ctx);
+    if ('result' in source) return source.result;
+    if (hasObjectAbilityUseInRound(
+        source.object,
+        ctx.command.payload.abilityId,
+        ctx.state.core.turnNumber,
+    )) {
+        return invalid('objectAbilityAlreadyUsedThisRound');
+    }
+    if (ctx.command.payload.manaCost !== 0) return invalid('manaCostMismatch');
+    if (ctx.command.payload.mode !== 'armor-bonus' && ctx.command.payload.mode !== 'heal') {
+        return invalid('invalidAbilityMode');
+    }
+    if (!ctx.command.payload.targetObjectId) return invalid('missingTarget');
+
+    const targetObject = getArenaObject(ctx.state.core, ctx.command.payload.targetObjectId);
+    if (!targetObject || !isMageWarsLivingArenaObject(targetObject)) {
+        return invalid('invalidTargetObject');
+    }
+    const distance = getMageWarsZoneDistance(ctx.state.core, source.object.zoneId, targetObject.zoneId);
+    if (distance === undefined || distance > 1) return invalid('targetOutOfRange');
+
+    return { valid: true };
+}
+
+function validateDecoyReveal(ctx: MageWarsObjectAbilityValidationContext): ValidationResult {
+    const source = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    if (!source) return invalid('invalidSourceObject');
+    if (source.ownerId !== ctx.player.id) return invalid('notYourObject');
+    if (
+        source.sourceSpellCardId !== 1811
+        || !isMageWarsHiddenEnchantmentArenaObject(source)
+    ) {
+        return invalid('invalidArenaObjectAbilitySource');
+    }
+    if (ctx.command.payload.targetObjectId || ctx.command.payload.mode !== undefined) {
+        return invalid('invalidTargetMode');
+    }
+    if (ctx.command.payload.manaCost !== 0) return invalid('manaCostMismatch');
+    return { valid: true };
+}
+
 const mageWarsObjectAbilityValidators: Record<MageWarsObjectAbilityId, MageWarsObjectAbilityValidator> = {
     [MAGE_WARS_OBJECT_ABILITY_IDS.BLUE_GREMLIN_SWIFT_TELEPORT]: validateBlueGremlinSwiftTeleport,
     [MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_CLERIC_HEALING_LIGHT]: validateAsyranClericHealingLight,
     [MAGE_WARS_OBJECT_ABILITY_IDS.GREY_ANGEL_REDEMPTION_SACRIFICE]: validateGreyAngelRedemptionSacrifice,
+    [MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND]: validateBinsaraHand,
+    [MAGE_WARS_OBJECT_ABILITY_IDS.DECOY_REVEAL]: validateDecoyReveal,
     [MAGE_WARS_OBJECT_ABILITY_IDS.BEAST_STAFF]: validateBeastStaff,
     [MAGE_WARS_OBJECT_ABILITY_IDS.ELEMENTAL_STAFF_BIND]: validateElementalStaffBind,
+    [MAGE_WARS_OBJECT_ABILITY_IDS.MAGE_STAFF_BIND]: validateElementalStaffBind,
 };
 
 export function validateMageWarsArenaObjectAbility(
@@ -737,7 +812,11 @@ function executeBeastStaff(ctx: MageWarsObjectAbilityContext): AbilityResult<Mag
 }
 
 function executeElementalStaffBind(ctx: MageWarsObjectAbilityContext): AbilityResult<MageWarsEvent> {
-    const source = resolveMageWarsAttachedElementalStaff(ctx.state.core, ctx.ownerId);
+    const source = resolveMageWarsAttachedSpellBindingStaff(
+        ctx.state.core,
+        ctx.ownerId,
+        ctx.ability.meta.sourceSpellCardId,
+    );
     const actionTrack = source
         ? resolveMageWarsObjectAbilityActionTrack(ctx.phase, 'quick')
         : undefined;
@@ -788,6 +867,54 @@ function executeBlueGremlinSwiftTeleport(ctx: MageWarsObjectAbilityContext): Abi
             sourceCommandType: ctx.command.type,
             timestamp: ctx.timestamp,
         }],
+    };
+}
+
+function executeDecoyReveal(ctx: MageWarsObjectAbilityContext): AbilityResult<MageWarsEvent> {
+    const source = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    if (
+        !source
+        || source.sourceSpellCardId !== 1811
+        || !isMageWarsHiddenEnchantmentArenaObject(source)
+    ) {
+        return { events: [] };
+    }
+
+    const sourceConsumeAvailable = createMageWarsArenaObjectSourceConsumeAvailableEvent(
+        ctx.state.core,
+        source.id,
+        ctx.command.type,
+        ctx.timestamp,
+        ctx.ability.id,
+    );
+
+    return {
+        events: [
+            {
+                type: MAGE_WARS_EVENTS.ARENA_OBJECT_ABILITY_RESOLVED,
+                payload: {
+                    ownerId: ctx.ownerId,
+                    objectId: source.id,
+                    abilityId: ctx.ability.id,
+                    abilityName: ctx.ability.name,
+                    manaCost: 0,
+                    actionCost: 'none',
+                    grants: [],
+                },
+                sourceCommandType: ctx.command.type,
+                timestamp: ctx.timestamp,
+            },
+            {
+                type: MAGE_WARS_EVENTS.ENCHANTMENT_REVEALED,
+                payload: {
+                    objectId: source.id,
+                    sourceSpellCardId: source.sourceSpellCardId,
+                },
+                sourceCommandType: ctx.command.type,
+                timestamp: ctx.timestamp,
+            },
+            ...(sourceConsumeAvailable ? [sourceConsumeAvailable] : []),
+        ],
     };
 }
 
@@ -907,9 +1034,93 @@ function executeGreyAngelRedemptionSacrifice(ctx: MageWarsObjectAbilityContext):
     };
 }
 
+function executeBinsaraHand(ctx: MageWarsObjectAbilityContext): AbilityResult<MageWarsEvent> {
+    const source = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    const targetObject = ctx.command.payload.targetObjectId
+        ? getArenaObject(ctx.state.core, ctx.command.payload.targetObjectId)
+        : undefined;
+    if (
+        !source
+        || source.kind !== 'conjuration'
+        || source.sourceSpellCardId !== ctx.ability.meta.sourceSpellCardId
+        || source.anchoredToZoneId === undefined
+        || !targetObject
+        || !isMageWarsLivingArenaObject(targetObject)
+    ) {
+        return { events: [] };
+    }
+    const distance = getMageWarsZoneDistance(ctx.state.core, source.zoneId, targetObject.zoneId);
+    if (distance === undefined || distance > 1) return { events: [] };
+
+    const abilityEvent: MageWarsEvent = {
+        type: MAGE_WARS_EVENTS.ARENA_OBJECT_ABILITY_RESOLVED,
+        payload: {
+            ownerId: ctx.ownerId,
+            objectId: source.id,
+            abilityId: ctx.ability.id,
+            abilityName: ctx.ability.name,
+            manaCost: 0,
+            targetObjectId: targetObject.id,
+            mode: ctx.command.payload.mode,
+            actionCost: 'none',
+            roundNumber: ctx.state.core.turnNumber,
+        },
+        sourceCommandType: ctx.command.type,
+        timestamp: ctx.timestamp,
+    };
+
+    if (ctx.command.payload.mode === 'armor-bonus') {
+        return {
+            events: [
+                abilityEvent,
+                {
+                    type: MAGE_WARS_EVENTS.ARENA_OBJECT_TEMPORARY_TRAITS_GAINED,
+                    payload: {
+                        ownerId: targetObject.ownerId,
+                        objectId: targetObject.id,
+                        sourceAbilityId: ctx.ability.id,
+                        spellCardId: source.sourceSpellCardId,
+                        armorModifier: 1,
+                        armorModifierUntilRoundNumber: ctx.state.core.turnNumber,
+                    },
+                    sourceCommandType: ctx.command.type,
+                    timestamp: ctx.timestamp,
+                },
+            ],
+        };
+    }
+
+    const healing = 1;
+    return {
+        events: [
+            abilityEvent,
+            {
+                type: MAGE_WARS_EVENTS.SPELL_HEALING_ROLLED,
+                payload: {
+                    playerId: ctx.ownerId,
+                    spellCardId: source.sourceSpellCardId,
+                    sourceAbilityId: ctx.ability.id,
+                    targetObjectId: targetObject.id,
+                    targetZoneId: targetObject.zoneId,
+                    diceResults: [1],
+                    healing,
+                    actualHealing: Math.min(targetObject.damage, healing),
+                },
+                sourceCommandType: ctx.command.type,
+                timestamp: ctx.timestamp,
+            },
+        ],
+    };
+}
+
 mageWarsObjectAbilityExecutorRegistry.register(
     MAGE_WARS_OBJECT_ABILITY_IDS.BLUE_GREMLIN_SWIFT_TELEPORT,
     executeBlueGremlinSwiftTeleport,
+    { tag: 'arena-object-ability' },
+);
+mageWarsObjectAbilityExecutorRegistry.register(
+    MAGE_WARS_OBJECT_ABILITY_IDS.DECOY_REVEAL,
+    executeDecoyReveal,
     { tag: 'arena-object-ability' },
 );
 mageWarsObjectAbilityExecutorRegistry.register(
@@ -923,12 +1134,22 @@ mageWarsObjectAbilityExecutorRegistry.register(
     { tag: 'arena-object-ability' },
 );
 mageWarsObjectAbilityExecutorRegistry.register(
+    MAGE_WARS_OBJECT_ABILITY_IDS.BINSARA_HAND,
+    executeBinsaraHand,
+    { tag: 'arena-object-ability' },
+);
+mageWarsObjectAbilityExecutorRegistry.register(
     MAGE_WARS_OBJECT_ABILITY_IDS.BEAST_STAFF,
     executeBeastStaff,
     { tag: 'arena-object-ability' },
 );
 mageWarsObjectAbilityExecutorRegistry.register(
     MAGE_WARS_OBJECT_ABILITY_IDS.ELEMENTAL_STAFF_BIND,
+    executeElementalStaffBind,
+    { tag: 'arena-object-ability' },
+);
+mageWarsObjectAbilityExecutorRegistry.register(
+    MAGE_WARS_OBJECT_ABILITY_IDS.MAGE_STAFF_BIND,
     executeElementalStaffBind,
     { tag: 'arena-object-ability' },
 );

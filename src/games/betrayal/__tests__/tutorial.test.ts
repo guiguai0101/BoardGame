@@ -259,6 +259,8 @@ describe('Betrayal 教程配置', () => {
             { commandType: 'MOVE_TO_ROOM', playerId: '1', payload: { roomId: 'entrance-hall' } },
             { commandType: 'EXPLORE_ROOM', playerId: '1', payload: { roomId: 'ground-east' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
             { commandType: 'END_TURN', playerId: '1', payload: undefined },
         ]);
         expect(manifest?.steps.find((step) => step.id === 'teammate-one-omen-results')).toBeUndefined();
@@ -282,6 +284,8 @@ describe('Betrayal 教程配置', () => {
             { commandType: 'MOVE_TO_ROOM', playerId: '2', payload: { roomId: 'ground-east' } },
             { commandType: 'EXPLORE_ROOM', playerId: '2', payload: { roomId: 'frontier-ground-east-east' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
             { commandType: 'END_TURN', playerId: '2', payload: undefined },
         ]);
         expect(manifest?.steps.find((step) => step.id === 'teammate-two-omen-results')).toBeUndefined();
@@ -337,6 +341,8 @@ describe('Betrayal 教程配置', () => {
         }))).toEqual([
             { commandType: 'EXPLORE_ROOM', playerId: '1', payload: { roomId: 'frontier-ground-east-south' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
         ]);
         expect(manifest?.steps.find((step) => step.id === 'teammate-confirm-haunt-trigger')).toBeUndefined();
         expect(manifest?.steps.filter((step) => (
@@ -669,7 +675,7 @@ describe('Betrayal 教程配置', () => {
         expect(manifest?.steps.find((step) => step.id === 'trade-review')?.highlightTarget).toBe('betrayal-room-latest-feedback');
     });
 
-    it('预兆教程使用规则原文解释作祟检定，并保留一次确认动作', () => {
+    it('预兆教程使用规则原文解释作祟检定，并等待所有玩家确认', () => {
         const manifest = tutorialCatalog.tutorials['omen-confirmation-and-haunt-risk']?.manifest;
         expect(manifest?.steps.map((step) => step.id)).toEqual([
             'setup-omen-confirmation',
@@ -685,7 +691,7 @@ describe('Betrayal 教程配置', () => {
         const omenCore = createSafeOmenPendingResolutionTutorialCore();
         expect(omenCore.pendingCardResolutionQueue[0]).toMatchObject({
             playerId: '0',
-            requiredPlayerIds: ['0'],
+            requiredPlayerIds: ['0', '1', '2'],
             acknowledgedPlayerIds: [],
         });
 
@@ -700,7 +706,16 @@ describe('Betrayal 教程配置', () => {
         expect(actionSteps.map((step) => step.allowedCommands)).toEqual([
             ['ACKNOWLEDGE_CARD_RESOLUTION'],
         ]);
-        expect(actionSteps[0]?.aiActions).toBeUndefined();
+        expect(actionSteps[0]?.aiActions).toEqual([
+            {
+                commandType: 'ACKNOWLEDGE_CARD_RESOLUTION',
+                playerId: '1',
+            },
+            {
+                commandType: 'ACKNOWLEDGE_CARD_RESOLUTION',
+                playerId: '2',
+            },
+        ]);
         expect(actionSteps[0]?.autoAdvanceAfterAi).toBeUndefined();
         expect(actionSteps[0]?.advanceOnEvents).toEqual([
             { type: 'CARD_RESOLUTION_ACKNOWLEDGED', match: { playerId: '0', remainingCount: 0 } },
@@ -762,6 +777,8 @@ describe('Betrayal 教程配置', () => {
         }))).toEqual([
             { commandType: 'EXPLORE_ROOM', playerId: '1', payload: { roomId: 'ground-east' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
             { commandType: 'END_TURN', playerId: '1', payload: undefined },
         ]);
         expect(teammateAutomationStep?.autoAdvanceAfterAi).toBeUndefined();
@@ -786,6 +803,8 @@ describe('Betrayal 教程配置', () => {
             { commandType: 'MOVE_TO_ROOM', playerId: '2', payload: { roomId: 'ground-east' } },
             { commandType: 'EXPLORE_ROOM', playerId: '2', payload: { roomId: 'frontier-ground-east-east' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
             { commandType: 'END_TURN', playerId: '2', payload: undefined },
         ]);
         expect(manifest?.steps.find((step) => step.id === 'teammate-two-omen-results')).toBeUndefined();
@@ -811,6 +830,8 @@ describe('Betrayal 教程配置', () => {
         }))).toEqual([
             { commandType: 'EXPLORE_ROOM', playerId: '1', payload: { roomId: 'frontier-ground-east-south' } },
             { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '1', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '0', payload: undefined },
+            { commandType: 'ACKNOWLEDGE_CARD_RESOLUTION', playerId: '2', payload: undefined },
         ]);
         expect(manifest?.steps.find((step) => step.id === 'teammate-confirm-haunt-trigger')).toBeUndefined();
         expect(manifest?.steps.filter((step) => (
@@ -832,7 +853,7 @@ describe('Betrayal 教程配置', () => {
         });
         expect(manifest?.steps.find((step) => step.id === 'haunt-hero-reader-goal')).toMatchObject({
             highlightTarget: 'betrayal-scenario-book-section-special',
-            position: 'left',
+            position: 'right',
             infoStep: true,
             viewAs: '0',
         });
@@ -962,10 +983,14 @@ describe('Betrayal 教程配置', () => {
         });
         expect(triggeredCore.pendingCardResolutionQueue[0]).toMatchObject({
             playerId: '1',
-            requiredPlayerIds: ['1'],
+            requiredPlayerIds: ['0', '1', '2'],
             acknowledgedPlayerIds: [],
         });
-        const heroReaderClosedCore = acknowledgePendingCardResolution(triggeredCore, '1');
+        const traitorReaderCore = acknowledgePendingCardResolution(triggeredCore, '1');
+        expect(traitorReaderCore.pendingCardResolutionQueue).toHaveLength(1);
+        const heroReaderPendingCore = acknowledgePendingCardResolution(traitorReaderCore, '0');
+        expect(heroReaderPendingCore.pendingCardResolutionQueue).toHaveLength(1);
+        const heroReaderClosedCore = acknowledgePendingCardResolution(heroReaderPendingCore, '2');
         const heroTurnCore = applyBetrayalCommand(
             heroReaderClosedCore,
             BETRAYAL_COMMANDS.END_TURN,

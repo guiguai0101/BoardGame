@@ -31,7 +31,7 @@ const compressedRepeat = (
 
 export const MageWarsTutorial: TutorialManifest = {
     id: 'mage-wars-basic',
-    revision: 5,
+    revision: 6,
     numPlayers: 2,
     allowManualSkip: true,
     randomPolicy: {
@@ -213,6 +213,13 @@ export const MageWarsTutorial: TutorialManifest = {
         {
             id: 'wolf-summoned',
             content: 'game-mage-wars:tutorial.steps.wolfSummoned',
+            highlightTarget: `mw-field-object-${JUNGLE_WOLF_CARD_ID}`,
+            position: 'top',
+            infoStep: true,
+        },
+        {
+            id: 'armor-reading',
+            content: 'game-mage-wars:tutorial.steps.armorReading',
             highlightTarget: `mw-field-object-${JUNGLE_WOLF_CARD_ID}`,
             position: 'top',
             infoStep: true,

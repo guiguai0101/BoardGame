@@ -1495,7 +1495,7 @@
     },
     "zhongcai_erase": {
       "name": "Erase",
-      "description": "At the start of your Move phase, you may target a friendly soldier within 3 spaces. That unit loses all abilities until end of turn."
+      "description": "At the start of your Move phase, you may target a soldier within 3 spaces. That unit loses all abilities until end of turn."
     },
     "zhongcai_repentance": {
       "name": "Repentance",

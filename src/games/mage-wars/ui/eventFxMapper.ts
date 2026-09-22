@@ -3,6 +3,10 @@ import type { EventStreamEntry, PlayerId } from '../../../engine/types';
 import type { MageWarsCore, MageWarsEvent } from '../domain';
 import { MAGE_WARS_EVENTS } from '../domain/events';
 import type { ArenaZoneId } from '../domain/ids';
+import {
+    getMageWarsObjectAttackProfile,
+    resolveMageWarsSpellAttackRangeKind,
+} from '../domain/spellRules';
 import { MW_FX, type MageWarsFxCue } from './fxCues';
 
 export interface MageWarsFxInstruction {
@@ -89,6 +93,7 @@ export function mapMageWarsEventToFx(
                 targetPlayerId: payload.defenderId,
                 diceResults: payload.diceResults,
                 damageAmount: payload.baseDamage,
+                rangeKind: 'melee',
             },
         };
     }
@@ -116,6 +121,10 @@ export function mapMageWarsEventToFx(
                 targetPlayerId: payload.targetPlayerId,
                 targetObjectId: payload.targetObjectId,
                 attackProfileId: payload.attackProfileId,
+                rangeKind: getMageWarsObjectAttackProfile(
+                    core.objects[payload.attackerObjectId],
+                    payload.attackProfileId,
+                )?.rangeKind ?? 'melee',
                 targetZoneId: payload.targetZoneId,
                 diceResults: payload.diceResults,
                 effectDieResult: payload.effectDieResult,
@@ -132,6 +141,7 @@ export function mapMageWarsEventToFx(
             ?? resolveObjectCell(core, payload.targetObjectId)
             ?? resolveZoneCell(core, payload.targetZoneId);
         if (!target) return null;
+        const rangeKind = resolveMageWarsSpellAttackRangeKind(payload.spellCardId);
 
         return {
             sourceEventId: entry.id,
@@ -149,6 +159,7 @@ export function mapMageWarsEventToFx(
                 targetZoneId: payload.targetZoneId,
                 spellCardId: payload.spellCardId,
                 sourceAbilityId: payload.sourceAbilityId,
+                ...(rangeKind ? { rangeKind } : {}),
                 diceResults: payload.diceResults,
                 effectDieResult: payload.effectDieResult,
                 damageAmount: payload.baseDamage,

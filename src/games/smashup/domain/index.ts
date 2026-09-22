@@ -3521,6 +3521,7 @@ function postProcessSystemEvents(
 
     let ms = matchState ?? createReactionQueueFallbackState(state);
     const inputEventsAlreadyReduced = !!options?.inputEventsAlreadyReduced;
+    const interactionIdBeforePostProcess = ms.sys.interaction?.current?.id;
 
     const destroySys = getSmashUpRuntimeSys(ms);
     if (!destroySys._processedDestroyEvents || !(destroySys._processedDestroyEvents instanceof Set)) {
@@ -3817,6 +3818,8 @@ function postProcessSystemEvents(
                     timing: 'onActionPlayed',
                     ownerPlayerId: playedEvt.payload.playerId,
                     baseIndex: playedEvt.payload.targetBaseIndex,
+                    actionPlayScope: 'targetBase',
+                    actionDestinationOverride: playedEvt.payload.destinationOverride,
                     actionTargetBaseIndex: playedEvt.payload.targetBaseIndex,
                     actionTargetType: playedEvt.payload.targetType,
                     actionTargetMinionUid: playedEvt.payload.targetMinionUid,
@@ -3839,6 +3842,7 @@ function postProcessSystemEvents(
                     ownerPlayerId: playedEvt.payload.playerId,
                     baseIndex: playedEvt.payload.targetBaseIndex,
                     reason: 'action-played',
+                    actionDestinationOverride: playedEvt.payload.destinationOverride,
                     actionTargetBaseIndex: playedEvt.payload.targetBaseIndex,
                     actionTargetType: playedEvt.payload.targetType,
                     actionTargetMinionUid: playedEvt.payload.targetMinionUid,
@@ -3852,6 +3856,31 @@ function postProcessSystemEvents(
                 if (queuedExtendedBase) {
                     derivedEvents.push(queuedExtendedBase as unknown as SmashUpEvent);
                     tempCore = applyTriggerQueueFactEvent(tempCore, queuedExtendedBase as unknown as SmashUpEvent);
+                    tempMatchState = { ...tempMatchState, core: tempCore };
+                }
+            }
+
+            for (let baseIndex = 0; baseIndex < tempCore.bases.length; baseIndex += 1) {
+                const queuedGlobalBase = collectBaseAbilityTriggers({
+                    core: tempCore,
+                    timing: 'onActionPlayed',
+                    ownerPlayerId: playedEvt.payload.playerId,
+                    baseIndex,
+                    actionPlayScope: 'allBases',
+                    actionDestinationOverride: playedEvt.payload.destinationOverride,
+                    actionTargetBaseIndex: playedEvt.payload.targetBaseIndex,
+                    actionTargetType: playedEvt.payload.targetType,
+                    actionTargetMinionUid: playedEvt.payload.targetMinionUid,
+                    triggerCardUid: playedEvt.payload.cardUid,
+                    triggerCardDefId: playedEvt.payload.defId,
+                    triggerCardOwnerId: playedEvt.payload.ownerId ?? playedEvt.payload.playerId,
+                    frameId,
+                    sourceEventId,
+                    now: event.timestamp,
+                });
+                if (queuedGlobalBase) {
+                    derivedEvents.push(queuedGlobalBase as unknown as SmashUpEvent);
+                    tempCore = applyTriggerQueueFactEvent(tempCore, queuedGlobalBase as unknown as SmashUpEvent);
                     tempMatchState = { ...tempMatchState, core: tempCore };
                 }
             }
@@ -4235,7 +4264,27 @@ function postProcessSystemEvents(
 
     const hasUnreducedTriggerConsumption = !inputEventsAlreadyReduced
         && finalEvents.some(event => event.type === SU_EVENTS.TRIGGER_CONSUMED);
-    if (!options?.skipReactionQueueResolution && !hasUnreducedTriggerConsumption) {
+    const currentInteraction = msForQueue.sys.interaction?.current;
+    const currentInteractionSourceId = (currentInteraction?.data as { sourceId?: unknown } | undefined)?.sourceId;
+    const currentInteractionFrameId = currentInteraction?.resolutionFrameId;
+    const actionPlayedInThisBatch = events.some(event => event.type === SU_EVENTS.ACTION_PLAYED);
+    const actionInitialInteractionStillCurrent = actionPlayedInThisBatch
+        && interactionIdBeforePostProcess !== undefined
+        && currentInteraction?.id === interactionIdBeforePostProcess;
+    const pendingActionPlayedTriggers = (msForQueue.core.triggerQueue ?? []).filter(trigger => (
+        trigger.sourceEventId?.startsWith('action-played:')
+    ));
+    const actionFrameStillHasOwnTrigger = typeof currentInteractionFrameId === 'string'
+        && pendingActionPlayedTriggers.some(trigger => trigger.frameId === currentInteractionFrameId);
+    const actionOwnInteractionStillCurrent = actionInitialInteractionStillCurrent
+        || (Boolean(currentInteraction)
+            && currentInteractionSourceId !== 'smashup_reaction_choose'
+            && (actionFrameStillHasOwnTrigger || pendingActionPlayedTriggers.length > 0));
+    if (
+        !options?.skipReactionQueueResolution
+        && !hasUnreducedTriggerConsumption
+        && !actionOwnInteractionStillCurrent
+    ) {
         const hasNewMandatoryTrigger = finalEvents.some(event => (
             event.type === SU_EVENTS.TRIGGER_QUEUED
             && (event.payload.triggers ?? []).some(trigger => (

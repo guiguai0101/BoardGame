@@ -41,6 +41,7 @@ type BetrayalReferenceOverlaySurfaceProps = {
   referenceScenarioTurnSnapshot: ScenarioBookTurnSnapshot | null;
   referenceScenarioLeftPage: ScenarioReaderPage | null;
   referenceScenarioRightPage: ScenarioReaderPage | null;
+  showScenarioReaderTitle?: boolean;
   canTurnReferenceScenarioBack: boolean;
   canTurnReferenceScenarioForward: boolean;
   onClose: () => void;
@@ -68,6 +69,7 @@ export function BetrayalReferenceOverlaySurface({
   referenceScenarioTurnSnapshot,
   referenceScenarioLeftPage,
   referenceScenarioRightPage,
+  showScenarioReaderTitle = false,
   canTurnReferenceScenarioBack,
   canTurnReferenceScenarioForward,
   onClose,
@@ -266,6 +268,16 @@ export function BetrayalReferenceOverlaySurface({
                       isPhoneLandscapeLayout ? "gap-2" : "gap-3"
                     }`}
                   >
+                    {showScenarioReaderTitle ? (
+                      <div className="pointer-events-none absolute inset-x-3 top-2 z-30 flex items-center justify-center">
+                        <span
+                          data-testid="betrayal-scenario-reader-title"
+                          className="rounded-[4px] border border-[rgba(123,99,61,0.46)] bg-[rgba(245,226,173,0.9)] px-3 py-1 text-center text-[14px] font-black tracking-[0.08em] text-[#3b2211] shadow-[0_4px_12px_rgba(54,31,12,0.18)] sm:text-[18px]"
+                        >
+                          {activeHauntTitle}
+                        </span>
+                      </div>
+                    ) : null}
                     <ScenarioBookTurnSheet
                       direction={referenceScenarioTurnDirection}
                       fromPages={

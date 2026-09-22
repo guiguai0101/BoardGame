@@ -328,6 +328,7 @@ describe('mage-wars event FX mapper', () => {
             params: {
                 defenderId: objectId,
                 damageAmount: 9,
+                rangeKind: 'ranged',
             },
         });
 
@@ -347,6 +348,31 @@ describe('mage-wars event FX mapper', () => {
             ctx: {
                 cell: getArenaCell(core, ARENA_ZONE_IDS.A2),
                 intensity: 'strong',
+            },
+        });
+    });
+
+    it('maps range-zero attack spells to the ranged spell FX family', () => {
+        const core = MageWarsDomain.setup(['0', '1'], fixedRandom);
+
+        const instruction = mapMageWarsEventToFx(createEntry({
+            type: MAGE_WARS_EVENTS.SPELL_ATTACK_ROLLED,
+            payload: {
+                playerId: '0',
+                spellCardId: 1704,
+                sourceAbilityId: 'mw.spell.1704',
+                targetZoneId: ARENA_ZONE_IDS.A2,
+                diceResults: [3, 3, 3, 3],
+                baseDamage: 12,
+            },
+            timestamp: 8,
+        }), core);
+
+        expect(instruction).toMatchObject({
+            cue: MW_FX.ATTACK_IMPACT,
+            params: {
+                spellCardId: 1704,
+                rangeKind: 'ranged',
             },
         });
     });

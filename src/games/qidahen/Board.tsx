@@ -3143,18 +3143,18 @@ const WheelPanel: React.FC<{
     moveSummary: string;
     disabled: boolean;
     emphasized?: boolean;
-    canActivateMove?: (moveId: string, selected: boolean) => boolean;
     directExecuteOnClick?: boolean;
     onSelectMove: (moveId: string) => void;
     onExecuteMove: (moveId: string) => void;
-}> = ({ selectedId, selectedMoveId, moveChoices, moveSummary, disabled, emphasized = false, canActivateMove, directExecuteOnClick = false, onSelectMove, onExecuteMove }) => {
+}> = ({ selectedId, selectedMoveId, moveChoices, moveSummary, disabled, emphasized = false, directExecuteOnClick = false, onSelectMove, onExecuteMove }) => {
     const { t } = useTranslation('game-qidahen');
     const [activeMoveId, setActiveMoveId] = React.useState(selectedMoveId);
     const selectedIndex = Math.max(0, WHEEL_SECTORS.findIndex((sector) => sector.id === selectedId));
     const selectedAngle = WHEEL_SECTORS[selectedIndex]?.angle ?? -90;
-    const activatableMoveChoices = moveChoices.filter(
-        (choice) => canActivateMove?.(choice.id, choice.id === selectedMoveId) ?? true,
-    );
+    // Formal wheel legality is already represented by moveChoices and the
+    // domain command validator. Tutorial guidance may recommend a move, but
+    // it must not shrink the set of formally legal wheel choices.
+    const activatableMoveChoices = moveChoices;
     const activeMove = activatableMoveChoices.find((choice) => choice.id === activeMoveId)
         ?? activatableMoveChoices.find((choice) => choice.id === selectedMoveId)
         ?? activatableMoveChoices[0];
@@ -3192,6 +3192,7 @@ const WheelPanel: React.FC<{
             className="pointer-events-none group absolute left-[136px] top-[-16px] z-30 h-[438px] w-[438px]"
             data-testid="qidahen-action-wheel"
             data-tutorial-id="qidahen-action-wheel"
+            data-wheel-emphasized={emphasized ? 'true' : 'false'}
             data-ui-anchor="left-top"
             style={{
                 left: 'calc(136px - var(--qidahen-mobile-edge-pull, 0px))',
@@ -3366,8 +3367,7 @@ const WheelPanel: React.FC<{
                         {moveChoices.map((choice) => {
                             const targetAngle = getMoveTargetAngle(choice.steps);
                             const selected = choice.id === selectedMoveId;
-                            const tutorialLocked = !canActivateMove?.(choice.id, selected);
-                            const moveDisabled = disabled || tutorialLocked;
+                            const moveDisabled = disabled;
                             const activateMove = () => {
                                 if (moveDisabled) {
                                     return;
@@ -3795,8 +3795,7 @@ const ActionsZone: React.FC<{
     onCancelWuzhenChaoha: () => void;
     onResolvePostBattleDecision: (choiceId: string) => void;
     isTutorialCommandAllowed?: (commandType: string) => boolean;
-    isTutorialTargetAllowed?: (targetId: string | null | undefined) => boolean;
-}> = ({ core, primaryStageMode, isTutorialActive, tutorialInfoStepActive, tutorialHighlightsSeasonSummary, actionPaymentPreviewVisible, handLimitDiscardSelection, internalDispatchSelection, recruitSelection, grantPardonSelection, grantPardonMapChoices, maShiTradeSelection, khanEdictSelection, diplomacySelection, driveTigerConsentSelection, fortificationMaintenanceSelection, wheelDispatchSelection, pendingTargetAction, postBattleSelection, onExecuteAction, onSelectRegion, onResolveRecruitChoice, onResolveGrantPardonChoice, selectedGaoDiChoiceId, onResolveGaoDiDispatch, selectedInternalDispatchChoiceId, onResolveInternalDispatch, onClearInternalDispatchChoice, onResolveMaShiTradeChoice, onResolveKhanEdictChoice, onResolveDiplomacyChoice, onResolveDriveTigerConsent, onResolveFortificationMaintenance, upkeepAttritionPriority, onSelectUpkeepAttritionPriority, pendingCommittedTroops, onSelectPendingCommittedTroops, pendingAttackerCasualtyPriority, pendingDefenderCasualtyPriority, onSelectPendingAttackerCasualtyPriority, onSelectPendingDefenderCasualtyPriority, onResolvePendingAction, onResolvePincerAdvance, onCancelPincerAdvance, onResolveInfantryCavalryCombined, onCancelInstigateDefection, onSetWuzhenChaohaArtilleryTechCount, onCancelWuzhenChaoha, onResolvePostBattleDecision, isTutorialCommandAllowed, isTutorialTargetAllowed }) => {
+}> = ({ core, primaryStageMode, isTutorialActive, tutorialInfoStepActive, tutorialHighlightsSeasonSummary, actionPaymentPreviewVisible, handLimitDiscardSelection, internalDispatchSelection, recruitSelection, grantPardonSelection, grantPardonMapChoices, maShiTradeSelection, khanEdictSelection, diplomacySelection, driveTigerConsentSelection, fortificationMaintenanceSelection, wheelDispatchSelection, pendingTargetAction, postBattleSelection, onExecuteAction, onSelectRegion, onResolveRecruitChoice, onResolveGrantPardonChoice, selectedGaoDiChoiceId, onResolveGaoDiDispatch, selectedInternalDispatchChoiceId, onResolveInternalDispatch, onClearInternalDispatchChoice, onResolveMaShiTradeChoice, onResolveKhanEdictChoice, onResolveDiplomacyChoice, onResolveDriveTigerConsent, onResolveFortificationMaintenance, upkeepAttritionPriority, onSelectUpkeepAttritionPriority, pendingCommittedTroops, onSelectPendingCommittedTroops, pendingAttackerCasualtyPriority, pendingDefenderCasualtyPriority, onSelectPendingAttackerCasualtyPriority, onSelectPendingDefenderCasualtyPriority, onResolvePendingAction, onResolvePincerAdvance, onCancelPincerAdvance, onResolveInfantryCavalryCombined, onCancelInstigateDefection, onSetWuzhenChaohaArtilleryTechCount, onCancelWuzhenChaoha, onResolvePostBattleDecision, isTutorialCommandAllowed }) => {
     const { t } = useTranslation('game-qidahen');
     const actionSlotRef = React.useRef<HTMLDivElement>(null);
     const grantPardonHasMapTargets = Boolean(grantPardonSelection?.choices.length);
@@ -4909,7 +4908,6 @@ const ActionsZone: React.FC<{
                                 disabled={
                                     pendingScenarioChoices
                                     || core.factionActionUsed
-                                    || !(isTutorialTargetAllowed?.(action.id) ?? true)
                                     || !(isTutorialCommandAllowed?.(action.cost > 0 ? QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION : QIDAHEN_COMMANDS.EXECUTE_ACTION) ?? true)
                                 }
                                 onClick={() => onExecuteAction(action.id)}
@@ -5108,7 +5106,6 @@ const HandZone: React.FC<{
     onPlayBattleResponseEventCard: (cardId: string) => void;
     onPreviewActionFromHandCard: (card: QidahenHandCard) => void;
     onMagnifyCard?: (target: QidahenMagnifyTarget) => void;
-    isTutorialTargetAllowed?: (targetId: string | null | undefined) => boolean;
 }> = ({
     core,
     pendingTargetAction,
@@ -5128,7 +5125,6 @@ const HandZone: React.FC<{
     onPlayBattleResponseEventCard,
     onPreviewActionFromHandCard,
     onMagnifyCard,
-    isTutorialTargetAllowed,
 }) => {
     const { t } = useTranslation('game-qidahen');
     const [isMobileLandscapeViewport, setIsMobileLandscapeViewport] = React.useState(() => (
@@ -5306,17 +5302,13 @@ const HandZone: React.FC<{
                             && !selectableForGaoDi
                             && pendingTargetAction != null
                             && isQidahenDefeatInDetailPlayable(core, card, pendingTargetAction);
-                        const tutorialTargetId = getQidahenHandCardTutorialTargetId(card);
-                        const tutorialAllowed = (isTutorialTargetAllowed?.(tutorialTargetId) ?? true)
-                            || (tutorialTargetId !== card.id && (isTutorialTargetAllowed?.(card.id) ?? false));
-                        const selectableForActionPayment = actionPaymentPreviewVisible && card.status !== 'disabled' && tutorialAllowed;
+                        const selectableForActionPayment = actionPaymentPreviewVisible && card.status !== 'disabled';
                         const selectableForDirectHandAction = !actionPaymentPreviewVisible
                             && !selectableForHandLimit
                             && !selectableForSunYuanhua
                             && !selectableForGaoDi
                             && !selectableForBattleResponseEvent
-                            && getQidahenDirectActionIdForHandCard(card) != null
-                            && tutorialAllowed;
+                            && getQidahenDirectActionIdForHandCard(card) != null;
                         return (
                             <HandCard
                                 key={card.id}
@@ -5335,9 +5327,9 @@ const HandZone: React.FC<{
                                         ? () => onSelectSunYuanhuaTechCard(card.id)
                                     : selectableForGaoDi
                                         ? () => onSelectGaoDiDispatchCard(card.id)
-                                    : selectableForBattleResponseEvent && tutorialAllowed
+                                    : selectableForBattleResponseEvent
                                         ? () => onPlayBattleResponseEventCard(card.id)
-                                    : selectableForTactic && tutorialAllowed
+                                    : selectableForTactic
                                         ? () => setSelectedTacticCardId((current) => (current === card.id ? null : card.id))
                                     : selectableForDirectHandAction
                                         ? () => onPreviewActionFromHandCard(card)
@@ -6376,12 +6368,6 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         }
         return tutorialStep.infoStep !== true;
     }, [isTutorialActive, tutorialStep]);
-    const isTutorialTargetAllowed = React.useCallback((targetId: string | null | undefined): boolean => {
-        if (!isTutorialActive || !tutorialStep?.allowedTargets || tutorialStep.allowedTargets.length <= 0) {
-            return true;
-        }
-        return !!targetId && tutorialStep.allowedTargets.includes(targetId);
-    }, [isTutorialActive, tutorialStep]);
     const scenarioVotePending = core.scenarioVote != null;
     const factionSelectionPending = core.factionSelection != null;
     const scenarioChoicesPending = core.pendingScenarioCharacterChoices.length > 0 || core.pendingScenarioArmamentChoices.length > 0;
@@ -6406,9 +6392,10 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         ? recruitSelectionFromCore
         : recruitSelectionFromMirror;
     const grantPardonSelection = getQidahenGrantPardonSelectionForCore(core, activeInteraction);
-    const grantPardonMapChoices = React.useMemo(() => (
-        grantPardonSelection?.choices.filter((choice) => isTutorialTargetAllowed(choice.id)) ?? []
-    ), [grantPardonSelection?.choices, isTutorialTargetAllowed]);
+    const grantPardonMapChoices = React.useMemo(
+        () => grantPardonSelection?.choices ?? [],
+        [grantPardonSelection?.choices],
+    );
     const diplomacySelection = getQidahenDiplomacySelectionForCore(core, activeInteraction);
     const wheelDispatchSelection = getQidahenWheelDispatchSelectionForCore(core, activeInteraction);
     const internalDispatchSelection = getQidahenInternalDispatchSelectionForCore(core, activeInteraction);
@@ -6494,6 +6481,7 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         && !factionStageSelectionActive
         && !wheelStageSelectionActive
         && core.wheelMoveChoices.length > 0;
+    const wheelStageEmphasized = wheelStageAvailable && tutorialStep?.id !== 'welcome';
     const tutorialInfoStepActive = tutorialStep?.infoStep === true;
     const tutorialShowsSeasonSummary = tutorialStep?.highlightTarget === 'qidahen-season-summary';
     const tutorialPrefersWheelStage = tutorialStep?.id === 'wheel-first'
@@ -6546,18 +6534,18 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
     }, [internalDispatchSelectionKey]);
 
     const selectWheelMove = React.useCallback((moveId: string) => {
-        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE) || !isTutorialTargetAllowed(moveId)) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.SELECT_WHEEL_MOVE, { moveId });
-    }, [dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const executeWheelMove = React.useCallback((moveId: string) => {
-        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE) || !isTutorialTargetAllowed(moveId)) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE, { moveId });
-    }, [dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const castScenarioVote = React.useCallback((scenarioId: QidahenScenarioId | null) => {
         dispatch(QIDAHEN_COMMANDS.CAST_SCENARIO_VOTE, { scenarioId });
@@ -6567,15 +6555,15 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         dispatch(QIDAHEN_COMMANDS.SELECT_FACTION, { factionId });
     }, [dispatch]);
 
-    const previewAction = React.useCallback((actionId: string, tutorialTargetId = actionId, sourceHandCardId?: string) => {
-        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION) || !isTutorialTargetAllowed(tutorialTargetId)) {
+    const previewAction = React.useCallback((actionId: string, sourceHandCardId?: string) => {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.CONFIRM_PREVIEW_ACTION, {
             actionId,
             ...(sourceHandCardId ? { sourceHandCardId } : {}),
         });
-    }, [dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const cancelActionPaymentPreview = React.useCallback(() => {
         if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.CANCEL_PREVIEW_ACTION)) {
@@ -6596,9 +6584,6 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         if (!action) {
             return;
         }
-        if (!isTutorialTargetAllowed(actionId)) {
-            return;
-        }
         if (action.cost > 0) {
             if (actionPaymentPreviewVisible && core.selectedActionId === actionId) {
                 return;
@@ -6610,36 +6595,28 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
             return;
         }
         dispatch(QIDAHEN_COMMANDS.EXECUTE_ACTION, { actionId });
-    }, [actionPaymentPreviewVisible, core.actionChoices, core.selectedActionId, dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed, previewAction]);
+    }, [actionPaymentPreviewVisible, core.actionChoices, core.selectedActionId, dispatch, isTutorialCommandAllowed, previewAction]);
 
     const togglePaymentCard = React.useCallback((cardId: string) => {
-        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_PAYMENT_CARD) || !isTutorialTargetAllowed(cardId)) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_PAYMENT_CARD)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.SELECT_PAYMENT_CARD, { cardId });
-    }, [dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const playTacticCard = React.useCallback((cardId: string) => {
-        const card = core.handCards.find((candidate) => candidate.id === cardId);
-        const tutorialTargetId = card ? getQidahenHandCardTutorialTargetId(card) : cardId;
-        if (
-            !isTutorialCommandAllowed(QIDAHEN_COMMANDS.PLAY_TACTIC_CARD)
-            || (!isTutorialTargetAllowed(cardId) && !isTutorialTargetAllowed(tutorialTargetId))
-        ) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.PLAY_TACTIC_CARD)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.PLAY_TACTIC_CARD, { cardId });
-    }, [core.handCards, dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const playBattleResponseEventCard = React.useCallback((cardId: string) => {
-        if (
-            !isTutorialCommandAllowed(QIDAHEN_COMMANDS.PLAY_BATTLE_RESPONSE_EVENT_CARD)
-            || !isTutorialTargetAllowed(cardId)
-        ) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.PLAY_BATTLE_RESPONSE_EVENT_CARD)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.PLAY_BATTLE_RESPONSE_EVENT_CARD, { cardId });
-    }, [dispatch, isTutorialCommandAllowed, isTutorialTargetAllowed]);
+    }, [dispatch, isTutorialCommandAllowed]);
 
     const togglePincerAdvanceTroop = React.useCallback((choiceId: string) => {
         dispatch(QIDAHEN_COMMANDS.TOGGLE_PINCER_ADVANCE_TROOP, { choiceId });
@@ -6682,7 +6659,7 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         if (!actionId || !factionStageAvailable || actionPaymentPreviewVisible || card.status === 'disabled') {
             return;
         }
-        previewAction(actionId, getQidahenHandCardTutorialTargetId(card), card.id);
+        previewAction(actionId, card.id);
     }, [actionPaymentPreviewVisible, factionStageAvailable, previewAction]);
 
     const resolvePendingAction = React.useCallback((choiceValue: QidahenPendingTargetChoiceValue, attackerCasualtyPriority?: QidahenCasualtyPriority, defenderCasualtyPriority?: QidahenCasualtyPriority, committedTroops?: number) => {
@@ -6725,15 +6702,12 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         if (!activeGrantPardonInteractionId || !grantPardonSelection) {
             return;
         }
-        if (!isTutorialTargetAllowed(choiceId)) {
-            return;
-        }
         runtimeDispatch(INTERACTION_COMMANDS.RESPOND, {
             interactionId: activeGrantPardonInteractionId,
             optionId: choiceId,
             mergedValue: { qidahenGrantPardonSelection: grantPardonSelection },
         });
-    }, [activeGrantPardonInteractionId, grantPardonSelection, isTutorialTargetAllowed, runtimeDispatch]);
+    }, [activeGrantPardonInteractionId, grantPardonSelection, runtimeDispatch]);
 
     const selectGaoDiDispatchCard = React.useCallback((cardId: string) => {
         dispatch(QIDAHEN_COMMANDS.SELECT_GAO_DI_DISPATCH_CARD, { cardId });
@@ -7012,16 +6986,16 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         }
         if (grantPardonSelection != null) {
             const choice = grantPardonMapChoices.find((item) => item.targetRegionId === regionId);
-            if (choice && isTutorialTargetAllowed(choice.id)) {
+            if (choice) {
                 resolveGrantPardonChoice(choice.id);
             }
             return;
         }
-        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_REGION) || !isTutorialTargetAllowed(regionId)) {
+        if (!isTutorialCommandAllowed(QIDAHEN_COMMANDS.SELECT_REGION)) {
             return;
         }
         dispatch(QIDAHEN_COMMANDS.SELECT_REGION, { regionId });
-    }, [setupStagePending, pendingTargetAction, defeatInDetailOrderSelectionActive, postBattleSelection, driveTigerConsentSelection, fortificationMaintenanceSelection, handLimitDiscardSelection, core.sunYuanhuaTechSelection, core.gaoDiDispatchSelection, internalDispatchSelection, mapRegionSelectionDecisionActive, grantPardonSelection, grantPardonMapChoices, isTutorialTargetAllowed, isTutorialCommandAllowed, dispatch, resolveGrantPardonChoice, setDraftGaoDiChoiceId, setDraftInternalDispatchChoiceId]);
+    }, [setupStagePending, pendingTargetAction, defeatInDetailOrderSelectionActive, postBattleSelection, driveTigerConsentSelection, fortificationMaintenanceSelection, handLimitDiscardSelection, core.sunYuanhuaTechSelection, core.gaoDiDispatchSelection, internalDispatchSelection, mapRegionSelectionDecisionActive, grantPardonSelection, grantPardonMapChoices, isTutorialCommandAllowed, dispatch, resolveGrantPardonChoice, setDraftGaoDiChoiceId, setDraftInternalDispatchChoiceId]);
 
     const activateTopLevelGuideTarget = React.useCallback((candidate: {
         action: 'wheel-dispatch' | 'gao-di' | 'internal-dispatch' | 'grant-pardon' | 'select-region';
@@ -7197,13 +7171,10 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
         .map((candidate) => candidate.targetRegionId)
         .join('|') ?? '';
     const tutorialMapFocusRegionId = getQidahenTutorialMapFocusRegionId(tutorialStep?.highlightTarget);
-    const tutorialAllowedMapTargetRegionId = tutorialStep?.allowedTargets?.find((targetId) => (
-        topLevelMapSelectionGuide?.candidates.some((candidate) => candidate.targetRegionId === targetId)
-    )) ?? null;
     const tutorialMapFocusCandidateRegionId = tutorialMapFocusRegionId
         && topLevelMapSelectionGuide?.candidates.some((candidate) => candidate.targetRegionId === tutorialMapFocusRegionId)
         ? tutorialMapFocusRegionId
-        : tutorialAllowedMapTargetRegionId;
+        : null;
     const autoFocusMapTargetKey = topLevelMapSelectionGuide && autoFocusMapTargetRegionIdsKey
         ? `${topLevelMapSelectionGuide.title}:${autoFocusMapTargetRegionIdsKey}:${tutorialMapFocusCandidateRegionId ?? ''}:${wheelDispatchSelection?.sourceRegionId ?? core.gaoDiDispatchSelection?.sourceRegionId ?? internalDispatchSelection?.sourceRegionId ?? grantPardonSelection?.sourceRegionId ?? ''}`
         : null;
@@ -7429,7 +7400,9 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
                 <TopPromptBanner
                     testId="qidahen-wheel-next-step-banner"
                     title={t('board.actions.wheelNextStepTitle', { defaultValue: '轮盘落点行动' })}
-                    hint={t('board.actions.wheelNextStepHint', { defaultValue: '选择轮盘格' })}
+                    hint={tutorialStep?.id === 'wheel-move'
+                        ? t('board.actions.wheelTutorialMoveHint', { defaultValue: '从正式可用落点中选择一项；点击绿色候选后立即执行' })
+                        : t('board.actions.wheelNextStepHint', { defaultValue: '选择轮盘格' })}
                     badgeLabel={t('board.actions.wheelNextStepBadge', { defaultValue: '轮盘' })}
                     tone="wheel"
                 />
@@ -7450,11 +7423,8 @@ export const QidahenBoard: React.FC<Props> = ({ G, dispatch, locale, playerID, i
                 moveChoices={core.wheelMoveChoices}
                 moveSummary={core.wheelMoveSummary}
                 disabled={setupStagePending || core.wheelActionUsed || recruitSelection != null || core.sunYuanhuaTechSelection != null || core.gaoDiDispatchSelection != null || internalDispatchSelection != null || maShiTradeSelection != null || khanEdictSelection != null || diplomacySelection != null || fortificationMaintenanceSelection != null || handLimitDiscardSelection != null || pendingTargetAction != null || postBattleSelection != null}
-                emphasized={wheelStageAvailable}
+                emphasized={wheelStageEmphasized}
                 directExecuteOnClick
-                canActivateMove={(moveId) => (
-                    isTutorialCommandAllowed(QIDAHEN_COMMANDS.EXECUTE_WHEEL_MOVE) && isTutorialTargetAllowed(moveId)
-                )}
                 onSelectMove={selectWheelMove}
                 onExecuteMove={executeWheelMove}
             />

@@ -60,6 +60,7 @@ const {
     resolveCriticalImagesMock,
     preloadWarmImagesMock,
     requestAndroidNativeUpdateCheckMock,
+    authState,
 } = vi.hoisted(() => ({
     getGameByIdMock: vi.fn<(gameId: string) => GameManifestEntry | null>((gameId: string) => {
         if (gameId !== 'dicethrone') return null;
@@ -99,6 +100,10 @@ const {
     resolveCriticalImagesMock: vi.fn(),
     preloadWarmImagesMock: vi.fn(),
     requestAndroidNativeUpdateCheckMock: vi.fn(),
+    authState: {
+        user: null as null | { id: string; username: string },
+        token: null as string | null,
+    },
 }));
 
 const buildMockGameManifest = (override: Partial<GameManifestEntry> = {}): GameManifestEntry => ({
@@ -232,10 +237,7 @@ vi.mock('react-router-dom', () => ({
 }));
 
 vi.mock('../../../contexts/AuthContext', () => ({
-    useAuth: () => ({
-        user: null,
-        token: null,
-    }),
+    useAuth: () => authState,
 }));
 
 vi.mock('../../../contexts/ModalStackContext', () => ({
@@ -392,8 +394,8 @@ vi.mock('../../../hooks/match/useMatchStatus', () => ({
 vi.mock('../../../hooks/match/ownerIdentity', () => ({
     getOrCreateGuestId: () => 'guest-1',
     getGuestName: () => 'Guest',
-    getOwnerKey: () => 'owner-1',
-    getOwnerType: () => 'guest',
+    getOwnerKey: () => authState.user ? `user:${authState.user.id}` : 'owner-1',
+    getOwnerType: () => authState.user ? 'user' : 'guest',
 }));
 
 vi.mock('../../common/overlays/ConfirmModal', () => ({
@@ -580,6 +582,8 @@ beforeEach(() => {
     vi.mocked(matchStatus.getLatestStoredMatchCredentials).mockImplementation(() => null);
     vi.mocked(matchStatus.listStoredMatchCredentials).mockImplementation(() => []);
     vi.mocked(matchStatus.readStoredMatchCredentials).mockImplementation(() => null);
+    authState.user = null;
+    authState.token = null;
 });
 
 describe('GameDetailsModal join confirm helpers', () => {
@@ -2727,6 +2731,45 @@ describe('GameDetailsModal create room ai entry', () => {
         await waitFor(() => {
             expect(navigateMock).toHaveBeenCalledWith('/play/dicethrone/match/match-new?playerID=0');
         });
+    });
+
+    it('登录用户遇到旧房占用时，先自动回归旧房，不直接弹替换确认', async () => {
+        markGamePackageInstalled();
+        authState.user = { id: 'user-1', username: 'Alice' };
+        authState.token = 'jwt-token';
+        const activeMatchExistsError = Object.assign(
+            new Error('409: {"error":"ACTIVE_MATCH_EXISTS","gameName":"mage-wars","matchID":"match-old","canForceReplace":true}'),
+            {
+                status: 409,
+                details: '{"error":"ACTIVE_MATCH_EXISTS","gameName":"mage-wars","matchID":"match-old","canForceReplace":true}',
+                code: 'ACTIVE_MATCH_EXISTS',
+            },
+        );
+        const createMatchSpy = vi.spyOn(matchApi, 'createMatch').mockRejectedValueOnce(activeMatchExistsError);
+        vi.mocked(matchStatus.claimSeat).mockResolvedValueOnce({
+            success: true,
+            credentials: 'rejoined-creds',
+        });
+
+        render(createElement(GameDetailsModal, baseProps));
+
+        fireEvent.click(screen.getByText('actions.createRoom'));
+        await waitFor(() => {
+            expect(screen.getByText('mock-create-room-confirm')).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText('mock-create-room-confirm'));
+
+        await waitFor(() => {
+            expect(matchStatus.claimSeat).toHaveBeenCalledWith(
+                'mage-wars',
+                'match-old',
+                '0',
+                { token: 'jwt-token', playerName: 'Alice' },
+            );
+            expect(navigateMock).toHaveBeenCalledWith('/play/mage-wars/match/match-old?playerID=0');
+        });
+        expect(createMatchSpy).toHaveBeenCalledTimes(1);
+        expect(openModalMock).not.toHaveBeenCalled();
     });
 
     it('创建房间失败时 toast 会显示错误码和状态码', async () => {

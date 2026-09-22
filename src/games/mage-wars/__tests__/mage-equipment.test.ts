@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FLOW_COMMANDS } from '../../../engine/systems/FlowSystem';
 import type { MatchState, RandomFn } from '../../../engine/types';
+import { getMageWarsSpellCardFromConfig } from '../data/configPackage';
 import { MAGE_WARS_COMMANDS } from '../domain';
 import { MAGE_WARS_EVENTS } from '../domain/events';
 import { reduceEvent } from '../domain/reducer';
@@ -12,9 +13,14 @@ import {
 } from '../domain/ids';
 import type { MageWarsCore } from '../domain/types';
 import {
+    resolveMageWarsPlayerChanneling,
+    resolveMageWarsSpellCost,
+} from '../domain/spellRules';
+import {
     actionLogKinds,
     fixedRandom,
     makeArenaObject,
+    makeVisibleEnchantmentObject,
     planCommand,
     PLAYER_ZERO_START_ZONE,
     runCommand,
@@ -24,9 +30,224 @@ import {
     withCurrentPlayer,
     withPlayerInZone,
     withPlayerMage,
+    withPreparedPlayerMage,
 } from './helpers/domainFlowHarness';
 
 describe('mage-wars mage equipment', () => {
+    it('adds Moonlight Necklace channeling through the generic equipment trait reader', () => {
+        const necklace = makeArenaObject('moonlight-necklace-0', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'equipment',
+            sourceSpellCardId: 3800,
+            sourceObjectId: 'spell-card-3800',
+            name: '月光项链',
+            anchoredToPlayerId: '0',
+            createdAtSequence: 1,
+        });
+        const base = setupState('creatureAction');
+        const core = withArenaObject(
+            withPlayerMage(base.core, '0', MAGE_IDS.WIZARD_APPRENTICE),
+            necklace,
+        );
+
+        expect(getMageWarsSpellCardFromConfig(3800)?.requiresCodeSupport).toBe(false);
+        expect(resolveMageWarsPlayerChanneling(core, '0'))
+            .toBe(core.players['0'].channeling + 1);
+    });
+
+    it('resolves configured once-per-round spell discounts from attached equipment', () => {
+        const cases = [
+            {
+                ringId: 3713,
+                mageId: MAGE_IDS.WIZARD_APPRENTICE,
+                targetSpellId: 3500,
+                payloadManaCost: 16,
+                expectedManaCost: 15,
+            },
+            {
+                ringId: 3802,
+                mageId: MAGE_IDS.BEASTMASTER_APPRENTICE,
+                targetSpellId: 2903,
+                payloadManaCost: 16,
+                expectedManaCost: 15,
+            },
+            {
+                ringId: 3803,
+                mageId: MAGE_IDS.WARLOCK_APPRENTICE,
+                targetSpellId: 1800,
+                payloadManaCost: 5,
+                expectedManaCost: 4,
+            },
+        ] as const;
+
+        for (const entry of cases) {
+            const base = setupState('creatureAction');
+            const equipment = makeArenaObject(`cost-reduction-${entry.ringId}`, '0', PLAYER_ZERO_START_ZONE, {
+                kind: 'equipment',
+                sourceSpellCardId: entry.ringId,
+                sourceObjectId: `spell-card-${entry.ringId}`,
+                name: getMageWarsSpellCardFromConfig(entry.ringId)?.name ?? `equipment-${entry.ringId}`,
+                anchoredToPlayerId: '0',
+                createdAtSequence: 1,
+            });
+            const state: MatchState<MageWarsCore> = {
+                core: withArenaObject(
+                    withPreparedPlayerMage(base.core, '0', entry.mageId, [entry.targetSpellId]),
+                    equipment,
+                ),
+                sys: base.sys,
+            };
+            const resolution = resolveMageWarsSpellCost(
+                entry.targetSpellId,
+                entry.payloadManaCost,
+                { core: state.core, playerId: '0' },
+            );
+
+            expect(resolution?.manaCost).toBe(entry.expectedManaCost);
+            expect(resolution?.costReductionSourceObjectId).toBe(equipment.id);
+            expect(resolution?.costReductionAmount).toBe(1);
+        }
+    });
+
+    it('does not apply a reveal-only curse discount to a hidden enchantment cast', () => {
+        const base = setupState('creatureAction');
+        const equipment = makeArenaObject('curse-ring-hidden-check', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'equipment',
+            sourceSpellCardId: 3803,
+            sourceObjectId: 'spell-card-3803',
+            name: '诅咒之戒',
+            anchoredToPlayerId: '0',
+            createdAtSequence: 1,
+        });
+        const core = withArenaObject(
+            withPreparedPlayerMage(base.core, '0', MAGE_IDS.WARLOCK_APPRENTICE, [1901]),
+            equipment,
+        );
+
+        const resolution = resolveMageWarsSpellCost(1901, 4, { core, playerId: '0' });
+
+        expect(resolution?.manaCost).toBe(4);
+        expect(resolution?.costReductionSourceObjectId).toBeUndefined();
+    });
+
+    it('consumes a once-per-round ring discount through real casts and restores it next round', () => {
+        const base = setupState('creatureAction');
+        const enemyCreature = makeArenaObject('enemy-creature-for-steal', '1', PLAYER_ZERO_START_ZONE);
+        const friendlyCreature = makeArenaObject('friendly-creature-for-steal', '0', PLAYER_ZERO_START_ZONE);
+        const visibleEnchantment = makeVisibleEnchantmentObject(
+            'visible-enchantment-for-steal',
+            '1',
+            PLAYER_ZERO_START_ZONE,
+            { anchoredToObjectId: enemyCreature.id },
+        );
+        const equipment = makeArenaObject('arcane-ring-real-cast', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'equipment',
+            sourceSpellCardId: 3713,
+            sourceObjectId: 'spell-card-3713',
+            name: '奥术戒指',
+            anchoredToPlayerId: '0',
+            createdAtSequence: 1,
+            actionReady: false,
+        });
+        const state: MatchState<MageWarsCore> = {
+            core: withArenaObject(
+                withArenaObject(
+                    withArenaObject(
+                        withArenaObject(
+                            withPreparedPlayerMage(
+                                withPlayerInZone(
+                                    withPlayerInZone(base.core, '0', PLAYER_ZERO_START_ZONE),
+                                    '1',
+                                    PLAYER_ZERO_START_ZONE,
+                                ),
+                                '0',
+                                MAGE_IDS.WIZARD_APPRENTICE,
+                                [3409, 3500],
+                                30,
+                            ),
+                            enemyCreature,
+                        ),
+                        friendlyCreature,
+                    ),
+                    visibleEnchantment,
+                ),
+                equipment,
+            ),
+            sys: base.sys,
+        };
+
+        const steal = runCommand(state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 3409,
+                manaCost: 10,
+                targetObjectId: visibleEnchantment.id,
+                newTargetObjectId: friendlyCreature.id,
+            },
+        });
+
+        expect(steal.success).toBe(true);
+        expect(steal.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.SPELL_CAST_RESOLVED,
+                payload: expect.objectContaining({ spellCardId: 3409, manaCost: 9 }),
+            }),
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.SPELL_COST_REDUCTION_USED,
+                payload: expect.objectContaining({
+                    sourceObjectId: equipment.id,
+                    sourceAbilityId: `mw.equipment.3713.spell-cost-reduction`,
+                    roundNumber: state.core.turnNumber,
+                }),
+            }),
+        ]));
+        expect(steal.state.core.players['0'].mana).toBe(21);
+        expect(steal.state.core.players['0'].actionReady).toBe(false);
+        expect(steal.state.core.players['0'].quickcastReady).toBe(true);
+        expect(steal.state.core.objects[equipment.id].abilityUseRoundNumbers).toMatchObject({
+            'mw.equipment.3713.spell-cost-reduction': state.core.turnNumber,
+        });
+
+        const secondCast = runCommand(steal.state, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 3500,
+                manaCost: 16,
+                targetPlayerId: '1',
+            },
+        });
+
+        expect(secondCast.success).toBe(true);
+        expect(secondCast.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.SPELL_CAST_RESOLVED,
+                payload: expect.objectContaining({ spellCardId: 3500, manaCost: 16 }),
+            }),
+        ]));
+        expect(secondCast.events.filter((event) => event.type === MAGE_WARS_EVENTS.SPELL_COST_REDUCTION_USED)).toHaveLength(0);
+        // 力量汲取会把目标法师的部分法力转给施法者，所以余额不是简单的 21 - 16。
+        expect(secondCast.state.core.players['0'].mana).toBe(15);
+
+        const nextRoundCore = reduceEvent(secondCast.state.core, {
+            type: MAGE_WARS_EVENTS.TURN_ADVANCED,
+            payload: {
+                fromPlayerId: '0',
+                toPlayerId: '1',
+                turnNumber: secondCast.state.core.turnNumber + 1,
+            },
+            sourceCommandType: 'test:turn-advanced',
+            timestamp: 999,
+        });
+        const nextRoundResolution = resolveMageWarsSpellCost(3500, 16, {
+            core: nextRoundCore,
+            playerId: '0',
+        });
+
+        expect(nextRoundResolution?.manaCost).toBe(15);
+        expect(nextRoundResolution?.costReductionSourceObjectId).toBe(equipment.id);
+    });
+
     it('casts Leather Gloves as mage-attached passive armor equipment', () => {
         const equipmentSpellId = 3702;
         const planningState = setupState('planning');

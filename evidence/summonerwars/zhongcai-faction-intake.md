@@ -7,7 +7,7 @@
 - 当前真相源：`public/assets/i18n/zh-CN/summonerwars/hero/zhongcai/` 内 13 张原始 PNG
 - 录入范围：召唤师、3 名英雄、4 类士兵、3 张普通事件、1 张传奇事件、提示板、正式图集、运行时配置与规则消费链
 - 当前结论：`当前范围已收口`
-- 玩家可见状态：`in_progress`；本地录入、规则实现、审计、真实入口和服务器素材主源均已验证，但按新增派系人工闸门保留实施中标记，未擅自切换完成态
+- 玩家可见状态：`in_progress`；2026-09-20 对照原卡发现“抹消”原文没有“友方”限定后，已修正文案、目标候选、执行器和审计证据，并完成己方/敌方双侧验证；按新增派系人工闸门保留实施中标记，未擅自切换完成态
 
 ## 审计范围
 
@@ -19,14 +19,14 @@
 ## 结论等级
 
 - 结论等级：`当前范围已收口`。
-- 判定理由：仲裁对象全集已登记；本轮发现的圣言重复/错误条件触发已删除旁路并补回归；六项原先只有代表性证据的能力已补最终状态断言；4/4 仲裁真实入口 E2E、19 张按交互族分组的完整流程截图、188 条共享/定向 UI 与交互测试、类型检查、规范、资源和 evidence 自检均通过。
+- 判定理由：仲裁对象全集已登记；2026-09-20 重新打开“睿智者阿不思：抹消”原卡后确认原文是“一个士兵”，不是“一个友方士兵”，已同步修正文案、候选范围、执行器和审计行，并通过己方/敌方双侧窄测与真实入口 E2E。
 - 当前口径不外推到全仓 i18n 或其他派系；全仓 i18n 仍受既有 DiceThrone 缺失键阻断，属于范围外残余。
 
 ## 权威来源
 
 - 主真相源：`public/assets/i18n/zh-CN/summonerwars/hero/zhongcai/` 内 13 张原始 PNG，以及对应完整卡面裁图。
 - 对照源：`config/factions/zhongcai.ts`、中文/英文文案、`.spec/skills/summonerwars-faction-intake/SKILL.md`、当前领域实现和真实入口状态。
-- 合同状态：`locked`；卡名、费用、生命、战力、攻击类型、事件阶段、起始部署、图集槽位和规则子句均已登记。
+- 合同状态：`locked`；卡名、费用、生命、战力、攻击类型、事件阶段、起始部署、图集槽位、抹消逐字原文和目标所有权消费映射均已登记。
 - 完整单卡主裁图：`temp/summonerwars-zhongcai-crops/` 内 13 张 `*-bottom.png`；正式图集只消费 `hero.png` / `cards.png` / `tip.png`。
 - 裁图清单 / crop manifest：本 evidence 的原始素材登记表、图集槽位合同和 `temp/summonerwars-zhongcai-crops/` 文件清单共同构成裁图记录；素材 SHA256 已逐项记录。
 - 图片合同：所有原始 PNG 为 `1050×750`；正式 `cards.png` 为 `8400×1500`、8×2，slot 11–15 为空白，不生成运行时对象。
@@ -37,11 +37,11 @@
 | --- | --- | --- |
 | 对象范围 | `passed` | 13 张原始素材、卡组 30 张、召唤师/英雄/士兵/事件/城门/传送门和下方对象矩阵逐项登记。 |
 | 真相源状态 | `passed` | 完整单卡主裁图、裁图清单、SHA256、卡面字段合同和运行时配置已锁定。 |
-| 原子语义断言 | `passed` | 召唤师、3 名英雄、4 类士兵、4 张事件均拆成 C1/C2/C3 原子规则，并记录正向与负向路径。 |
+| 原子语义断言 | `passed` | 召唤师、3 名英雄、4 类士兵、4 张事件均拆成 C1/C2/C3 原子规则，并记录正向与负向路径；抹消单独登记“未写友方/敌方”。 |
 | 实现消费链 | `passed` | 已追到 `helpers.ts`、`validate.ts`、`execute.ts`、`abilityResolver.ts`、`customActionHandlers.ts`、`systems.ts`、`executors/zhongcai.ts` 和 `reduce.ts`。 |
-| 最终权威结果 | `passed` | 测试直接断言位置、伤害、治疗、有效战力、充能/事件、临时失能和召唤候选落位。 |
-| 交互真实入口 | `passed` | 仲裁 E2E 4/4 通过；覆盖派系选择、起始部署、服从双步、圣言/抹消/鼓舞和律令提示；新增 19 张按交互族分组的完整流程截图。 |
-| 验证证据 | `passed` | 仲裁行为 14/14；共享/定向 UI 与交互 188/188；`typecheck`、`spec:lint`、manifest validate 和 evidence selfcheck 均通过。 |
+| 最终权威结果 | `passed` | 测试直接断言位置、伤害、治疗、有效战力、充能/事件、临时失能和召唤候选落位；抹消同时断言己方与敌方士兵失能。 |
+| 交互真实入口 | `passed` | 仲裁 E2E 5/5 通过；覆盖派系选择、起始部署、服从双步、圣言/抹消/鼓舞和律令提示；抹消截图同时显示己方与敌方合法候选。 |
+| 验证证据 | `passed` | 仲裁行为 15/15；共享/定向 UI 与交互 188/188；`typecheck`、`spec:lint`、manifest validate 和 evidence selfcheck 均通过。 |
 | 共享影响与代表链依据 | `passed` | `sw-after-attack-ability-v1`、`sw-phase-end-ability-v1`、`sw-summon-position-extension-v1` 已记录触发、候选、权限、payload、执行、最终状态和清理。 |
 | 缺口分类与范围裁定 | `passed` | 仲裁实现缺口、审计留档缺口和全仓范围外 i18n 缺口已分开记录。 |
 | 旧 evidence / 旧结论对账回写 | `passed` | 原先合并的“代表性验证”已拆成逐项结论；旧的“中彩”误称已改为“仲裁”。 |
@@ -114,7 +114,12 @@
 
 - 高贵者凯西雅：费用 4，生命 6，战力 3，远程。治疗灵光：攻击阶段结束时，本单位 2 格内每个士兵移除 1 点伤害。
 - 虚诚者提图斯：费用 6，生命 9，战力 3，远程。高阶变门同上；守卫：相邻敌方卡牌攻击时，必须将具有守卫的单位作为目标。
-- 睿智者阿不思：费用 3，生命 5，战力 3，远程。抹消：移动阶段开始时，可指定本单位 3 格内一个士兵；目标直到回合结束失去所有技能。
+- 睿智者阿不思：费用 3，生命 5，战力 3，远程。
+  - 抹消原文（卡面，繁体）：`在你的移動階段開始時，可以指定本單位3個區格以內的一個士兵為目標。目標失去所有技能，直到回合結束。`
+  - 锁定翻译（运行时简体）：`在你的移动阶段开始时，可以指定本单位3个区格以内的一个士兵为目标。目标失去所有技能，直到回合结束。`
+  - C1：你的移动阶段开始时，可选触发。
+  - C2：目标是本单位 3 个区格以内的一个士兵，原文未限定友方或敌方。
+  - C3：目标直到回合结束失去所有技能。
 
 ### 士兵
 
@@ -150,7 +155,7 @@
 | 圣言推拉 | ability + push/pull interaction | execute / systems / reduce | `passed: 定向测试 + 真实入口` |
 | 高阶变门 | 离开相邻关系后的 2 点伤害 | execute / post-process | `passed: 定向行为测试` |
 | 治疗灵光 | 攻击阶段结束范围治疗 | flowHooks / reduce | `passed: 定向行为测试` |
-| 抹消 | 移动阶段开始临时失去技能 | interaction / turn cleanup | `passed: 最终状态与回合清理 + 真实入口` |
+| 抹消 | 移动阶段开始选择 3 格内任意所有权的一个士兵，直到回合结束失去技能 | interaction / turn cleanup | 原卡逐字原文；定向测试覆盖己方/敌方；E2E 同时高亮两侧并结算敌方目标 | `功能实现已验证` |
 | 赎罪 / 刚硬 / 强健 | 临时能力与伤害/战力修正 | helpers / execute / reduce | `passed: 定向行为测试` |
 | 护持 / 鼓舞 | 特殊召唤位置与召唤后可选治疗 | validate / systems / execute | `passed: 定向行为测试 + 真实入口` |
 | 服从 | 召唤师附近移动士兵 | event interaction | `passed: 真实双步交互` |
@@ -160,9 +165,9 @@
 
 本轮结论为：`当前范围已收口`（功能与审计证据已收口，玩家可见完成态仍等待人工批准）。
 
-- 数据录入：本地 13 张原始 PNG、图集槽位、卡面字段、提示板与开局合同已登记；派系配置、牌组和中英文文案已接入。
-- 机制实现：仲裁技能、事件和交互已接入正式执行 / 系统 / reducer 链；本轮修复了三个真实问题：抹消 E2E 夹具缺失己方召唤师、鼓舞通用技能通知与专用目标通知重复开窗，以及圣言攻击召唤师时的重复/错误条件触发。
-- 真实入口：4/4 仲裁 Playwright E2E 通过，覆盖派系选择与起始部署、服从双步交互、圣言/抹消/鼓舞目标选择与结算、律令回合开始提示。
+- 数据录入：本地 13 张原始 PNG、图集槽位、卡面字段、提示板与开局合同已登记；本轮补回抹消原卡逐字原文，发现旧录入摘要和中英文文案额外加入了“友方”限定。
+- 机制实现：仲裁技能、事件和交互已接入正式执行 / 系统 / reducer 链；本轮新增修复抹消的目标所有权过滤，使未写友方/敌方的“一个士兵”同时覆盖己方与敌方。
+- 真实入口：5/5 仲裁 Playwright E2E 通过；新增流程证明抹消的己方与敌方士兵同时高亮，且实际点选敌方目标后完成失能结算。
 - 资源主源：本地 manifest 增量校验通过；3 个正式压缩 WebP 已通过单文件上传发布，公开 HEAD 均返回 `200`，服务器素材主源与安卓稳定素材包刷新链已闭合。
 
 ## 2026-09-19 回归收口
@@ -177,7 +182,7 @@
 | 对象 | 原子语义与最终权威结果 | 实现消费点 | 直接证据 | 当前裁定 |
 | --- | --- | --- | --- | --- |
 | 圣言 | 移动后选择本单位 2 格内友方士兵，再选择相邻推/拉落点；单位位置最终变化 | `src/games/summonerwars/domain/systems.ts`、`src/games/summonerwars/domain/executors/zhongcai.ts`、`reduce.ts` | 真实入口用例 3，最终无交互且目标单位落位 | `功能实现已验证` |
-| 抹消 | 移动阶段开始选择 3 格内友方士兵；目标最终写入 `suppressedUntilTurnEnd: true`，回合切换清除 | `systems.ts`、`executors/zhongcai.ts`、`reduce.ts` | 定向测试最终状态与清理；真实入口日志/状态看到 `true` | `功能实现已验证` |
+| 抹消 | 移动阶段开始选择 3 格内任意所有权的一个士兵；目标最终写入 `suppressedUntilTurnEnd: true`，回合切换清除 | `systems.ts`、`executors/zhongcai.ts`、`reduce.ts` | 原卡原文、己方/敌方定向测试、修正后真实入口 E2E、最终 21 张展示组 | `功能实现已验证` |
 | 鼓舞 | 召唤护持牧师后，可选择相邻受伤友方士兵；最终伤害减 1 且交互关闭 | `systems.ts`、`executors/zhongcai.ts`、`reduce.ts` | 定向测试；真实入口用例 3 通过 | `功能实现已验证` |
 | 服从 | 攻击阶段先选士兵，再选召唤师相邻空格；最终单位移动到落点 | `systems.ts`、事件执行链 | 真实入口用例 2 的双步截图与最终状态 | `功能实现已验证` |
 | 圣戒律令 / 忠诚律令 / 自由律令 | 充能、持续效果与回合开始可选弃置提示按卡面语义消费 | `flowHooks.ts`、`systems.ts`、`execute/eventCards.ts`、`reduce.ts` | 定向测试；真实入口用例 4 的保留持续效果分支 | `功能实现已验证` |
@@ -244,14 +249,14 @@
 ## 验证证据
 
 - `npm run typecheck`：通过。
-- `npm run test:summonerwars`：69 个测试文件、1503 条测试全部通过；包含仲裁行为、交互、阵营选择翻页、系统能力白名单和全部召唤师战争共享回归。
+- `npm run test:summonerwars`：69 个测试文件、1504 条测试全部通过；包含仲裁行为、交互、阵营选择翻页、系统能力白名单和全部召唤师战争共享回归。
 - `node scripts/infra/vitest-cli-safe.mjs run src/games/summonerwars/__tests__/abilities-zhongcai.test.ts src/games/summonerwars/__tests__/interaction-chain-comprehensive.test.ts --configLoader native --pool forks --no-file-parallelism --maxWorkers 1`：2 个文件、163 条测试通过。
 - `node scripts/infra/run-e2e-single.mjs default e2e/summonerwars/summonerwars-zhongcai.e2e.ts --case="圣言、抹消与鼓舞均从真实棋盘入口进入目标选择并结算"`：通过；抹消最终状态包含 `suppressedUntilTurnEnd: true`，鼓舞无重复残留交互。
-- `node scripts/infra/run-e2e-single.mjs default e2e/summonerwars/summonerwars-zhongcai.e2e.ts`：2026-09-19 本轮 4 个用例全部通过；新增断言逐个检查服从、圣言、抹消、鼓舞当前合法候选的实际高亮。
-- 全量交互截图组：`test-results/evidence-screenshots/summonerwars/summonerwars-zhongcai.e2e/_labeled-for-user-20260919-highlight-pass-v2/`；共 19 张当前工作树真实原始截图，覆盖开局、服从、圣言、抹消、鼓舞和律令的触发前、选择态、结算态与继续态。
-- 全量交互截图 PASS 清单：`test-results/evidence-screenshots/summonerwars/summonerwars-zhongcai.e2e/_labeled-for-user-20260919-highlight-pass-v2/zhongcai-e2e-highlight-pass-manifest.json`。
-- 用户查看器中文索引：`test-results/evidence-screenshots/summonerwars/summonerwars-zhongcai.e2e/_labeled-for-user-20260919-highlight-pass-v2/.e2e-image-index.json`；序列索引图：`.../_labeled-for-user-20260919-highlight-pass-v2/00-sequence-index.png`。
-- AI 图面核验：服从相邻空格、圣言友方士兵、圣言推拉落点均在整屏原图中显示贴合棋盘格的高亮；标记图未遮挡游戏画面，结论 `PASS`。
+- `node scripts/infra/run-e2e-single.mjs default e2e/summonerwars/summonerwars-zhongcai.e2e.ts`：2026-09-20 本轮 5 个用例全部通过；新增断言逐个检查服从、圣言、抹消、鼓舞当前合法候选的实际高亮，并验证抹消己方/敌方候选和敌方结算。
+- 修正后全量交互展示组：`test-results/evidence-screenshots/summonerwars/zhongcai-final-user-delivery-20260920-v2/`；19 张上方带红框效果文字的真实入口流程图，另含抹消原卡本体和多个持续事件同屏图，共 21 张。
+- 修正后最终 PASS 清单：`evidence/summonerwars/zhongcai-final-user-delivery-pass-manifest.json`；查看器左侧索引：`test-results/evidence-screenshots/summonerwars/zhongcai-final-user-delivery-20260920-v2/label-source-manifest.json`。
+- 旧 `_labeled-for-user-20260919-*` 与旧效果文字图组保留为历史排查材料，不再作为本轮最终交付；其中抹消旧说明含“友方”，已由本组修正版取代。
+- AI 图面核验：服从相邻空格、圣言友方士兵、圣言推拉落点、抹消己方/敌方士兵均在整屏原图中显示贴合棋盘格的高亮；抹消三张图上方红框逐字显示卡面繁体原文；标记图未遮挡游戏画面，结论 `PASS`。
 - `node scripts/assets/generate_asset_manifests.js --root public/assets/i18n/zh-CN --id summonerwars`：增量 manifest 已生成。
 - `node scripts/assets/generate_asset_manifests.js --validate --root public/assets/i18n/zh-CN --id summonerwars`：通过。
 - 真实入口截图：
@@ -273,11 +278,11 @@
 ## 同类扩审与漏审复盘
 
 - 搜索范围：仲裁派系的 `ABILITY_TRIGGERED` 交互入口、`zhongcai_word` / `zhongcai_erase` / `zhongcai_inspire` 三个专用动作、所有 `onSummon` 目标选择、攻击后统一触发链、对应 UI adapter 和本派系真实入口 E2E。
-- 命中项：发现“鼓舞”同时经过通用技能通知和带专用动作标记的通知，系统会把同一召唤后的目标选择排成两个交互；同时发现抹消 E2E 清空棋盘后未放回己方召唤师，导致回合推进先进入游戏结束分支。
+- 命中项：发现“鼓舞”同时经过通用技能通知和带专用动作标记的通知，系统会把同一召唤后的目标选择排成两个交互；同时发现抹消 E2E 清空棋盘后未放回己方召唤师，导致回合推进先进入游戏结束分支；2026-09-20 重新对照原卡又发现抹消原文未写友方，但旧录入、文案、交互候选和执行器均按友方实现。
 - 漏审归因：旧定向测试只覆盖了执行器的最终治疗/失能状态，没有覆盖完整系统交互队列是否只生成一个窗口；原 E2E 夹具也没有在清空棋盘后断言双方召唤师仍存在，证据停在“目标选择可出现”之前，未覆盖真实命令被游戏结束分支拒绝的路径。
-- 已修复项：系统只消费带 `actionId: zhongcai_inspire` 的鼓舞专用通知；圣言同步收紧为专用通知或明确的 `afterMove:zhongcai_word` 入口；抹消夹具补回己方召唤师。规则执行器没有被错误改写。
-- 扩审结果：抹消、圣言、鼓舞的真实入口三段链路已重新验证；服从双步交互和律令提示也在同一文件 4/4 E2E 中通过。
-- 范围说明：本轮未扩大到其他派系的同名通用交互；仲裁派系自身的录入、实现、真实入口和资源发布均已完成验证。
+- 已修复项：系统只消费带 `actionId: zhongcai_inspire` 的鼓舞专用通知；圣言同步收紧为专用通知或明确的 `afterMove:zhongcai_word` 入口；抹消夹具补回己方召唤师；本轮修正抹消中文/英文文案、系统候选范围和执行器所有权过滤，并补充敌方士兵结算测试。
+- 扩审结果：窄领域测试与真实入口均覆盖抹消己方与敌方候选、敌方结算和回合清理；未扩大到其他派系的同名通用交互。
+- 范围说明：本轮未扩大到其他派系的同名通用交互；仲裁派系自身的录入、实现、真实入口和资源发布已完成验证。
 
 ## 审计自检状态
 

@@ -902,7 +902,7 @@ describe('MageWarsBoard FX wiring', () => {
                             payload: {
                                 ownerId: '0',
                                 attackerObjectId: attacker.id,
-                                attackProfileId: 'bite',
+                                attackProfileId: 'attack-0',
                                 targetObjectId: targetAfter.id,
                                 targetZoneId: ARENA_ZONE_IDS.B2,
                                 diceResults: [3],
@@ -939,10 +939,10 @@ describe('MageWarsBoard FX wiring', () => {
 
             const targetCard = screen.getByText('缓冲目标').closest('[data-testid="mage-wars-zone-field-card"]');
             expect(targetCard?.getAttribute('data-visual-damage')).toBe('0');
-            expect(screen.queryByTestId('mage-wars-fx-attack-travel')).not.toBeNull();
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).not.toBeNull();
 
             act(() => {
-                advanceSharedFxClockDelay(2600);
+                advanceSharedFxClockDelay(420);
             });
             await act(async () => {});
 
@@ -994,7 +994,7 @@ describe('MageWarsBoard FX wiring', () => {
                             payload: {
                                 ownerId: '0',
                                 attackerObjectId: attacker.id,
-                                attackProfileId: 'bite',
+                                attackProfileId: 'attack-0',
                                 targetObjectId: targetBefore.id,
                                 targetZoneId: ARENA_ZONE_IDS.B2,
                                 diceResults: [3],
@@ -1045,13 +1045,13 @@ describe('MageWarsBoard FX wiring', () => {
             expect(heldTargetCard).not.toBeNull();
             expect(heldTargetCard?.getAttribute('data-object-id')).toBe(targetBefore.id);
             expect(heldTargetCard?.getAttribute('data-visual-held')).toBe('true');
-            expect(screen.queryByTestId('mage-wars-fx-attack-travel')).toBeNull();
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).toBeNull();
 
             act(() => {
                 advanceSharedFxClockDelay(32);
             });
             await act(async () => {});
-            expect(screen.queryByTestId('mage-wars-fx-attack-travel')).not.toBeNull();
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).not.toBeNull();
 
             act(() => {
                 advanceSharedFxClockDelay(4200);
@@ -1269,6 +1269,7 @@ describe('MageWarsBoard FX wiring', () => {
             ctx: { cell: { row: 2, col: 3 }, intensity: 'strong' },
             params: {
                 source: { row: 1, col: 0 },
+                rangeKind: 'ranged',
                 damageAmount: 6,
                 diceResults: [1, 2, 3],
             },
@@ -1286,7 +1287,10 @@ describe('MageWarsBoard FX wiring', () => {
 
             const travel = screen.getByTestId('mage-wars-fx-attack-travel');
             expect(screen.queryByTestId('mage-wars-fx-attack-impact')).not.toBeNull();
-            expect(screen.queryByTestId('mage-wars-fx-attack-dice')).not.toBeNull();
+            const attackDice = screen.getByTestId('mage-wars-fx-attack-dice');
+            expect(attackDice.getAttribute('data-placement')).toBe('board-center');
+            expect(attackDice.className).toContain('fixed');
+            expect(attackDice.className).toContain('inset-0');
             expect(screen.queryByTestId('mage-wars-fx-attack-source-wake')).toBeNull();
             expect(screen.getByTestId('mock-damage-flash').getAttribute('data-show-number')).toBe('true');
             expect(screen.getByTestId('mock-damage-flash').getAttribute('data-intensity')).toBe('strong');
@@ -1299,7 +1303,7 @@ describe('MageWarsBoard FX wiring', () => {
             expect(travel.getAttribute('data-source-col')).toBe('0');
             expect(travel.getAttribute('data-target-row')).toBe('2');
             expect(screen.getByTestId('mock-cone-blast').getAttribute('data-intensity')).toBe('strong');
-            expect(screen.getByTestId('mock-cone-blast').getAttribute('data-duration-ms')).toBe('2600');
+            expect(screen.getByTestId('mock-cone-blast').getAttribute('data-duration-ms')).toBe('1350');
             expect(screen.getByTestId('mock-cone-blast').getAttribute('data-motion-easing')).toBe('linear');
             expect(screen.getByTestId('mock-cone-blast').getAttribute('data-color')).toContain('#ef4444');
             expect(screen.queryByTestId('mage-wars-fx-attack-travel-mid-burst')).toBeNull();
@@ -1762,7 +1766,7 @@ describe('MageWarsBoard spell cast choices', () => {
 
     function createJetStreamChoiceCore(): MageWarsCore {
         const baseCore = MageWarsDomain.setup(['0', '1'], fixedRandom);
-        const beastmaster = baseCore.players['0'];
+        const wizard = baseCore.players['0'];
         const jetStreamTarget = creatureObject(
             'jet-stream-target-1',
             '1',
@@ -1782,8 +1786,8 @@ describe('MageWarsBoard spell cast choices', () => {
             players: {
                 ...baseCore.players,
                 '0': {
-                    ...beastmaster,
-                    mageId: MAGE_IDS.BEASTMASTER_APPRENTICE,
+                    ...wizard,
+                    mageId: MAGE_IDS.WIZARD_APPRENTICE,
                     mageZoneId: ARENA_ZONE_IDS.A3,
                     mana: 20,
                     actionReady: true,
@@ -1938,7 +1942,7 @@ describe('MageWarsBoard spell cast choices', () => {
                     actionReady: true,
                     quickcastReady: true,
                     preparedSpellSlots: 1,
-                    preparedSpellCardIds: [2206],
+                    preparedSpellCardIds: [2209],
                 },
             },
             arena: baseCore.arena.map((zone) => ({
@@ -2468,7 +2472,7 @@ describe('MageWarsBoard spell cast choices', () => {
         );
 
         const blockedPreparedCard = container.querySelector<HTMLButtonElement>(
-            '[data-testid="mage-wars-desktop-prepared-card"][data-source-card-id="2206"]',
+            '[data-testid="mage-wars-desktop-prepared-card"][data-source-card-id="2209"]',
         );
         expect(blockedPreparedCard).not.toBeNull();
         expect(blockedPreparedCard?.getAttribute('data-primary-action')).toBe('true');
@@ -2487,14 +2491,14 @@ describe('MageWarsBoard spell cast choices', () => {
         expect(screen.getByTestId('mage-wars-card-magnify-overlay').getAttribute('aria-hidden')).toBe('true');
 
         const inspectButton = blockedPreparedCard?.parentElement?.querySelector<HTMLButtonElement>(
-            '[data-testid="mage-wars-card-inspect-button"][data-source-card-id="2206"]',
+            '[data-testid="mage-wars-card-inspect-button"][data-source-card-id="2209"]',
         );
         expect(inspectButton).not.toBeNull();
 
         fireEvent.click(inspectButton!);
 
         expect(screen.getByTestId('mage-wars-card-magnify-overlay').getAttribute('aria-hidden')).toBe('false');
-        expect(screen.getByTestId('mage-wars-card-magnify-content').getAttribute('data-source-card-id')).toBe('2206');
+        expect(screen.getByTestId('mage-wars-card-magnify-content').getAttribute('data-source-card-id')).toBe('2209');
     });
 
     it('casts Leather Gloves on own mage from the spell ChoiceRequest player target command', async () => {

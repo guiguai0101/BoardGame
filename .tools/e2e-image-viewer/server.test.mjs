@@ -47,6 +47,24 @@ const requestJson = async (port, pathName, options = {}) => {
   return response.json();
 };
 
+const runCli = (args) => new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [SERVER_ENTRY, ...args], {
+    cwd: PROJECT_ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  child.once("error", reject);
+  child.once("exit", (code, signal) => resolve({ code, signal, stdout, stderr }));
+});
+
 const waitForHealth = async (port, readLogs) => {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
@@ -57,6 +75,19 @@ const waitForHealth = async (port, readLogs) => {
     }
   }
   throw new Error(`viewer server did not become healthy:\n${readLogs()}`);
+};
+
+const waitForDown = async (port) => {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    try {
+      await requestJson(port, "/api/health");
+    } catch {
+      return;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+  }
+  throw new Error(`viewer server did not stop on port ${port}`);
 };
 
 test("focus and selected files keep the listing on the requested directory", async () => {
@@ -136,6 +167,82 @@ test("focus and selected files keep the listing on the requested directory", asy
   } finally {
     await waitForExit(child);
     await rm(tempRoot, { recursive: true, force: true });
+    if (hadState && stateSnapshot !== null) {
+      await writeFile(STATE_PATH, stateSnapshot, "utf8");
+    } else {
+      await rm(STATE_PATH, { force: true });
+    }
+  }
+});
+
+test("concurrent launches reuse one fixed viewer service", async () => {
+  const hadState = existsSync(STATE_PATH);
+  const stateSnapshot = hadState ? await readFile(STATE_PATH, "utf8") : null;
+  const tempRoot = join(EVIDENCE_ROOT, `viewer-single-service-${process.pid}-${Date.now()}`);
+  let port = null;
+
+  try {
+    await mkdir(tempRoot, { recursive: true });
+    await writeFile(join(tempRoot, "frame.png"), "frame");
+    const targetDir = await realpath(tempRoot);
+    port = await getFreePort();
+
+    const [first, second] = await Promise.all([
+      runCli(["--dir", targetDir, "--no-open", "--port", String(port)]),
+      runCli(["--dir", targetDir, "--no-open", "--port", String(port)]),
+    ]);
+
+    assert.equal(first.code, 0, first.stderr);
+    assert.equal(second.code, 0, second.stderr);
+    assert.match(first.stdout, new RegExp(`VIEWER_URL=http://127\\.0\\.0\\.1:${port}/`));
+    assert.match(second.stdout, new RegExp(`VIEWER_URL=http://127\\.0\\.0\\.1:${port}/`));
+
+    const health = await waitForHealth(port, () => `${first.stderr}\n${second.stderr}`);
+    const state = JSON.parse(await readFile(STATE_PATH, "utf8"));
+    assert.equal(state.server.pid, health.pid);
+    assert.equal(state.server.instanceId, health.instanceId);
+    assert.equal(existsSync(join(EVIDENCE_ROOT, `.e2e-image-viewer-start-${port}.lock`)), false);
+
+    const status = await runCli(["--status", "--port", String(port)]);
+    assert.equal(status.code, 0, status.stderr);
+    assert.match(status.stdout, /VIEWER_STATUS=RUNNING/);
+    assert.match(status.stdout, new RegExp(`VIEWER_PID=${health.pid}`));
+
+    const stopped = await runCli(["--stop", "--port", String(port)]);
+    assert.equal(stopped.code, 0, stopped.stderr);
+    assert.match(stopped.stdout, /VIEWER_STOPPED=true/);
+    await waitForDown(port);
+  } finally {
+    if (port !== null) {
+      await runCli(["--stop", "--port", String(port)]);
+    }
+    await rm(tempRoot, { recursive: true, force: true });
+    if (hadState && stateSnapshot !== null) {
+      await writeFile(STATE_PATH, stateSnapshot, "utf8");
+    } else {
+      await rm(STATE_PATH, { force: true });
+    }
+  }
+});
+
+test("bind failure does not overwrite the server state", async () => {
+  const hadState = existsSync(STATE_PATH);
+  const stateSnapshot = hadState ? await readFile(STATE_PATH, "utf8") : null;
+  const port = await getFreePort();
+  const blocker = createServer();
+
+  try {
+    blocker.listen(port, "127.0.0.1");
+    await once(blocker, "listening");
+
+    const result = await runCli(["--serve", "--port", String(port)]);
+    assert.notEqual(result.code, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /EADDRINUSE|address already in use|端口/i);
+
+    const afterState = existsSync(STATE_PATH) ? await readFile(STATE_PATH, "utf8") : null;
+    assert.equal(afterState, stateSnapshot);
+  } finally {
+    await new Promise((resolveClose) => blocker.close(resolveClose));
     if (hadState && stateSnapshot !== null) {
       await writeFile(STATE_PATH, stateSnapshot, "utf8");
     } else {

@@ -5952,7 +5952,8 @@
     "token": {
       "section_title": "标记调整",
       "lotus": "莲花 🪷",
-      "set_amount": "设置标记数量"
+      "set_amount": "设置标记数量",
+      "add_amount": "+增加标记"
     },
     "deal": {
       "section_title": "发牌调试（图集索引）",

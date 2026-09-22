@@ -2215,10 +2215,6 @@
         "攻击"
       ],
       "text": "攻击区域中除施法者以外的所有对象。",
-      "assetRefs": [
-        "spell-card-1707-frame",
-        "spell-card-back"
-      ],
       "data": {
         "cardId": 1707,
         "spellType": "攻击",
@@ -2267,10 +2263,6 @@
         "攻击"
       ],
       "text": "无额外规则正文，正文区为风味引文",
-      "assetRefs": [
-        "spell-card-1708-frame",
-        "spell-card-back"
-      ],
       "data": {
         "cardId": 1708,
         "spellType": "攻击",
@@ -2970,9 +2962,6 @@
             "oncePerAttackerPerRound": true
           }
         },
-        "standardStartingRulesName": "闪电之环",
-        "standardStartingMageIds": ["wizard_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.428571,
           "top": 0.25,
@@ -3009,12 +2998,20 @@
         "printCode": "MW1E10",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "诱饵",
         "standardStartingMageIds": [
           "wizard_apprentice"
         ],
         "mappingStatus": "single-candidate",
+        "semantics": {
+          "abilityKind": "hidden-enchantment",
+          "attachment": {
+            "kind": "enchantment",
+            "visibility": "hidden",
+            "anchor": "object-or-zone"
+          }
+        },
         "deck": 18,
         "slot": 11,
         "atlasId": "spell-enchantment-core-a-atlas",
@@ -3022,18 +3019,6 @@
         "spellActionSpeed": "quick",
         "rawCost": "2 + 0",
         "manaCost": 2,
-        "semantics": {
-          "abilityKind": "hidden-response-enchantment",
-          "attachment": {
-            "kind": "enchantment",
-            "visibility": "hidden",
-            "anchor": "object"
-          },
-          "responseKind": "quick-spell-counter"
-        },
-        "standardStartingRulesName": "诱饵",
-        "standardStartingMageIds": ["wizard_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.571429,
           "top": 0.25,
@@ -3070,7 +3055,7 @@
         "printCode": "MW1E11",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "神力干涉",
         "standardStartingMageIds": [
           "priestess_apprentice"
@@ -3092,9 +3077,6 @@
           },
           "responseKind": "target-spell-counter"
         },
-        "standardStartingRulesName": "神力干涉",
-        "standardStartingMageIds": ["priestess_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.714286,
           "top": 0.25,
@@ -3217,9 +3199,6 @@
           },
           "grants": [{"trait": "flying"}]
         },
-        "standardStartingRulesName": "雄鹰之翼",
-        "standardStartingMageIds": ["beastmaster_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0,
           "top": 0.5,
@@ -3477,9 +3456,6 @@
             "anchor": "object"
           }
         },
-        "standardStartingRulesName": "原力法球",
-        "standardStartingMageIds": ["warlock_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.714286,
           "top": 0.5,
@@ -3603,9 +3579,6 @@
           },
           "grants": [{"trait":"channeling","value":1}]
         },
-        "standardStartingRulesName": "法力融合",
-        "standardStartingMageIds": ["wizard_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0,
           "top": 0.75,
@@ -3664,9 +3637,6 @@
           },
           "continuousModifiers": [{"stat":"rangedDice","operation":"add","value":1}]
         },
-        "standardStartingRulesName": "猎鹰之眼",
-        "standardStartingMageIds": ["priestess_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.142857,
           "top": 0.75,
@@ -3725,9 +3695,6 @@
             "anchor": "zone"
           }
         },
-        "standardStartingRulesName": "狱火陷阱",
-        "standardStartingMageIds": ["warlock_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.285714,
           "top": 0.75,
@@ -3786,9 +3753,6 @@
           },
           "grants": [{"trait":"remove-flying"}]
         },
-        "standardStartingRulesName": "折翼",
-        "standardStartingMageIds": ["warlock_apprentice"],
-        "mappingStatus": "single-candidate",
         "frame": {
           "left": 0.428571,
           "top": 0.75,
@@ -3946,6 +3910,7 @@
         "level": 1,
         "range": "0-2",
         "targetRule": "活体生物",
+        "rulesText": "本生物获得遁逸特性。",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
         "requiresCodeSupport": false,
@@ -4066,6 +4031,7 @@
         "level": 1,
         "range": "0-2",
         "targetRule": "活体生物",
+        "rulesText": "本生物获得有限生命特性。",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
         "requiresCodeSupport": false,
@@ -4129,6 +4095,7 @@
         "level": 1,
         "range": "0-2",
         "targetRule": "实体生物",
+        "rulesText": "本生物的快速行动近战攻击获得反击特性。它首次进行反击时，摧毁反戈一击。",
         "limitOrDefense": "无",
         "printCode": "MW1E33",
         "contractStatus": "locked",
@@ -4248,9 +4215,10 @@
         "level": 2,
         "range": "0-2",
         "targetRule": "实体生物",
+        "rulesText": "当本生物成为对手控制的咒语或结界类法术的目标时，你必须在法术反制步骤中展示魔法逆转。将其重新指向施法者，成为该法术的目标。你成为该法术的施法者，控制该法术，并可以重新决定该法术的效果。如果新费用高于原本的费用，你必须支付该差额。然后，摧毁魔法逆转。",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "spellActionSpeed": "quick",
         "rawCost": "2 + 5",
         "manaCost": 7,
@@ -4261,8 +4229,7 @@
             "visibility": "hidden",
             "anchor": "object"
           },
-          "responseKind": "attack-reversal",
-          "unsupportedRules": ["recast-target-spell-with-recalculated-cost"]
+          "responseKind": "target-spell-redirect"
         },
         "standardStartingRulesName": "魔法逆转",
         "standardStartingMageIds": [
@@ -4741,6 +4708,7 @@
         "level": 1,
         "range": "0-2",
         "targetRule": "活体生物",
+        "rulesText": "本生物获得迅捷特性。",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
         "requiresCodeSupport": false,
@@ -4978,7 +4946,18 @@
         "typeLine": "魔物 / 图腾",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "grants": [
+            { "trait": "melee-pierce", "value": 1 }
+          ]
+        },
         "standardStartingRulesName": "尖齿与利爪",
         "standardStartingMageIds": [
           "beastmaster_apprentice"
@@ -5030,7 +5009,18 @@
         "typeLine": "魔物 / 图腾",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "grants": [
+            { "trait": "charge", "value": 1 }
+          ]
+        },
         "standardStartingRulesName": "拉贾恩之怒",
         "standardStartingMageIds": [
           "beastmaster_apprentice"
@@ -5082,7 +5072,28 @@
         "typeLine": "魔物 / 云雾、毒素",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "upkeepEffects": [
+            {
+              "kind": "direct-damage",
+              "amount": 2,
+              "damageType": "毒素"
+            }
+          ],
+          "movementRestrictions": [
+            {
+              "kind": "max-movement-actions-per-turn",
+              "maxActions": 1
+            }
+          ]
+        },
         "standardStartingRulesName": "毒气云雾",
         "standardStartingMageIds": [
           "wizard_apprentice"
@@ -5186,7 +5197,7 @@
         "typeLine": "魔物 / 装置",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "战斗锻炉",
         "standardStartingMageIds": [
           "warlock_apprentice"
@@ -5207,7 +5218,16 @@
         "attackOrTraitLine": "再生点·区域独占；火焰免疫·水流+3",
         "printCode": "MW1J04",
         "rawCost": "8",
-        "manaCost": 8
+        "manaCost": 8,
+        "spellcastingSource": {
+          "abilityId": "mw.source.2212.spawn-point",
+          "kind": "spawn-point",
+          "phase": "deployment",
+          "allowedSpellTypes": [
+            "装备"
+          ],
+          "channeling": 0
+        }
       },
       "assetRefs": [
         "spell-card-2212-frame",
@@ -5299,7 +5319,7 @@
         "typeLine": "魔物 / 神殿",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "宾·莎拉之手",
         "standardStartingMageIds": [
           "priestess_apprentice"
@@ -5320,7 +5340,15 @@
         "attackOrTraitLine": "区域独占·独有",
         "printCode": "MW1J08",
         "rawCost": "5",
-        "manaCost": 5
+        "manaCost": 5,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          }
+        }
       },
       "assetRefs": [
         "spell-card-2219-frame",
@@ -5351,7 +5379,18 @@
         "typeLine": "魔物 / 法力",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "grants": [
+            { "trait": "channeling", "value": 1 }
+          ]
+        },
         "standardStartingRulesName": "法力水晶",
         "standardStartingMageIds": [
           "warlock_apprentice",
@@ -5404,7 +5443,18 @@
         "typeLine": "魔物 / 法力、植物",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "grants": [
+            { "trait": "channeling", "value": 1 }
+          ]
+        },
         "standardStartingRulesName": "法力灵花",
         "standardStartingMageIds": [
           "beastmaster_apprentice",
@@ -5454,10 +5504,22 @@
       "data": {
         "cardId": 2223,
         "spellType": "魔物",
+        "spellActionSpeed": "quick",
         "typeLine": "魔物 / 传送门、法力",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          },
+          "grants": [
+            { "trait": "channeling", "value": -2 }
+          ]
+        },
         "standardStartingRulesName": "法力虹吸",
         "standardStartingMageIds": [
           "wizard_apprentice"
@@ -5557,14 +5619,26 @@
         "deck-23",
         "魔物"
       ],
-      "text": "标准起始法术书对象池登记；完整卡面字段、目标细则与机制实现待从正式素材合同补齐。",
+      "cost": {
+        "mana": 8,
+        "raw": "8"
+      },
+      "stats": {
+        "life": 8,
+        "armor": 2
+      },
+      "text": "重生2·活体·传奇；火焰+2·水流免疫。所有位于生命巨树默克塔利所在区域的友方活体生物获得重生2特性。",
       "data": {
         "cardId": 2303,
         "spellType": "魔物",
-        "typeLine": "魔物",
+        "spellActionSpeed": "quick",
+        "typeLine": "魔物 / 植物、树木",
+        "level": 2,
+        "targetRule": "0-1` / 区域",
+        "attackOrTraitLine": "重生2·活体·传奇；火焰+2·水流免疫",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
-        "contractStatus": "blocked",
-        "requiresCodeSupport": true,
+        "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "生命巨树默克塔利",
         "standardStartingMageIds": [
           "beastmaster_apprentice"
@@ -5572,6 +5646,14 @@
         "mappingStatus": "single-candidate",
         "deck": 23,
         "slot": 3,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          }
+        },
         "assetStatus": "blocked-missing-runtime-atlas"
       }
     },
@@ -7754,7 +7836,7 @@
         "typeLine": "生物 / 动物、猿类",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "高山猩猩",
         "standardStartingMageIds": [
           "beastmaster_apprentice"
@@ -8987,7 +9069,7 @@
         "typeLine": "咒语 / 治疗",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "起死回生",
         "standardStartingMageIds": [
           "priestess_apprentice"
@@ -10588,7 +10670,7 @@
         "typeLine": "装备 / 法力",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "奥术戒指",
         "standardStartingMageIds": [
           "wizard_apprentice"
@@ -10611,7 +10693,15 @@
         "attackOrTraitLine": "法术费用-1",
         "printCode": "MW1Q01",
         "rawCost": "2",
-        "manaCost": 2
+        "manaCost": 2,
+        "equipmentTraits": {
+          "spellCostReduction": {
+            "amount": 1,
+            "oncePerRound": true,
+            "schoolLineIncludes": ["超魔", "法力"],
+            "revealOnlyForEnchantments": true
+          }
+        }
       },
       "assetRefs": [
         "spell-card-3713-frame",
@@ -11021,7 +11111,7 @@
         "typeLine": "装备",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "法师魔杖",
         "standardStartingMageIds": [
           "beastmaster_apprentice",
@@ -11073,7 +11163,7 @@
         "typeLine": "装备",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "摩洛王的折磨",
         "standardStartingMageIds": [
           "warlock_apprentice"
@@ -11096,7 +11186,17 @@
         "attackOrTraitLine": "限定邪术师",
         "printCode": "MW1Q21",
         "rawCost": "3",
-        "manaCost": 3
+        "manaCost": 3,
+        "equipmentTraits": {
+          "upkeepEffects": [
+            {
+              "kind": "direct-damage",
+              "target": "creature-with-controlled-curse",
+              "amount": 1,
+              "damageType": "aether"
+            }
+          ]
+        }
       },
       "assetRefs": [
         "spell-card-3726-frame",
@@ -11116,14 +11216,22 @@
         "deck-38",
         "装备"
       ],
-      "text": "标准起始法术书对象池登记；完整卡面字段、目标细则与机制实现待从正式素材合同补齐。",
+      "cost": {
+        "mana": 6,
+        "raw": "6"
+      },
+      "text": "法师获得聚魔+1特性。",
       "data": {
         "cardId": 3800,
+        "spellActionSpeed": "quick",
         "spellType": "装备",
-        "typeLine": "装备",
+        "typeLine": "装备 / 法力",
+        "level": 1,
+        "targetRule": "0-2` / 法师",
+        "attackOrTraitLine": "法师获得聚魔+1",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
-        "contractStatus": "blocked",
-        "requiresCodeSupport": true,
+        "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "月光项链",
         "standardStartingMageIds": [
           "priestess_apprentice",
@@ -11132,6 +11240,9 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 0,
+        "equipmentTraits": {
+          "channeling": 1
+        },
         "assetStatus": "blocked-missing-runtime-atlas"
       }
     },
@@ -11144,14 +11255,22 @@
         "deck-38",
         "装备"
       ],
-      "text": "标准起始法术书对象池登记；完整卡面字段、目标细则与机制实现待从正式素材合同补齐。",
+      "cost": {
+        "mana": 2,
+        "raw": "2"
+      },
+      "text": "限定女祭司。每回合一次，当本法师施放或展示一个神圣结界或咒语时可以少支付1点法力。结界仅能在被展示时获得本减免费用。",
       "data": {
         "cardId": 3801,
+        "spellActionSpeed": "quick",
         "spellType": "装备",
-        "typeLine": "装备",
+        "typeLine": "装备 / 法力",
+        "level": 1,
+        "targetRule": "0-2` / 法师",
+        "attackOrTraitLine": "法术费用-1",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
-        "contractStatus": "blocked",
-        "requiresCodeSupport": true,
+        "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "阿希拉之戒",
         "standardStartingMageIds": [
           "priestess_apprentice"
@@ -11159,6 +11278,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 1,
+        "equipmentTraits": {
+          "spellCostReduction": {
+            "amount": 1,
+            "oncePerRound": true,
+            "schoolLineIncludes": ["圣光"],
+            "revealOnlyForEnchantments": true
+          }
+        },
         "assetStatus": "blocked-missing-runtime-atlas"
       }
     },
@@ -11171,14 +11298,22 @@
         "deck-38",
         "装备"
       ],
-      "text": "标准起始法术书对象池登记；完整卡面字段、目标细则与机制实现待从正式素材合同补齐。",
+      "cost": {
+        "mana": 2,
+        "raw": "2"
+      },
+      "text": "限定兽王。每回合一次，当本法师施放一个动物生物法术时可以少支付1点法力。",
       "data": {
         "cardId": 3802,
+        "spellActionSpeed": "quick",
         "spellType": "装备",
-        "typeLine": "装备",
+        "typeLine": "装备 / 法力",
+        "level": 1,
+        "targetRule": "0-2` / 法师",
+        "attackOrTraitLine": "法术费用-1",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
-        "contractStatus": "blocked",
-        "requiresCodeSupport": true,
+        "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "群兽之戒",
         "standardStartingMageIds": [
           "beastmaster_apprentice"
@@ -11186,6 +11321,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 2,
+        "equipmentTraits": {
+          "spellCostReduction": {
+            "amount": 1,
+            "oncePerRound": true,
+            "spellType": "生物",
+            "typeLineIncludes": ["动物"]
+          }
+        },
         "assetStatus": "blocked-missing-runtime-atlas"
       }
     },
@@ -11198,14 +11341,22 @@
         "deck-38",
         "装备"
       ],
-      "text": "标准起始法术书对象池登记；完整卡面字段、目标细则与机制实现待从正式素材合同补齐。",
+      "cost": {
+        "mana": 2,
+        "raw": "2"
+      },
+      "text": "限定邪术师。每回合一次，当本法师施放或展示一个诅咒法术时可以少支付1点法力。结界仅能在被展示时获得本减免费用。",
       "data": {
         "cardId": 3803,
+        "spellActionSpeed": "quick",
         "spellType": "装备",
-        "typeLine": "装备",
+        "typeLine": "装备 / 法力",
+        "level": 1,
+        "targetRule": "0-2` / 法师",
+        "attackOrTraitLine": "法术费用-1",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
-        "contractStatus": "blocked",
-        "requiresCodeSupport": true,
+        "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "诅咒之戒",
         "standardStartingMageIds": [
           "warlock_apprentice"
@@ -11213,6 +11364,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 3,
+        "equipmentTraits": {
+          "spellCostReduction": {
+            "amount": 1,
+            "oncePerRound": true,
+            "typeLineIncludes": ["诅咒"],
+            "revealOnlyForEnchantments": true
+          }
+        },
         "assetStatus": "blocked-missing-runtime-atlas"
       }
     }

@@ -1128,6 +1128,81 @@ describe('mage-wars reaction equipment', () => {
         expect(staff?.boundSpellCardId).toBeUndefined();
     });
 
+    it('casts Mage Staff with a non-epic incantation binding and rebinds it for three mana', () => {
+        const planningState = setupState('planning');
+        const wizardState = {
+            core: withPlayerMage(planningState.core, '0', MAGE_IDS.WIZARD_APPRENTICE),
+            sys: planningState.sys,
+        };
+        const planned = runCommand(wizardState, planCommand([3725]));
+        const cast = runCommand({
+            core: planned.state.core,
+            sys: { ...planned.state.sys, phase: 'initiativeQuickcast' },
+        }, {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            playerId: '0',
+            payload: {
+                spellCardId: 3725,
+                manaCost: 5,
+                targetPlayerId: '0',
+                boundSpellCardId: 3409,
+            },
+        });
+
+        const castStaff = Object.values(cast.state.core.objects)
+            .find((object) => object.sourceSpellCardId === 3725);
+        expect(planned.success).toBe(true);
+        expect(cast.success).toBe(true);
+        expect(castStaff).toMatchObject({
+            kind: 'equipment',
+            anchoredToPlayerId: '0',
+            boundSpellCardId: 3409,
+        });
+        expect(cast.state.core.players['0'].discardSpellCardIds).toEqual([3725]);
+        expect(cast.state.core.players['0'].discardSpellCardIds).not.toContain(3409);
+
+        const staff = makeArenaObject('mage-staff-0', '0', PLAYER_ZERO_START_ZONE, {
+            kind: 'equipment',
+            sourceSpellCardId: 3725,
+            sourceObjectId: 'spell-card-3725',
+            name: '法师魔杖',
+            actionReady: false,
+            attackOrTraitLine: '法术绑定',
+            rulesText: '法术绑定。你可以从你的法术书中绑定一个非史诗咒语类法术到法师魔杖上。',
+            anchoredToPlayerId: '0',
+            boundSpellCardId: 3409,
+        });
+        const rebindState = {
+            core: withArenaObject({
+                ...withPlayerMage(setupState('finalQuickcast').core, '0', MAGE_IDS.WIZARD_APPRENTICE),
+                players: {
+                    ...withPlayerMage(setupState('finalQuickcast').core, '0', MAGE_IDS.WIZARD_APPRENTICE).players,
+                    '0': {
+                        ...withPlayerMage(setupState('finalQuickcast').core, '0', MAGE_IDS.WIZARD_APPRENTICE).players['0'],
+                        mana: 10,
+                        quickcastReady: true,
+                    },
+                },
+            }, staff),
+            sys: setupState('finalQuickcast').sys,
+        };
+        const rebound = runCommand(rebindState, {
+            type: MAGE_WARS_COMMANDS.USE_ARENA_OBJECT_ABILITY,
+            playerId: '0',
+            payload: {
+                objectId: staff.id,
+                abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.MAGE_STAFF_BIND,
+                manaCost: 3,
+                boundSpellCardId: 3500,
+            },
+        });
+
+        expect(rebound.success).toBe(true);
+        expect(rebound.state.core.objects[staff.id].boundSpellCardId).toBe(3500);
+        expect(rebound.state.core.players['0'].mana).toBe(7);
+        expect(rebound.state.core.players['0'].quickcastReady).toBe(false);
+    });
+
     it('replaces Elemental Staff binding as a quick spell and charges exactly three mana', () => {
         const baseState = setupState('finalQuickcast');
         const wizardCore = withPlayerMage(baseState.core, '0', MAGE_IDS.WIZARD_APPRENTICE);

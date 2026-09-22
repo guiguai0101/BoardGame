@@ -3,7 +3,7 @@ import os from 'node:os';
 import { execFileSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { saveDevRuntimePorts, removeDevRuntimePorts } from './dev-port-runtime.js';
+import { createDevRuntimeEnv, saveDevRuntimePorts, removeDevRuntimePorts } from './dev-port-runtime.js';
 import { findAvailablePort } from './port-allocator.js';
 import { getPortPids } from './port-allocator.js';
 import { DEV_PROCESS_MATCHERS, isRepoDevProcess } from './clean_ports.js';
@@ -171,7 +171,7 @@ function startCommand(label, command, args = [], extraEnv = {}, options = {}) {
             return;
         }
         console.error(`[dev-orchestrator] ${label} exited unexpectedly (${detail})`);
-        shutdown(typeof code === 'number' ? code : 1);
+        shutdown(typeof code === 'number' && code !== 0 ? code : 1);
     });
 
     return child;
@@ -322,22 +322,18 @@ async function main() {
     });
     const resolvedMongoUri = await resolveLocalDevMongoUri();
     saveDevRuntimePorts(resolvedPorts);
-    const sharedDevEnv = {
-        VITE_DEV_PORT: String(resolvedPorts.frontend),
-        GAME_SERVER_PORT: String(resolvedPorts.gameServer),
-        API_SERVER_PORT: String(resolvedPorts.apiServer),
+    const sharedDevEnv = createDevRuntimeEnv(resolvedPorts, {
         // 端口已由本编排器成组分配，前端必须使用同一端口，避免代理和运行时地址漂移。
         BG_DEV_STRICT_PORTS: '1',
         VITE_DEV_SKIP_API: skipApiMode ? 'true' : 'false',
-        GAME_SERVER_PROXY_TARGET: `http://127.0.0.1:${resolvedPorts.gameServer}`,
         ...(resolvedMongoUri ? { MONGO_URI: resolvedMongoUri } : {}),
         ...(disableHotReload
             ? {
                 PW_SERVER_WATCH: 'false',
                 VITE_DISABLE_WATCH: 'true',
             }
-            : {}),
-    };
+                : {}),
+    });
 
     console.log('[dev-orchestrator] resolved dev ports:', resolvedPorts);
     for (const [service, defaultPort] of Object.entries(DEFAULT_DEV_PORTS)) {

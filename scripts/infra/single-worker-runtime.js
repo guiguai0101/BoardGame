@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEV_SERVER_PORTS, E2E_SINGLE_WORKER_PORTS } from './e2e-port-config.js';
+import { createDevRuntimeEnv } from './dev-port-runtime.js';
 import { assertSafeE2EServerMode, resolveUseDevServers } from './e2e-mode-config.js';
 import { isPortInUse } from './port-allocator.js';
 import { assertChildProcessSupport } from './assert-child-process-support.mjs';
@@ -175,12 +176,12 @@ export async function startSingleWorkerRuntime(options = {}) {
     );
   }
 
-  const frontend = spawnNodeScript('scripts/infra/vite-with-logging.js', {
+  const runtimeEnv = createDevRuntimeEnv(ports, {
     ...env,
     E2E_PROXY_QUIET: 'true',
-    GAME_SERVER_PORT: String(ports.gameServer),
-    API_SERVER_PORT: String(ports.apiServer),
-  }, [
+  });
+
+  const frontend = spawnNodeScript('scripts/infra/vite-with-logging.js', runtimeEnv, [
     '--host',
     '127.0.0.1',
     '--port',
@@ -192,9 +193,8 @@ export async function startSingleWorkerRuntime(options = {}) {
   });
 
   const gameServerEnv = {
-    ...env,
+    ...runtimeEnv,
     NODE_ENV: 'test',
-    GAME_SERVER_PORT: String(ports.gameServer),
     USE_PERSISTENT_STORAGE: 'false',
   };
 
@@ -227,9 +227,8 @@ export async function startSingleWorkerRuntime(options = {}) {
         });
 
   const apiServerEnv = {
-    ...env,
+    ...runtimeEnv,
     NODE_ENV: 'test',
-    API_SERVER_PORT: String(ports.apiServer),
   };
 
   const apiServer = useTsxRuntime

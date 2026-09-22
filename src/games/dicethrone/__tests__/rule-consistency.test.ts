@@ -340,8 +340,8 @@ describe('Property 7: 伤害类型处理', () => {
         // 当前实现用 pendingAttack.isUltimate 表示这段伤害按 Ultimate Damage 结算，应跳过防御方。
         const mockState = {
             players: {
-                '0': { tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
-                '1': { tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '0': { statusEffects: {}, tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '1': { statusEffects: {}, tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
             },
             tokenDefinitions: ALL_TOKEN_DEFINITIONS,
             pendingDamage: undefined,
@@ -356,8 +356,8 @@ describe('Property 7: 伤害类型处理', () => {
         const mockStateNoAttackerTokens = {
             ...mockState,
             players: {
-                '0': { tokens: {}, resources: { [RESOURCE_IDS.HP]: 50 } },
-                '1': { tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '0': { statusEffects: {}, tokens: {}, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '1': { statusEffects: {}, tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
             },
         } as any;
         // 防御方不能减伤（Ultimate Damage）
@@ -368,8 +368,8 @@ describe('Property 7: 伤害类型处理', () => {
     it('非 Ultimate Damage 的普通伤害允许防御方 Token 响应', () => {
         const mockState = {
             players: {
-                '0': { tokens: {}, resources: { [RESOURCE_IDS.HP]: 50 } },
-                '1': { tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '0': { statusEffects: {}, tokens: {}, resources: { [RESOURCE_IDS.HP]: 50 } },
+                '1': { statusEffects: {}, tokens: { [TOKEN_IDS.TAIJI]: 3 }, resources: { [RESOURCE_IDS.HP]: 50 } },
             },
             tokenDefinitions: ALL_TOKEN_DEFINITIONS,
             pendingDamage: undefined,

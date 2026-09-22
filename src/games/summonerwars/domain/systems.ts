@@ -2535,7 +2535,8 @@ export function createSummonerWarsInteractionSystem(): EngineSystem<SummonerWars
           // 只有原始自定义动作触发事件才打开目标选择；
           // 玩家选定目标后的完成事件也会带 abilityId，但没有 actionId，不能再次弹框。
           if (shadowSourceUnit && actionId === 'zhongcai_erase' && payload.actionId === 'zhongcai_erase') {
-            const targets = getPlayerUnits(newState.core, shadowSourceUnit.owner)
+            const targets = (['0', '1'] as PlayerId[])
+              .flatMap((ownerId) => getPlayerUnits(newState.core, ownerId))
               .filter((unit) => unit.card.unitClass === 'common'
                 && manhattanDistance(sourcePosition, unit.position) <= 3);
             if (targets.length > 0) {

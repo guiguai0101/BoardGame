@@ -39,9 +39,131 @@ import { isMageWarsImplementedVisibleEnchantmentSpell } from '../domain/spellRul
 
 const configPath = path.join(process.cwd(), MAGE_WARS_CONFIG_SOURCE_ID);
 
+const assertNoDuplicateJsonObjectKeys = (text: string): void => {
+    let index = 0;
+
+    const fail = (message: string): never => {
+        throw new Error(`${message} at offset ${index}`);
+    };
+
+    const skipWhitespace = (): void => {
+        while (/\s/.test(text[index] ?? '')) index += 1;
+    };
+
+    const expectCharacter = (character: string): void => {
+        skipWhitespace();
+        if (text[index] !== character) fail(`Expected "${character}"`);
+        index += 1;
+    };
+
+    const parseString = (): string => {
+        skipWhitespace();
+        if (text[index] !== '"') fail('Expected JSON string');
+
+        const start = index;
+        index += 1;
+        while (index < text.length) {
+            const character = text[index];
+            if (character === '\\') {
+                index += 2;
+                continue;
+            }
+            if (character === '"') {
+                index += 1;
+                return JSON.parse(text.slice(start, index)) as string;
+            }
+            index += 1;
+        }
+        fail('Unterminated JSON string');
+    };
+
+    const parseValue = (pathLabel: string): void => {
+        skipWhitespace();
+        const character = text[index];
+
+        if (character === '{') {
+            index += 1;
+            const keys = new Set<string>();
+            skipWhitespace();
+            if (text[index] === '}') {
+                index += 1;
+                return;
+            }
+
+            while (true) {
+                const key = parseString();
+                if (keys.has(key)) {
+                    fail(`Duplicate JSON property "${key}" at ${pathLabel}`);
+                }
+                keys.add(key);
+                expectCharacter(':');
+                parseValue(`${pathLabel}.${key}`);
+                skipWhitespace();
+                if (text[index] === '}') {
+                    index += 1;
+                    return;
+                }
+                expectCharacter(',');
+            }
+        }
+
+        if (character === '[') {
+            index += 1;
+            skipWhitespace();
+            if (text[index] === ']') {
+                index += 1;
+                return;
+            }
+
+            let itemIndex = 0;
+            while (true) {
+                parseValue(`${pathLabel}[${itemIndex}]`);
+                itemIndex += 1;
+                skipWhitespace();
+                if (text[index] === ']') {
+                    index += 1;
+                    return;
+                }
+                expectCharacter(',');
+            }
+        }
+
+        if (character === '"') {
+            parseString();
+            return;
+        }
+
+        if (text.startsWith('true', index)) {
+            index += 4;
+            return;
+        }
+        if (text.startsWith('false', index)) {
+            index += 5;
+            return;
+        }
+        if (text.startsWith('null', index)) {
+            index += 4;
+            return;
+        }
+
+        const number = text.slice(index).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+        if (number) {
+            index += number[0].length;
+            return;
+        }
+
+        fail(`Unexpected JSON value at ${pathLabel}`);
+    };
+
+    parseValue('$');
+    skipWhitespace();
+    if (index !== text.length) fail('Unexpected trailing JSON content');
+};
+
 describe('mage-wars config package', () => {
     test('loads as strict JSON and materializes one-source review rows', () => {
         const text = readFileSync(configPath, 'utf8');
+        assertNoDuplicateJsonObjectKeys(text);
         const materialized = loadGameConfigPackageFromText(text, {
             sourceId: MAGE_WARS_CONFIG_SOURCE_ID,
         });
@@ -53,6 +175,12 @@ describe('mage-wars config package', () => {
         expect(materialized.package.metadata?.description).not.toContain('2x3 竞技场');
         expect(reviewTable.source?.sourceId).toBe(MAGE_WARS_CONFIG_SOURCE_ID);
         expect(reviewTable.rows).toHaveLength(materialized.package.objects.length);
+    });
+
+    test('rejects duplicate properties before JSON.parse can overwrite them', () => {
+        expect(() => assertNoDuplicateJsonObjectKeys('{"value": 1, "value": 2}')).toThrow(
+            'Duplicate JSON property "value"',
+        );
     });
 
     test('covers preset mage resources, spell cards, standard zones, legacy zones, dice, and tokens', () => {

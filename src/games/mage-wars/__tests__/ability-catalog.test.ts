@@ -202,7 +202,7 @@ describe('mage-wars ability catalog', () => {
                     implementationStatus: 'implemented',
                 },
             });
-            expect(ability?.meta.sourceKind).toMatch(/^(creature|attached-equipment)$/);
+            expect(ability?.meta.sourceKind).toMatch(/^(creature|attached-equipment|area-conjuration|hidden-enchantment)$/);
             expect(ability?.meta.sourceSpellCardId).toEqual(expect.any(Number));
             expect(ability?.meta.actionSpeed).toMatch(/^(quick|normal|source-trait)$/);
             expect(ability?.meta.actionCost).toMatch(/^(normal|none)$/);
@@ -252,11 +252,12 @@ describe('mage-wars ability catalog', () => {
         const needsCodeIds = mageWarsAbilityRegistry.getByTag('implementation:needs-code')
             .map((def) => def.id)
             .sort();
-        expect(needsCodeIds).toHaveLength(26);
+        expect(needsCodeIds).toHaveLength(3);
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(1804));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(3407));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(2500));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(25700));
+        expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(3415));
     });
 
     test('uses concrete spell-cast families instead of a coarse zone target family', () => {
@@ -327,15 +328,15 @@ describe('mage-wars ability catalog', () => {
     test('tracks standard starting spell effects separately from code gaps', () => {
         expect(summarizeMageWarsAbilityGaps()).toEqual({
             total: 153,
-            implemented: 127,
-            needsCode: 26,
+            implemented: 150,
+            needsCode: 3,
             bySpellType: {
                 '攻击': { total: 12, implemented: 12, needsCode: 0 },
-                '结界': { total: 38, implemented: 35, needsCode: 3 },
-                '魔物': { total: 15, implemented: 4, needsCode: 11 },
-                '生物': { total: 33, implemented: 32, needsCode: 1 },
-                '咒语': { total: 28, implemented: 25, needsCode: 3 },
-                '装备': { total: 27, implemented: 19, needsCode: 8 },
+                '结界': { total: 38, implemented: 38, needsCode: 0 },
+                '魔物': { total: 15, implemented: 13, needsCode: 2 },
+                '生物': { total: 33, implemented: 33, needsCode: 0 },
+                '咒语': { total: 28, implemented: 28, needsCode: 0 },
+                '装备': { total: 27, implemented: 26, needsCode: 1 },
             },
         });
 
@@ -2905,6 +2906,87 @@ describe('mage-wars ability catalog', () => {
             targetRef: targetZoneId,
             commandPreview: [expectedCommand],
         }]);
+
+        const legalActions = projectChoiceRequestToAiLegalActions(request);
+        expect(legalActions.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);
+        expect(legalActions.actions.map((action) => action.commands[0])).toEqual(expect.arrayContaining([
+            expectedCommand,
+        ]));
+    });
+
+    test('projects Mana Siphon dual zone-and-mage choices through Ability -> Opportunity -> ChoiceRequest', () => {
+        const spellCardId = 2223;
+        const baseState = withPreparedMageWarsSpell(makeMageWarsAbilityState({
+            mageId: MAGE_IDS.WIZARD_APPRENTICE,
+            mana: 20,
+            phase: 'initiativeQuickcast',
+        }), '0', spellCardId);
+        const state: MatchState<MageWarsCore> = {
+            ...baseState,
+            core: {
+                ...baseState.core,
+                players: {
+                    ...baseState.core.players,
+                    '1': {
+                        ...baseState.core.players['1'],
+                        mageZoneId: ARENA_ZONE_IDS.B2,
+                    },
+                },
+                arena: baseState.core.arena.map((zone) => ({
+                    ...zone,
+                    occupantIds: zone.id === ARENA_ZONE_IDS.B2
+                        ? [...zone.occupantIds.filter((id) => id !== '1'), '1']
+                        : zone.occupantIds.filter((id) => id !== '1'),
+                })),
+            },
+        };
+        const opportunity = buildMageWarsSpellCastOpportunity({
+            state,
+            playerId: '0',
+            spellCardId,
+            timestamp: 104,
+        });
+
+        expect(opportunity).toMatchObject({
+            targetRequest: {
+                kind: 'select-player',
+                metadata: {
+                    targetMode: 'player-target-zone',
+                    spellCardId,
+                },
+            },
+        });
+
+        const request = buildChoiceRequestFromOpportunity(opportunity!);
+        const candidateId = `target-player:1:target-zone:${ARENA_ZONE_IDS.A2}`;
+        const expectedCommand = {
+            type: MAGE_WARS_COMMANDS.CAST_SPELL,
+            payload: {
+                spellCardId,
+                manaCost: 12,
+                targetPlayerId: '1',
+                targetZoneId: ARENA_ZONE_IDS.A2,
+            },
+        };
+        const candidate = request.candidates.find((entry) => entry.id === candidateId);
+
+        expect(candidate).toMatchObject({
+            value: {
+                action: 'cast-spell',
+                playerId: '0',
+                spellCardId,
+                manaCost: 12,
+                targetPlayerId: '1',
+                targetZoneId: ARENA_ZONE_IDS.A2,
+            },
+            commands: [expectedCommand],
+            metadata: {
+                targetPlayerId: '1',
+                targetZoneId: ARENA_ZONE_IDS.A2,
+                spellCardId,
+                targetMode: 'player-target-zone',
+            },
+        });
 
         const legalActions = projectChoiceRequestToAiLegalActions(request);
         expect(legalActions.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([]);

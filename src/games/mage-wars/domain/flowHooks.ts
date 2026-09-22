@@ -6,11 +6,14 @@ import { MAGE_WARS_OBJECT_ABILITY_IDS, STATUS_TOKEN_IDS, type StatusTokenId } fr
 import type { MageWarsCore, MageWarsEvent, MageWarsPhase } from './types';
 import {
     isMageWarsLivingArenaObject,
+    resolveMageWarsAreaConjurationUpkeepDirectDamage,
     resolveMageWarsAttachedVisibleEnchantmentUpkeepDirectDamage,
     resolveMageWarsAttachedVisibleEnchantmentUpkeepHealTransfers,
     resolveMageWarsAttachedVisibleEnchantmentUpkeepManaCosts,
+    resolveMageWarsEquipmentUpkeepDirectDamage,
     resolveMageWarsObjectChanneling,
     resolveMageWarsObjectRegeneration,
+    resolveMageWarsPlayerChanneling,
 } from './spellRules';
 import { MAGE_WARS_PHASE_ORDER } from './types';
 import { getCreatureObjectIdsForOwner, getOpponentId } from './utils';
@@ -219,12 +222,13 @@ function createPlayerManaChannelEvents(
 ): MageWarsEvent[] {
     return core.playerOrder.flatMap((playerId): MageWarsEvent[] => {
         const player = core.players[playerId];
-        if (!player || player.channeling <= 0) return [];
+        const channeling = resolveMageWarsPlayerChanneling(core, playerId);
+        if (!player || channeling <= 0) return [];
         return [{
             type: MAGE_WARS_EVENTS.MANA_CHANNELED,
             payload: {
                 playerId: player.id,
-                amount: player.channeling,
+                amount: channeling,
             },
             sourceCommandType,
             timestamp,
@@ -320,6 +324,59 @@ function createUpkeepEnchantmentDirectDamageAvailableEvents(
     }
 
     return events;
+}
+
+function createUpkeepAreaConjurationDirectDamageAvailableEvents(
+    core: MageWarsCore,
+    sourceCommandType: string,
+    timestamp: number,
+): MageWarsEvent[] {
+    const events: MageWarsEvent[] = [];
+
+    for (const object of Object.values(core.objects)) {
+        if (!isMageWarsLivingArenaObject(object)) continue;
+
+        for (const source of resolveMageWarsAreaConjurationUpkeepDirectDamage(core, object)) {
+            events.push({
+                type: MAGE_WARS_EVENTS.UPKEEP_AREA_CONJURATION_DIRECT_DAMAGE_AVAILABLE,
+                payload: {
+                    sourceObjectId: source.sourceObjectId,
+                    sourceSpellCardId: source.sourceSpellCardId,
+                    sourcePlayerId: source.ownerId,
+                    targetObjectId: object.id,
+                    amount: source.effect.amount,
+                    damageType: source.effect.damageType,
+                },
+                sourceCommandType,
+                timestamp,
+            });
+        }
+    }
+
+    return events;
+}
+
+function createUpkeepEquipmentDirectDamageAvailableEvents(
+    core: MageWarsCore,
+    sourceCommandType: string,
+    timestamp: number,
+): MageWarsEvent[] {
+    return Object.values(core.objects)
+        .filter((object) => isMageWarsLivingArenaObject(object))
+        .flatMap((object) => resolveMageWarsEquipmentUpkeepDirectDamage(core, object)
+            .map((source): MageWarsEvent => ({
+                type: MAGE_WARS_EVENTS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE_AVAILABLE,
+                payload: {
+                    playerId: source.ownerId,
+                    sourceObjectId: source.sourceObjectId,
+                    sourceSpellCardId: source.sourceSpellCardId,
+                    targetObjectId: object.id,
+                    amount: source.effect.amount,
+                    damageType: source.effect.damageType,
+                },
+                sourceCommandType,
+                timestamp,
+            })));
 }
 
 function createUpkeepEnchantmentCostEvents(
@@ -729,6 +786,8 @@ export const mageWarsFlowHooks: FlowHooks<MageWarsCore> = {
                     ...createUpkeepRegenerationEvents(state.core, command.type, timestamp),
                     ...createUpkeepRotDamageAvailableEvents(state.core, command.type, timestamp),
                     ...createUpkeepEnchantmentDirectDamageAvailableEvents(state.core, command.type, timestamp),
+                    ...createUpkeepAreaConjurationDirectDamageAvailableEvents(state.core, command.type, timestamp),
+                    ...createUpkeepEquipmentDirectDamageAvailableEvents(state.core, command.type, timestamp),
                     ...createUpkeepEnchantmentCostEvents(state.core, command.type, timestamp),
                     ...createUpkeepEnchantmentHealTransferEvents(state.core, command.type, timestamp),
                     ...createUpkeepBurnRollAvailableEvents(state.core, command.type, timestamp, random),

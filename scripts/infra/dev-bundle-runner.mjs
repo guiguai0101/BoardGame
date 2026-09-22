@@ -24,6 +24,7 @@ const enableNodeBundleSourceMap = nodeBundleSourceMapMode === '1'
 
 let currentBuildStartedAt = 0;
 let child = null;
+const expectedChildExits = new WeakSet();
 let shuttingDown = false;
 let buildVersion = 0;
 let restartQueue = Promise.resolve();
@@ -193,6 +194,7 @@ async function restartRuntime(reason) {
     if (child) {
         const previous = child;
         child = null;
+        expectedChildExits.add(previous);
         await stopChildProcess(previous);
     }
 
@@ -205,23 +207,26 @@ async function restartRuntime(reason) {
         ...(enableNodeBundleSourceMap ? ['--enable-source-maps'] : []),
         absOutfile,
     ];
-    child = spawn(process.execPath, runtimeArgs, withWindowsHide({
+    const runtimeChild = spawn(process.execPath, runtimeArgs, withWindowsHide({
         cwd: repoRoot,
         env: process.env,
         stdio: ['ignore', 'pipe', 'pipe'],
     }));
-    prefixOutput(`${label}:runtime`, child.stdout, process.stdout);
-    prefixOutput(`${label}:runtime`, child.stderr, process.stderr);
-    child.on('exit', (code, signal) => {
+    child = runtimeChild;
+    prefixOutput(`${label}:runtime`, runtimeChild.stdout, process.stdout);
+    prefixOutput(`${label}:runtime`, runtimeChild.stderr, process.stderr);
+    runtimeChild.on('exit', (code, signal) => {
         if (shuttingDown) {
             return;
         }
-        const detail = signal ? `signal=${signal}` : `code=${code ?? 0}`;
-        console.error(`[bundle-runner] ${label} runtime exited (${detail})`);
-        child = null;
-        if (onceMode) {
-            process.exit(code ?? 1);
+        if (expectedChildExits.has(runtimeChild)) {
+            expectedChildExits.delete(runtimeChild);
+            return;
         }
+        const detail = signal ? `signal=${signal}` : `code=${code ?? 0}`;
+        console.error(`[bundle-runner] ${label} runtime exited unexpectedly (${detail}); stopping the launcher`);
+        child = null;
+        process.exit(code === 0 ? 1 : (code ?? 1));
     });
 }
 

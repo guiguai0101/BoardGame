@@ -232,4 +232,96 @@ describe('latest discovery presentation', () => {
     expect(panel.continueButton.disabled).toBe(true);
     expect(panel.continueButton.label).toBe('等待确认 0/1');
   });
+
+  it('keeps item and omen discovery visible until every required player acknowledges it', () => {
+    const currentDiscovery = discovery('item', '手电筒');
+    const currentEntry = entry(
+      '0::item::手电筒::item-resolution',
+      '0::item::手电筒',
+      currentDiscovery,
+      '0',
+    );
+    const baseResolution = {
+      id: 'item-resolution',
+      playerId: '0',
+      requiredPlayerIds: ['0', '1', '2'],
+      acknowledgedPlayerIds: ['0'],
+      deckKind: 'item',
+      cardId: 'flashlight',
+      cardName: '手电筒',
+      discoveryTitle: '手电筒',
+      stepKind: 'drawn-card',
+      text: '已加入持有区：手电筒',
+      index: 1,
+      total: 1,
+      processCards: [
+        {
+          cardId: 'flashlight',
+          cardName: '手电筒',
+          deckKind: 'item',
+          outcome: 'gained',
+          text: '获得手电筒',
+        },
+      ],
+    } as const;
+
+    const createPanel = (
+      acknowledgedPlayerIds: string[],
+      viewerPlayerId: string,
+    ) =>
+      resolveBetrayalLatestDiscoveryPanelPresentation({
+        core: {
+          playerIds: ['0', '1', '2'],
+          latestDiscovery: currentDiscovery,
+          latestDiscoveryOwnerPlayerId: '0',
+          pendingCardResolutionQueue: [
+            {
+              ...baseResolution,
+              acknowledgedPlayerIds,
+            },
+          ],
+        } as unknown as BetrayalCore,
+        selection: {
+          queuedEntry: null,
+          visibleCurrentEntry: currentEntry,
+          entry: currentEntry,
+          discovery: currentDiscovery,
+          recentRoll: null,
+          ownerPlayerId: '0',
+          key: currentEntry.key,
+          coreRecentRollDisplayKey: null,
+          recentRollDisplayKey: null,
+        },
+        dismissedLatestDiscoveryKey: null,
+        dismissedRecentRollId: null,
+        viewerPlayerId,
+        inventoryActionPlayerId: viewerPlayerId,
+        hasRecentRollModifier: false,
+        pendingEventChoice: null,
+        shouldShowHauntRevealCue: false,
+        latestDiscoverySearchRevealIndex: 0,
+        eventRollConfirmation: {
+          requiredPlayerIds: [],
+          acknowledgedPlayerIds: [],
+          confirmedCount: 0,
+          totalCount: 0,
+          viewerHasAcknowledged: false,
+          canViewerAcknowledge: false,
+        },
+        isRecentRollReadable: true,
+        t: (key, params) => {
+          if (key === 'board.discovery.waitingForCardConfirmation') {
+            return `等待确认 ${params?.confirmed}/${params?.total}`;
+          }
+          if (key === 'board.discovery.confirmedWithProgress') {
+            return `已确认 ${params?.confirmed}/${params?.total}`;
+          }
+          return key;
+        },
+      });
+
+    expect(createPanel(['0'], '0').shouldShow).toBe(true);
+    expect(createPanel(['0', '1'], '1').shouldShow).toBe(true);
+    expect(createPanel(['0', '1', '2'], '2').shouldShow).toBe(false);
+  });
 });

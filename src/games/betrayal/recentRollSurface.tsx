@@ -538,11 +538,11 @@ export function RecentRollPanel({
         }
         className={`pointer-events-none min-h-[214px] text-[#f3e0a6] ${className}`}
       >
-        <div className="grid h-full min-h-[214px] grid-cols-[minmax(220px,0.62fr)_minmax(190px,0.88fr)] items-center gap-3">
+        <div className="grid h-full min-h-[214px] grid-cols-[minmax(220px,0.62fr)_minmax(190px,0.88fr)] items-center gap-2">
           <div className="relative h-full min-h-[214px] min-w-0">
             {diceStageWithPrompt}
           </div>
-          <div className="pointer-events-auto flex min-h-0 min-w-0 flex-col justify-center gap-2">
+          <div className="pointer-events-auto relative -left-[70px] flex min-h-0 min-w-0 flex-col justify-center gap-2">
             {resultStage}
           </div>
         </div>

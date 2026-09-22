@@ -37,6 +37,7 @@ import {
     decideDuplicateOwnerRoomAction,
     DUPLICATE_OWNER_DISCONNECT_GRACE_MS,
     planDuplicateOwnerRoomCreate,
+    resolveForceReplaceOwnerRoom,
 } from './src/server/duplicateOwnerRooms';
 import { applyRematchVoteToggle, resolveRematchPlayerGroups } from './src/server/rematch';
 import {
@@ -787,8 +788,6 @@ router.post('/games/:name/create', async (ctx) => {
 
     const body = ctx.request.body as Record<string, unknown> | undefined;
     const numPlayers = Number(body?.numPlayers ?? 2);
-    // 当前策略：默认不自动删除活跃旧房，只有前端确认后才带 forceReplaceOwnerRoom 重试。
-    const forceReplaceOwnerRoom = body?.forceReplaceOwnerRoom === true;
     const requestedOwnerName = typeof body?.playerName === 'string' && body.playerName.trim()
         ? body.playerName.trim()
         : undefined;
@@ -806,6 +805,12 @@ router.post('/games/:name/create', async (ctx) => {
         ctx.throw(400, 'Invalid numPlayers');
     }
     const { ownerKey, ownerType, ownerName } = resolveOwnerFromRequest(ctx, rawSetupData, requestedOwnerName);
+    // 游客房间是临时资源：按 match-ownership 规范自动覆盖旧房。
+    // 登录用户仍保留旧房保护，只有显式 forceReplaceOwnerRoom 才替换。
+    const forceReplaceOwnerRoom = resolveForceReplaceOwnerRoom(
+        ownerType,
+        body?.forceReplaceOwnerRoom === true,
+    );
     const setupData: MatchCreateSetupData = { ...rawSetupData, ownerKey, ownerType };
 
     const matchID = nanoid(11);

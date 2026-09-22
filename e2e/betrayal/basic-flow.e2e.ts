@@ -39,6 +39,8 @@ const MOBILE_SCENARIO_CLOSED_SCREENSHOT = `${EVIDENCE_DIR}/09e-山屋惊魂-移�
 const TOKEN_DETAIL_PANEL_SCREENSHOT = `${EVIDENCE_DIR}/10-山屋惊魂-队友面板详情不切视角.png`;
 const TOKEN_DETAIL_MAP_SCREENSHOT = `${EVIDENCE_DIR}/11-山屋惊魂-地图token详情图像一致.png`;
 const TURN_HANDOFF_NO_FOLLOW_SCREENSHOT = `${EVIDENCE_DIR}/12-山屋惊魂-换行动者不自动跟踪视角.png`;
+// Vivo V2314A: 2388x1080 physical landscape / (480 / 160) density = 796x360 CSS.
+const VIVO_V2314A_LANDSCAPE_VIEWPORT = { width: 796, height: 360 } as const;
 
 test.describe("山屋惊魂基本流程", () => {
   test("桌面低高视口角色详情必须能滚动到特性", async ({ page, context }) => {
@@ -552,7 +554,7 @@ test.describe("山屋惊魂基本流程", () => {
       "betrayal-basic-flow-mobile-character-select",
     );
 
-    await page.setViewportSize({ width: 896, height: 414 });
+    await page.setViewportSize(VIVO_V2314A_LANDSCAPE_VIEWPORT);
     await warmBetrayalFrontend(context);
     await page.goto(
       "/play/betrayal?players=3&seat0=human&seat1=human&seat2=human&playerID=0&bgForceCoarsePointer=1",

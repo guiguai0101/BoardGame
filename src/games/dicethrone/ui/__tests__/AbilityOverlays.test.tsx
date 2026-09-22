@@ -738,7 +738,8 @@ describe('AbilityOverlays', () => {
                 }
             }
         }
-        expect(checkedUpgradeCount).toBe(136);
+        // 蜘蛛侠新增 4 张替换型升级牌后，当前全英雄注册总数为 140。
+        expect(checkedUpgradeCount).toBe(140);
     });
 
     it('技能槽 DOM 应区分主面板和放大预览，避免升级卡飞错目标', () => {

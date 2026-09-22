@@ -19,6 +19,12 @@ const toggleIndexButton = document.querySelector("#toggleIndex");
 const indexMeta = document.querySelector("#indexMeta");
 const indexList = document.querySelector("#indexList");
 const empty = document.querySelector("#empty");
+const imageDetail = document.querySelector("#imageDetail");
+const imageDetailTitle = document.querySelector("#imageDetailTitle");
+const imageDetailDescription = document.querySelector("#imageDetailDescription");
+const imageDetailClose = document.querySelector("#imageDetailClose");
+const imageDetailViewport = document.querySelector("#imageDetailViewport");
+const imageDetailSummary = document.querySelector("#imageDetailSummary");
 
 const MIN_SCALE = 0.12;
 const TILE_WIDTH = 360;
@@ -47,6 +53,11 @@ let hasLoadedDirectory = false;
 let suppressTileClickUntil = 0;
 let indexCollapsed = false;
 let lastAppliedFocusToken = "";
+let detailItem = null;
+let detailMediaElement = null;
+let detailTransform = { x: 0, y: 0, scale: 1 };
+let detailNaturalSize = { width: 1, height: 1 };
+let detailDragState = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampScale = (value) => Math.max(MIN_SCALE, value);
@@ -107,9 +118,117 @@ const updateSummary = () => {
   summary.textContent = `${items.length} 个媒体文件 · 当前挂载 ${renderStats.mounted}/${renderStats.visible} 张 · 加载图片 ${renderStats.loaded} 张 · 缩放 ${zoom}%`;
 };
 
+const updateDetailSummary = () => {
+  if (!detailItem) {
+    imageDetailSummary.textContent = "点击图片后加载原图。";
+    return;
+  }
+  const width = Math.round(detailNaturalSize.width);
+  const height = Math.round(detailNaturalSize.height);
+  const zoom = Math.round(detailTransform.scale * 100);
+  imageDetailSummary.textContent = `${width}×${height} 原图 · 缩放 ${zoom}%`;
+};
+
 const applyTransform = () => {
   board.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`;
   scheduleVisibleRender();
+};
+
+const applyDetailTransform = () => {
+  if (!detailMediaElement) return;
+  detailMediaElement.style.transform = `translate(${detailTransform.x}px, ${detailTransform.y}px) scale(${detailTransform.scale})`;
+  updateDetailSummary();
+};
+
+const clampDetailScale = (value) => Math.max(0.05, value);
+
+const detailMediaDimensions = (media) => {
+  if (media instanceof HTMLVideoElement) {
+    return { width: media.videoWidth || 1, height: media.videoHeight || 1 };
+  }
+  return { width: media.naturalWidth || 1, height: media.naturalHeight || 1 };
+};
+
+const fitDetailMedia = () => {
+  if (!detailMediaElement) return;
+  detailNaturalSize = detailMediaDimensions(detailMediaElement);
+  const availableWidth = Math.max(1, imageDetailViewport.clientWidth - 64);
+  const availableHeight = Math.max(1, imageDetailViewport.clientHeight - 64);
+  detailTransform.scale = Math.min(
+    1,
+    detailNaturalSize.width <= availableWidth ? availableWidth / detailNaturalSize.width : 1,
+    detailNaturalSize.height <= availableHeight ? availableHeight / detailNaturalSize.height : 1,
+  );
+  detailTransform.x = (imageDetailViewport.clientWidth - detailNaturalSize.width * detailTransform.scale) / 2;
+  detailTransform.y = (imageDetailViewport.clientHeight - detailNaturalSize.height * detailTransform.scale) / 2;
+  applyDetailTransform();
+};
+
+const closeDetail = () => {
+  detailDragState = null;
+  detailItem = null;
+  detailMediaElement?.remove();
+  detailMediaElement = null;
+  imageDetail.classList.remove("open");
+  imageDetail.setAttribute("aria-hidden", "true");
+  updateDetailSummary();
+};
+
+const openDetail = (item) => {
+  if (!item) return;
+  detailDragState = null;
+  detailItem = item;
+  detailMediaElement?.remove();
+
+  const media = item.kind === "video" ? document.createElement("video") : document.createElement("img");
+  media.className = "image-detail-media";
+  media.src = item.url;
+  media.draggable = false;
+  if (item.kind === "video") {
+    media.controls = true;
+    media.preload = "metadata";
+  } else {
+    media.alt = displayTitle(item);
+    media.decoding = "sync";
+  }
+
+  detailMediaElement = media;
+  imageDetailTitle.textContent = displayTitle(item);
+  imageDetailDescription.textContent = displayDescription(item);
+  imageDetailViewport.replaceChildren(media);
+  imageDetail.classList.add("open");
+  imageDetail.setAttribute("aria-hidden", "false");
+  imageDetailSummary.textContent = "正在加载原图...";
+
+  const onReady = () => {
+    if (detailItem?.relativePath !== item.relativePath) return;
+    fitDetailMedia();
+  };
+  if (item.kind === "video") {
+    media.addEventListener("loadedmetadata", onReady, { once: true });
+  } else {
+    media.addEventListener("load", onReady, { once: true });
+  }
+  if (item.kind !== "video" && media.complete) {
+    onReady();
+  }
+};
+
+const zoomDetailAt = (clientX, clientY, nextScale) => {
+  if (!detailMediaElement) return;
+  const rect = imageDetailViewport.getBoundingClientRect();
+  const oldScale = detailTransform.scale;
+  const scale = clampDetailScale(nextScale);
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  const mediaX = (px - detailTransform.x) / oldScale;
+  const mediaY = (py - detailTransform.y) / oldScale;
+  detailTransform = {
+    x: px - mediaX * scale,
+    y: py - mediaY * scale,
+    scale,
+  };
+  applyDetailTransform();
 };
 
 const estimateMediaHeight = (item) => {
@@ -224,6 +343,7 @@ const createTile = (entry, shouldLoadMedia) => {
       return;
     }
     selectItem(entry.item);
+    openDetail(entry.item);
   });
   tile.addEventListener("dblclick", (event) => {
     if (performance.now() < suppressTileClickUntil) {
@@ -266,8 +386,13 @@ const selectItem = (item, announce = true) => {
 
 const copyPath = async (item) => {
   if (!item) return;
-  await navigator.clipboard.writeText(item.absolutePath);
-  selection.textContent = `已复制本地路径：${displayTitle(item)}`;
+  try {
+    await navigator.clipboard.writeText(item.absolutePath);
+    selection.textContent = `已复制本地路径：${displayTitle(item)}`;
+  } catch (error) {
+    selection.textContent = `复制失败，请检查浏览器剪贴板权限：${displayTitle(item)}`;
+    throw error;
+  }
 };
 
 const centerItem = (item) => {
@@ -298,7 +423,7 @@ const renderIndex = (indexMatchedCount = 0) => {
     button.type = "button";
     button.className = "index-item";
     button.dataset.path = item.relativePath;
-    button.title = mediaTitle(item);
+    button.title = `定位并复制：${displayTitle(item)}`;
 
     const title = document.createElement("span");
     title.className = "index-item-title";
@@ -313,7 +438,11 @@ const renderIndex = (indexMatchedCount = 0) => {
       button.append(detail);
     }
 
-    button.addEventListener("click", () => focusItem(item));
+    button.addEventListener("click", () => {
+      focusItem(item);
+      copyPath(item).catch(() => {});
+    });
+
     indexList.append(button);
   }
 
@@ -512,6 +641,55 @@ zoomOutButton.addEventListener("click", () => {
 
 fitViewButton.addEventListener("click", fitView);
 resetViewButton.addEventListener("click", resetView);
+imageDetailClose.addEventListener("click", closeDetail);
+
+imageDetailViewport.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const direction = event.deltaY > 0 ? 0.9 : 1.1;
+  zoomDetailAt(event.clientX, event.clientY, detailTransform.scale * direction);
+}, { passive: false });
+
+imageDetailViewport.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+  if (event.button !== 0 && event.button !== 1) return;
+  detailDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: detailTransform.x,
+    originY: detailTransform.y,
+    dragging: false,
+  };
+  imageDetailViewport.setPointerCapture(event.pointerId);
+});
+
+imageDetailViewport.addEventListener("pointermove", (event) => {
+  event.stopPropagation();
+  if (!detailDragState || event.pointerId !== detailDragState.pointerId) return;
+  const offsetX = event.clientX - detailDragState.startX;
+  const offsetY = event.clientY - detailDragState.startY;
+  if (!detailDragState.dragging && Math.hypot(offsetX, offsetY) < DRAG_THRESHOLD) return;
+  detailDragState.dragging = true;
+  event.preventDefault();
+  imageDetailViewport.classList.add("dragging");
+  detailTransform.x = detailDragState.originX + offsetX;
+  detailTransform.y = detailDragState.originY + offsetY;
+  applyDetailTransform();
+});
+
+const stopDetailDrag = (event) => {
+  event.stopPropagation();
+  if (!detailDragState || event.pointerId !== detailDragState.pointerId) return;
+  if (imageDetailViewport.hasPointerCapture(event.pointerId)) {
+    imageDetailViewport.releasePointerCapture(event.pointerId);
+  }
+  detailDragState = null;
+  imageDetailViewport.classList.remove("dragging");
+};
+
+imageDetailViewport.addEventListener("pointerup", stopDetailDrag);
+imageDetailViewport.addEventListener("pointercancel", stopDetailDrag);
 
 applyIndexCollapsed(readIndexCollapsed());
 
@@ -525,6 +703,7 @@ toggleIndexButton.addEventListener("click", () => {
 });
 
 viewport.addEventListener("wheel", (event) => {
+  if (imageDetail.classList.contains("open")) return;
   event.preventDefault();
   const direction = event.deltaY > 0 ? 0.9 : 1.1;
   zoomAt(event.clientX, event.clientY, transform.scale * direction);
@@ -543,7 +722,11 @@ viewport.addEventListener("dblclick", (event) => {
 }, true);
 
 viewport.addEventListener("pointerdown", (event) => {
+  if (imageDetail.classList.contains("open")) return;
   if (event.button !== 0 && event.button !== 1) return;
+  if (event.button === 1) {
+    event.preventDefault();
+  }
   dragState = {
     pointerId: event.pointerId,
     startX: event.clientX,
@@ -552,7 +735,6 @@ viewport.addEventListener("pointerdown", (event) => {
     originY: transform.y,
     dragging: false,
   };
-  viewport.setPointerCapture(event.pointerId);
 });
 
 viewport.addEventListener("pointermove", (event) => {
@@ -561,6 +743,9 @@ viewport.addEventListener("pointermove", (event) => {
   const offsetY = event.clientY - dragState.startY;
   if (!dragState.dragging && Math.hypot(offsetX, offsetY) < DRAG_THRESHOLD) return;
   dragState.dragging = true;
+  if (!viewport.hasPointerCapture(event.pointerId)) {
+    viewport.setPointerCapture(event.pointerId);
+  }
   event.preventDefault();
   viewport.classList.add("dragging");
   transform.x = dragState.originX + offsetX;
@@ -584,6 +769,15 @@ viewport.addEventListener("pointerup", stopDrag);
 viewport.addEventListener("pointercancel", stopDrag);
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && detailItem) {
+    closeDetail();
+    return;
+  }
+  if (detailItem && (event.key === "+" || event.key === "=" || event.key === "-")) {
+    const nextScale = event.key === "-" ? detailTransform.scale / 1.18 : detailTransform.scale * 1.18;
+    zoomDetailAt(imageDetailViewport.clientWidth / 2, imageDetailViewport.clientHeight / 2, nextScale);
+    return;
+  }
   if (event.key === "0") resetView();
   if (event.key === "f" || event.key === "F") fitView();
   if (event.key === "+" || event.key === "=") zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, transform.scale * 1.18);
@@ -593,6 +787,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("resize", () => {
   renderBoard();
   applyTransform();
+  if (detailItem) fitDetailMedia();
 });
 
 window.setInterval(() => {

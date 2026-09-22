@@ -135,6 +135,7 @@ describe('mage-wars tutorial', () => {
             'deploy-select-wolf',
             'deploy-target-zone',
             'wolf-summoned',
+            'armor-reading',
             'rouse-select-spell',
             'rouse-target-wolf',
             'pass-your-deployment',

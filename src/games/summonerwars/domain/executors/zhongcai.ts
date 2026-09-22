@@ -14,7 +14,8 @@ abilityExecutorRegistry.register('zhongcai_erase', (ctx: SWAbilityContext) => {
   const targetPosition = ctx.payload.targetPosition as CellCoord | undefined;
   if (!targetPosition) return { events };
   const target = getUnitAt(ctx.core, targetPosition);
-  if (!target || target.owner !== ctx.ownerId || target.card.unitClass !== 'common') return { events };
+  // 卡面只写“一个士兵”，没有友方/敌方限定；士兵类型仍由 common 约束。
+  if (!target || target.card.unitClass !== 'common') return { events };
   if (manhattanDistance(ctx.sourcePosition, targetPosition) > 3) return { events };
   events.push({
     type: SW_EVENTS.ABILITY_TRIGGERED,

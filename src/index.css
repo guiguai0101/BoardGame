@@ -946,16 +946,6 @@ html[data-keyboard-visible="true"] .auth-modal-container {
 }
 
 @media (max-width: 1023px) and (orientation: landscape) {
-    html[data-game-id="betrayal"][data-mobile-layout-preset="map-shell"] .mobile-board-shell,
-    [data-game-page][data-game-id="betrayal"][data-mobile-layout-preset="map-shell"] .mobile-board-shell {
-        height: 100vh;
-        height: 100dvh;
-        min-height: 100vh;
-        min-height: 100dvh;
-        max-height: 100vh;
-        max-height: 100dvh;
-    }
-
     html[data-game-page="true"][data-mobile-layout-preset="board-shell"][data-mobile-profile="landscape-adapted"],
     html:has([data-game-page][data-mobile-layout-preset="board-shell"][data-mobile-profile="landscape-adapted"]),
     body[data-game-page="true"][data-mobile-layout-preset="board-shell"][data-mobile-profile="landscape-adapted"],
@@ -1038,6 +1028,10 @@ html[data-keyboard-visible="true"] .auth-modal-container {
     }
 
     html[data-game-id="betrayal"][data-betrayal-blocking-roll="true"] [data-testid="fab-menu"] {
+        display: none !important;
+    }
+
+    html[data-game-id="betrayal"]:has([data-testid="betrayal-scenario-reader-dialog"]) [data-testid="fab-menu"] {
         display: none !important;
     }
 }
