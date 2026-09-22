@@ -491,14 +491,24 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
                         event.payload.abilityId,
                         event.payload.roundNumber,
                     ),
+                    mana: event.payload.manaGain === undefined
+                        ? object.mana
+                        : (object.mana ?? 0) + event.payload.manaGain,
                     actionReady: event.payload.actionCost === 'normal' ? false : object.actionReady,
                     boundSpellCardId: event.payload.boundSpellCardId === undefined
                         ? object.boundSpellCardId
                         : event.payload.boundSpellCardId,
                 }, event.payload.grants)
             ));
-            if (!event.payload.actionTrack) return resolved;
-            return updatePlayer(resolved, event.payload.ownerId, (player) => ({
+            const targetSpent = event.payload.targetActionCost === 'normal' && event.payload.targetObjectId
+                ? updateArenaObject(resolved, event.payload.targetObjectId, (object) => ({
+                    ...object,
+                    actionReady: false,
+                    guarding: false,
+                }))
+                : resolved;
+            if (!event.payload.actionTrack) return targetSpent;
+            return updatePlayer(targetSpent, event.payload.ownerId, (player) => ({
                 ...player,
                 quickcastReady: event.payload.actionTrack === 'quickcast' ? false : player.quickcastReady,
                 actionReady: event.payload.actionTrack === 'action' ? false : player.actionReady,
@@ -795,16 +805,20 @@ export function reduceEvent(core: MageWarsCore, event: MageWarsEvent): MageWarsC
 
         case MAGE_WARS_EVENTS.FEAR_HELMET_TRIGGERED:
             return updateArenaObject(core, event.payload.helmetObjectId, (object) => {
+                const attackerRefId = event.payload.attackerObjectId ?? event.payload.attackerId;
+                if (!attackerRefId) {
+                    throw new Error('Mage Wars fear helmet trigger requires an attacker reference');
+                }
                 const attackerObjectIds = object.fearHelmetRoundNumber === event.payload.roundNumber
                     ? (object.fearHelmetAttackerObjectIdsThisRound ?? [])
                     : [];
-                if (attackerObjectIds.includes(event.payload.attackerObjectId)) return object;
+                if (attackerObjectIds.includes(attackerRefId)) return object;
                 return {
                     ...object,
                     fearHelmetRoundNumber: event.payload.roundNumber,
                     fearHelmetAttackerObjectIdsThisRound: [
                         ...attackerObjectIds,
-                        event.payload.attackerObjectId,
+                        attackerRefId,
                     ],
                 };
             });

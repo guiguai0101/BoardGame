@@ -98,7 +98,7 @@ function validateActionMinionTargetProtection(
         actionProtectionSourcePlayerId: playerId,
         sourceDefId: defId,
         sourceKind: 'action',
-        effectType: 'affect',
+        effectType: defId === 'mega_troopers_mega_attack' ? 'destroy' : 'affect',
         respectActionProtection: true,
         mode: 'preview',
     });

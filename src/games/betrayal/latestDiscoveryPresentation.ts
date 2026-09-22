@@ -53,6 +53,8 @@ export type BetrayalLatestDiscoveryContinueButtonState = {
 export type BetrayalLatestDiscoveryPanelPresentation = {
   hasDisplayEntry: boolean;
   shouldDisplayEventRolledDamageAsIndependentRoll: boolean;
+  shouldKeepTableChromeOpenForEventResult: boolean;
+  shouldHideTableChromeForBlockingOverlay: boolean;
   isRecentRollDismissed: boolean;
   hasActionableRollModifier: boolean;
   shouldAutoReturnAfterLatestDiscovery: boolean;
@@ -767,6 +769,7 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
   viewerPlayerId: string;
   inventoryActionPlayerId: string;
   hasRecentRollModifier: boolean;
+  isConfirmedExorciseRoll: boolean;
   pendingEventChoice: BetrayalCore["pendingEventChoice"];
   shouldShowHauntRevealCue: boolean;
   latestDiscoverySearchRevealIndex: number;
@@ -782,6 +785,7 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
     viewerPlayerId,
     inventoryActionPlayerId,
     hasRecentRollModifier,
+    isConfirmedExorciseRoll,
     pendingEventChoice,
     shouldShowHauntRevealCue,
     latestDiscoverySearchRevealIndex,
@@ -796,14 +800,22 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
   const hasDisplayEntry = Boolean(
     discovery && key !== dismissedLatestDiscoveryKey,
   );
-  const shouldDisplayEventRolledDamageAsIndependentRoll = Boolean(
-    core.recentRoll?.kind === "eventRolledDamage" &&
-      recentRoll?.kind === "eventRolledDamage" &&
-      selection.coreRecentRollDisplayKey === selection.recentRollDisplayKey,
-  );
   const isRecentRollDismissed = Boolean(
     selection.recentRollDisplayKey &&
       dismissedRecentRollId === selection.recentRollDisplayKey,
+  );
+  const hasEventDamageResultContext = Boolean(
+    core.latestDiscovery?.kind === "event" &&
+      core.recentRoll?.kind === "eventRolledDamage" &&
+      core.recentRoll.sourceTitle === core.latestDiscovery.title &&
+      !isRecentRollDismissed &&
+      !shouldShowHauntRevealCue &&
+      !isConfirmedExorciseRoll,
+  );
+  const shouldDisplayEventRolledDamageAsIndependentRoll = Boolean(
+    hasEventDamageResultContext &&
+      recentRoll?.kind === "eventRolledDamage" &&
+      selection.coreRecentRollDisplayKey === selection.recentRollDisplayKey,
   );
   const hasActionableRollModifier = Boolean(
     discovery &&
@@ -830,6 +842,10 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
       isSpiderAdjacentRoomResolutionDiscovery(core.latestDiscovery) &&
       !hasActionableRollModifier,
   );
+  const shouldKeepTableChromeOpenForEventResult = Boolean(
+    hasEventDamageResultContext &&
+      !shouldAutoReturnAfterLatestDiscovery,
+  );
   const shouldHideAcknowledgedSearchResolutionForViewer = Boolean(
     activePendingCardResolution &&
       activePendingCardResolution.playerId === ownerPlayerId &&
@@ -847,6 +863,34 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
       !shouldHideAcknowledgedSearchResolutionForViewer &&
       !shouldShowHauntRevealCue &&
       !shouldDisplayEventRolledDamageAsIndependentRoll,
+  );
+  const shouldShowBlockingRecentRollOverlay = Boolean(
+    core.recentRoll &&
+      !isRecentRollDismissed &&
+      !isConfirmedExorciseRoll &&
+      !pendingEventChoice &&
+      !shouldAutoReturnAfterLatestDiscovery &&
+      !shouldShowHauntRevealCue &&
+      ((core.recentRoll.kind !== "hauntRoll" &&
+        core.recentRoll.kind !== "eventTraitCheck" &&
+        core.recentRoll.kind !== "eventDiceRoll" &&
+        core.recentRoll.kind !== "eventRolledDamage") ||
+        Boolean(selection.recentRollDisplayKey)) &&
+      !shouldShow,
+  );
+  const hasOpenEventTableContext = Boolean(
+    ((discovery?.kind === "event" &&
+      !shouldAutoReturnAfterLatestDiscovery &&
+      !shouldShowHauntRevealCue &&
+      shouldShow) ||
+      shouldKeepTableChromeOpenForEventResult),
+  );
+  const shouldHideTableChromeForBlockingOverlay = Boolean(
+    !hasOpenEventTableContext &&
+      ((shouldShow &&
+        !shouldAutoReturnAfterLatestDiscovery &&
+        !pendingEventChoice) ||
+        shouldShowBlockingRecentRollOverlay),
   );
   const shouldShowRoll = Boolean(
     shouldShow &&
@@ -1004,7 +1048,10 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
         total: cardResolutionTotalCount,
       });
     }
-    return t("board.discovery.confirmCard");
+    return t("board.discovery.confirmWithProgress", {
+      confirmed: cardResolutionConfirmedCount,
+      total: cardResolutionTotalCount,
+    });
   })();
   const pendingPossessionCard = resolveLatestDiscoveryPendingPossessionCard({
     visibleProcessCard,
@@ -1022,6 +1069,8 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
   return {
     hasDisplayEntry,
     shouldDisplayEventRolledDamageAsIndependentRoll,
+    shouldKeepTableChromeOpenForEventResult,
+    shouldHideTableChromeForBlockingOverlay,
     isRecentRollDismissed,
     hasActionableRollModifier,
     shouldAutoReturnAfterLatestDiscovery,

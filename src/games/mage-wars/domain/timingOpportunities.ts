@@ -368,7 +368,7 @@ function fearHelmetInteractionId(event: MageWarsFearHelmetAvailableEvent): strin
     return [
         'mw-fear-helmet',
         event.payload.helmetObjectId,
-        event.payload.attackerObjectId,
+        event.payload.attackerObjectId ?? event.payload.attackerId,
         event.payload.targetPlayerId,
         event.timestamp ?? 0,
     ].join('-');
@@ -2155,18 +2155,25 @@ function createFearHelmetOpportunity(
     args: TimingOpportunityDiscoveryArgs<MageWarsCore, MageWarsCommand, MageWarsEvent>,
     event: MageWarsFearHelmetAvailableEvent,
 ): Opportunity<MageWarsFearHelmetChoiceValue> | null {
-    const attacker = args.state.core.objects[event.payload.attackerObjectId];
+    const attacker = event.payload.attackerObjectId
+        ? args.state.core.objects[event.payload.attackerObjectId]
+        : undefined;
+    const attackerMage = event.payload.attackerId
+        ? args.state.core.players[event.payload.attackerId]
+        : undefined;
     const helmet = args.state.core.objects[event.payload.helmetObjectId];
     if (
-        !attacker
+        (!attacker && !attackerMage)
         || !helmet
         || helmet.sourceSpellCardId !== 3720
         || helmet.anchoredToPlayerId !== event.payload.targetPlayerId
     ) return null;
 
+    const attackerOwnerId = attacker?.ownerId ?? attackerMage!.id;
+    const attackerRefId = attacker?.id ?? attackerMage!.id;
     const requestId = fearHelmetInteractionId(event);
     const baseValue = {
-        attackerObjectId: attacker.id,
+        ...(attacker ? { attackerObjectId: attacker.id } : { attackerId: attackerMage!.id }),
         helmetObjectId: helmet.id,
         originalTargetPlayerId: event.payload.targetPlayerId,
         attackProfileId: event.payload.attackProfileId,
@@ -2185,7 +2192,7 @@ function createFearHelmetOpportunity(
         displayMode: 'button',
     }];
 
-    if (event.payload.strikeIndex === 0 && attacker.kind === 'creature') {
+    if (event.payload.strikeIndex === 0 && (attacker?.kind === 'creature' || attackerMage)) {
         candidates.push({
             id: 'guard',
             label: 'interaction.fearHelmet.options.guard',
@@ -2195,17 +2202,21 @@ function createFearHelmetOpportunity(
         });
     }
 
-    const profile = getMageWarsObjectAttackProfiles(attacker)
-        .find((candidate) => candidate.id === event.payload.attackProfileId);
-    if (!profile) return null;
+    const profile = attacker
+        ? getMageWarsObjectAttackProfiles(attacker)
+            .find((candidate) => candidate.id === event.payload.attackProfileId)
+        : undefined;
+    if (attacker && !profile) return null;
 
     for (const player of Object.values(args.state.core.players)) {
         if (
-            player.id === attacker.ownerId
+            player.id === attackerOwnerId
             || player.id === event.payload.targetPlayerId
             || player.damage >= player.life
-            || !isMageWarsObjectAttackTargetInRange(args.state.core, attacker.zoneId, player.mageZoneId, profile)
-            || isMageWarsFearHelmetAttackBlocked(args.state.core, player.id, attacker.id)
+            || (attacker
+                ? !isMageWarsObjectAttackTargetInRange(args.state.core, attacker.zoneId, player.mageZoneId, profile!)
+                : player.mageZoneId !== attackerMage!.mageZoneId)
+            || isMageWarsFearHelmetAttackBlocked(args.state.core, player.id, attackerRefId)
         ) continue;
         candidates.push({
             id: `retarget:player:${player.id}`,
@@ -2215,13 +2226,13 @@ function createFearHelmetOpportunity(
             displayMode: 'button',
         });
     }
-    for (const target of Object.values(args.state.core.objects)) {
+    for (const target of attacker ? Object.values(args.state.core.objects) : []) {
         if (
-            target.ownerId === attacker.ownerId
+            target.ownerId === attackerOwnerId
             || target.damage >= resolveMageWarsObjectEffectiveLife(args.state.core, target)
             || isMageWarsBanishedArenaObject(target)
-            || !isMageWarsObjectAttackTargetAllowed(attacker, profile, target, args.state.core)
-            || !isMageWarsObjectAttackTargetInRange(args.state.core, attacker.zoneId, target.zoneId, profile)
+            || !isMageWarsObjectAttackTargetAllowed(attacker!, profile!, target, args.state.core)
+            || !isMageWarsObjectAttackTargetInRange(args.state.core, attacker!.zoneId, target.zoneId, profile!)
         ) continue;
         candidates.push({
             id: `retarget:object:${target.id}`,
@@ -2238,11 +2249,11 @@ function createFearHelmetOpportunity(
         sourceRef: {
             kind: 'ability',
             id: MAGE_WARS_INTERACTION_SOURCE_IDS.FEAR_HELMET_CHOICE,
-            ownerId: attacker.ownerId,
-            controllerId: attacker.ownerId,
+            ownerId: attackerOwnerId,
+            controllerId: attackerOwnerId,
             metadata: { sourceAbilityId: 'mw.spell.3720.fear-helmet' },
         },
-        controllerId: attacker.ownerId,
+        controllerId: attackerOwnerId,
         class: 'optional',
         condition: { satisfied: true },
         targetRequest: {
@@ -2254,7 +2265,7 @@ function createFearHelmetOpportunity(
         resolution: { type: 'choice-request' },
         choice: {
             requestId,
-            playerId: attacker.ownerId,
+            playerId: attackerOwnerId,
             kind: 'choose-option',
             candidates,
             selection: { min: 1, max: 1 },
@@ -2266,7 +2277,7 @@ function createFearHelmetOpportunity(
         metadata: {
             mageWarsTimingOpportunity: MAGE_WARS_TIMING_OPPORTUNITY_KINDS.FEAR_HELMET,
             sourceAbilityId: 'mw.spell.3720.fear-helmet',
-            attackerObjectId: attacker.id,
+            ...(attacker ? { attackerObjectId: attacker.id } : { attackerId: attackerMage!.id }),
             helmetObjectId: helmet.id,
             targetPlayerId: event.payload.targetPlayerId,
         },

@@ -252,12 +252,13 @@ describe('mage-wars ability catalog', () => {
         const needsCodeIds = mageWarsAbilityRegistry.getByTag('implementation:needs-code')
             .map((def) => def.id)
             .sort();
-        expect(needsCodeIds).toHaveLength(3);
+        expect(needsCodeIds).toHaveLength(2);
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(1804));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(3407));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(2500));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(25700));
         expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(3415));
+        expect(needsCodeIds).not.toContain(getMageWarsSpellAbilityId(2203));
     });
 
     test('uses concrete spell-cast families instead of a coarse zone target family', () => {
@@ -328,12 +329,12 @@ describe('mage-wars ability catalog', () => {
     test('tracks standard starting spell effects separately from code gaps', () => {
         expect(summarizeMageWarsAbilityGaps()).toEqual({
             total: 153,
-            implemented: 150,
-            needsCode: 3,
+            implemented: 151,
+            needsCode: 2,
             bySpellType: {
                 '攻击': { total: 12, implemented: 12, needsCode: 0 },
                 '结界': { total: 38, implemented: 38, needsCode: 0 },
-                '魔物': { total: 15, implemented: 13, needsCode: 2 },
+                '魔物': { total: 15, implemented: 14, needsCode: 1 },
                 '生物': { total: 33, implemented: 33, needsCode: 0 },
                 '咒语': { total: 28, implemented: 28, needsCode: 0 },
                 '装备': { total: 27, implemented: 26, needsCode: 1 },

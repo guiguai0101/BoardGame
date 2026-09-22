@@ -2638,7 +2638,6 @@ export default function BetrayalBoard({
   const {
     statusText: tradeStatusText,
     instructionText: tradeInstructionText,
-    shouldShowMobileStatus: shouldShowMobileTradeStatus,
     shouldShowInlineConfirm: shouldShowInlineTradeConfirm,
     shouldShowTopPrompt: shouldShowTradeFlowPrompt,
     agreementState: tradeAgreementState,
@@ -2988,36 +2987,6 @@ export default function BetrayalBoard({
     tutorialStep?.id,
     viewerPlayerId,
   ]);
-  React.useEffect(() => {
-    if (
-      core.pendingEventRollResolution ||
-      core.pendingEventRollStart ||
-      core.pendingEventChoice ||
-      core.latestDiscovery?.kind !== "event" ||
-      !core.recentRoll ||
-      (core.recentRoll.kind !== "eventTraitCheck" &&
-        core.recentRoll.kind !== "eventDiceRoll") ||
-      core.recentRoll.sourceTitle !== core.latestDiscovery.title ||
-      !core.turnEndedByDiscovery ||
-      !coreRecentRollDisplayKey
-    ) {
-      return;
-    }
-    setPreviewState((previousState) =>
-      previousState.dismissedRecentRollId === coreRecentRollDisplayKey
-        ? previousState
-        : { ...previousState, dismissedRecentRollId: coreRecentRollDisplayKey },
-    );
-  }, [
-    core.pendingEventChoice,
-    core.pendingEventRollResolution,
-    core.pendingEventRollStart,
-    core.recentRoll,
-    core.turnEndedByDiscovery,
-    core.latestDiscovery?.kind,
-    core.latestDiscovery?.title,
-    coreRecentRollDisplayKey,
-  ]);
   const isAttackImpactReady =
     isRecentRollDismissed ||
     (core.recentRoll?.kind === "attackRoll" &&
@@ -3192,8 +3161,12 @@ export default function BetrayalBoard({
         viewerPlayerId,
         inventoryActionPlayerId,
         hasRecentRollModifier,
+        isConfirmedExorciseRoll,
         pendingEventChoice,
         shouldShowHauntRevealCue,
+        shouldPauseHauntBoardActions,
+        scenarioReaderOpen,
+        shouldShowScenarioStartOpening,
         latestDiscoverySearchRevealIndex,
         eventRollConfirmation,
         isRecentRollReadable: isLatestDiscoveryRecentRollReadable,
@@ -3203,12 +3176,16 @@ export default function BetrayalBoard({
       core,
       eventRollConfirmation,
       hasRecentRollModifier,
+      isConfirmedExorciseRoll,
       inventoryActionPlayerId,
       latestDiscoverySearchRevealIndex,
       latestDiscoverySelection,
       pendingEventChoice,
       previewState.dismissedLatestDiscoveryKey,
       previewState.dismissedRecentRollId,
+      scenarioReaderOpen,
+      shouldPauseHauntBoardActions,
+      shouldShowScenarioStartOpening,
       shouldShowHauntRevealCue,
       isLatestDiscoveryRecentRollReadable,
       t,
@@ -3217,6 +3194,8 @@ export default function BetrayalBoard({
   );
   const {
     shouldAutoReturnAfterLatestDiscovery,
+    shouldHideTableChromeForBlockingOverlay,
+    shouldShowRecentRollReview,
     shouldShow: shouldShowLatestDiscovery,
     shouldShowRoll: shouldShowLatestDiscoveryRoll,
     canCurrentPlayerModifyRoll: canCurrentPlayerModifyLatestDiscoveryRoll,
@@ -3229,8 +3208,6 @@ export default function BetrayalBoard({
     displaySummary: latestDiscoveryDisplaySummary,
     shouldShowCardFace: shouldShowLatestDiscoveryCardFace,
     pendingCardResolution: latestDiscoveryPendingCardResolution,
-    cardResolutionConfirmedCount: latestDiscoveryCardResolutionConfirmedCount,
-    cardResolutionTotalCount: latestDiscoveryCardResolutionTotalCount,
     searchSequence: latestDiscoverySearchSequence,
     visibleProcessCard: latestDiscoveryVisibleProcessCard,
     resolutionSteps: latestDiscoveryResolutionSteps,
@@ -3299,32 +3276,9 @@ export default function BetrayalBoard({
   const shouldShowEventDamageAllocationToViewer =
     core.recentRoll?.kind !== "eventRolledDamage" ||
     isPendingDamageAllocationForViewer;
-  const shouldShowBlockingRecentRollOverlay = Boolean(
-    core.recentRoll &&
-    !isRecentRollDismissed &&
-    !isConfirmedExorciseRoll &&
-    !pendingEventChoice &&
-    !shouldAutoReturnAfterLatestDiscovery &&
-    !shouldShowHauntRevealCue &&
-    !shouldShowLatestDiscovery,
-  );
   // Betrayal uses one PC-isomorphic board-shell composition on landscape mobile.
   // The removed native mobile map/action chrome must stay unreachable.
-  const shouldUseMobileEventOpenTableChrome = false;
-  // 只用于非事件发现结果 / 独立投骰结果这类需要整桌退场的阻塞层。
-  // 事件选择与事件结算必须保持 PC 同构的开放桌面叠层，不得把行动栏、HUD 等整套牌桌 UI 藏掉。
-  const shouldHideTableChromeForBlockingOverlay = Boolean(
-    !(
-      shouldShowLatestDiscovery &&
-      !shouldAutoReturnAfterLatestDiscovery &&
-      latestDiscovery?.kind === "event"
-    ) &&
-    !shouldUseMobileEventOpenTableChrome &&
-    ((shouldShowLatestDiscovery &&
-      !shouldAutoReturnAfterLatestDiscovery &&
-      !pendingEventChoice) ||
-      shouldShowBlockingRecentRollOverlay),
-  );
+  // 事件选择、事件结算和事件伤害骰都必须保持 PC 同构牌桌可见。
   const latestDiscoveryTitle = latestDiscovery?.title;
   const latestDiscoveryOwnerInventory = React.useMemo(() => {
     if (!latestDiscoveryOwnerPlayerId) {
@@ -3833,16 +3787,6 @@ export default function BetrayalBoard({
     shouldShowLatestDiscovery &&
     latestDiscoveryDisplayedTitle === pendingDamageAllocation.sourceTitle,
   );
-
-  const scrollToSection = React.useCallback((sectionId: string) => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    document.getElementById(sectionId)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, []);
 
   React.useEffect(() => {
     if (
@@ -5711,7 +5655,7 @@ export default function BetrayalBoard({
         : null,
       bloodFromStoneMonsterTurnEndAction: bloodFromStoneMonsterTurnEndActionSlot
         ? { name: "", reason: bloodFromStoneMonsterTurnEndActionSlot.reason }
-        : null,
+      : null,
     });
   const tutorialMapTargetRoomId = React.useMemo(() => {
     const target = tutorialStep?.highlightTarget;
@@ -5938,21 +5882,6 @@ export default function BetrayalBoard({
           </header>
 
           <main className="absolute inset-0 overflow-hidden">
-            {shouldUseMobileEventOpenTableChrome ? (
-              <div
-                data-testid="betrayal-phase-chip"
-                data-mobile-role="pc-isomorphic-phase-chip"
-                className="pointer-events-none absolute left-1/2 top-0 z-[54] flex min-w-[136px] -translate-x-1/2 flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-2.5 py-1 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
-              >
-                <span className="text-[7px] uppercase tracking-[0.22em] text-[#b99b5f]">
-                  {t("board.hud.phaseLabel")}
-                </span>
-                <span className="mt-0 text-[13px] font-semibold uppercase tracking-[0.16em] text-[#f0d29a]">
-                  {phaseLabel}
-                </span>
-              </div>
-            ) : null}
-
             {shouldShowHauntRevealCue && !scenarioReaderOpen ? (
               <BetrayalHauntRevealCue
                 revealProtocol={hauntRevealProtocol}
@@ -6230,10 +6159,6 @@ export default function BetrayalBoard({
                     canCurrentViewerStartLatestDiscoveryEventRoll
                   }
                   continueButton={latestDiscoveryContinueButton}
-                  isPhoneLandscapeLayout={false}
-                  shouldUseMobileEventOpenTableChrome={
-                    shouldUseMobileEventOpenTableChrome
-                  }
                   effectiveLocale={effectiveLocale}
                   canDismissByBackdrop={canDismissLatestDiscoveryByBackdrop}
                   isPossessionGainTransitionActive={
@@ -6247,19 +6172,7 @@ export default function BetrayalBoard({
 
                 <BetrayalRecentRollReviewSurface
                   roll={core.recentRoll}
-                  visible={Boolean(
-                    core.recentRoll &&
-                    core.phase !== "endgame" &&
-                    !isRecentRollDismissed &&
-                    !isConfirmedExorciseRoll &&
-                    !pendingEventChoice &&
-                    !shouldAutoReturnAfterLatestDiscovery &&
-                    !shouldShowHauntRevealCue &&
-                    !shouldPauseHauntBoardActions &&
-                    !scenarioReaderOpen &&
-                    !shouldShowScenarioStartOpening &&
-                    !shouldShowLatestDiscovery,
-                  )}
+                  visible={shouldShowRecentRollReview}
                   isExorciseRollReview={isExorciseRollReview}
                   isEndgameExorciseRollReview={isEndgameExorciseRollReview}
                   isNativeMobileLayout={false}

@@ -480,6 +480,8 @@ export interface MageWarsArenaObjectAbilityResolvedEvent extends GameEvent<typeo
         actionTrack?: 'quickcast' | 'action';
         roundNumber?: number;
         actionCost?: 'normal' | 'none';
+        targetActionCost?: 'normal';
+        manaGain?: number;
         grants?: MageWarsTemporaryTraitGrantId[];
     };
 }
@@ -812,7 +814,8 @@ export interface MageWarsArenaObjectAttackGuardRemovalAvailableEvent extends Gam
 export interface MageWarsFearHelmetTriggeredEvent extends GameEvent<typeof MAGE_WARS_EVENTS.FEAR_HELMET_TRIGGERED> {
     payload: {
         helmetObjectId: string;
-        attackerObjectId: string;
+        attackerObjectId?: string;
+        attackerId?: PlayerId;
         roundNumber: number;
     };
 }
@@ -821,7 +824,8 @@ export interface MageWarsFearHelmetAvailableEvent extends GameEvent<typeof MAGE_
     payload: {
         ownerId: PlayerId;
         helmetObjectId: string;
-        attackerObjectId: string;
+        attackerObjectId?: string;
+        attackerId?: PlayerId;
         targetPlayerId: PlayerId;
         attackProfileId: string;
         actionCost?: 'normal' | 'none';

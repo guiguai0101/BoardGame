@@ -26,24 +26,17 @@ function optionHasTeamworkPlay(option: InteractionOption, cardUid: string, baseI
     && (value as { baseIndex?: unknown }).baseIndex === baseIndex;
 }
 
-async function clickPromptCardOption(
-  page: Page,
-  game: { getInteractionOptions(): Promise<InteractionOption[]> },
-  matcher: (option: InteractionOption) => boolean,
-  description: string,
-): Promise<void> {
-  const options = await game.getInteractionOptions();
-  const option = options.find(matcher);
-  if (!option) {
-    throw new Error(`Interaction option not found: ${description}`);
-  }
+async function clickDiscardCard(page: Page, cardUid: string): Promise<void> {
+  const card = page.locator(`[data-discard-view-panel] [data-card-uid="${cardUid}"]`).first();
+  await expect(card).toBeVisible({ timeout: 10000 });
+  await card.click({ force: true });
+  await page.waitForTimeout(300);
+}
 
-  const cardOption = page
-    .getByTestId('prompt-card-grid')
-    .locator(`[data-testid^="prompt-card-"][data-option-id="${option.id}"]`)
-    .first();
-  await expect(cardOption).toBeVisible({ timeout: 10000 });
-  await cardOption.click({ force: true });
+async function clickBoardMinion(page: Page, minionUid: string): Promise<void> {
+  const minion = page.locator(`[data-minion-uid="${minionUid}"]`).first();
+  await expect(minion).toBeVisible({ timeout: 10000 });
+  await minion.click({ force: true });
   await page.waitForTimeout(300);
 }
 
@@ -444,25 +437,16 @@ test.describe('大杀四方文化冲击格林童话真实入口验证', () => {
     await game.playCard('grimms_fairy_tales_another_story');
     await game.waitForInteraction('grimms_fairy_tales_another_story', 10000);
     for (const uid of ['discard-action', 'discard-hansel', 'discard-gretel']) {
-      await clickPromptCardOption(
-        page,
-        game,
-        candidate => optionHasCardUid(candidate, uid),
-        `另一个故事选择 ${uid}`,
-      );
+      await clickDiscardCard(page, uid);
     }
-    await game.confirm();
+    await page.locator('[data-discard-view-panel]').getByRole('button', { name: /^确认$/ }).click({ force: true });
+    await page.waitForTimeout(300);
     await game.waitForNoInteraction(10000);
 
     await game.playCard('grimms_fairy_tales_breadcrumbs');
     await game.waitForInteraction('grimms_fairy_tales_breadcrumbs', 10000);
     for (const uid of ['hansel', 'gretel']) {
-      await clickPromptCardOption(
-        page,
-        game,
-        candidate => optionHasMinionUid(candidate, uid),
-        `面包屑选择 ${uid}`,
-      );
+      await clickBoardMinion(page, uid);
     }
     await game.confirm();
     await game.waitForInteraction('grimms_fairy_tales_breadcrumbs_destination', 10000);
@@ -475,12 +459,7 @@ test.describe('大杀四方文化冲击格林童话真实入口验证', () => {
     await game.playCard('grimms_fairy_tales_mouse_bird_and_sausage');
     await game.waitForInteraction('grimms_fairy_tales_mouse_bird_and_sausage', 10000);
     for (const uid of ['hansel', 'gretel']) {
-      await clickPromptCardOption(
-        page,
-        game,
-        candidate => optionHasMinionUid(candidate, uid),
-        `老鼠鸟和香肠选择 ${uid}`,
-      );
+      await clickBoardMinion(page, uid);
     }
     await game.confirm();
     await game.waitForNoInteraction(10000);
@@ -508,5 +487,256 @@ test.describe('大杀四方文化冲击格林童话真实入口验证', () => {
       interactionOpen: false,
     });
     await game.screenshot('10-另一个故事面包屑老鼠鸟和香肠-长链收口', testInfo);
+  });
+
+  test('樵夫的斧子从真实入口销毁大灰狼并额外打出牌库随从', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'grimms_fairy_tales,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260922,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'axe', defId: 'grimms_fairy_tales_the_woodsmans_axe', type: 'action', owner: '0' },
+        ],
+        deck: [
+          { uid: 'deck-hansel', defId: 'grimms_fairy_tales_hansel', type: 'minion', owner: '0' },
+        ],
+        discard: [],
+        factions: ['grimms_fairy_tales', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        {
+          defId: 'base_gingerbread_house',
+          minions: [
+            { uid: 'wolf', defId: 'grimms_fairy_tales_big_bad_wolf', owner: '1', controller: '1', power: 6 },
+          ],
+        },
+        { defId: 'base_woodland_cottage', minions: [] },
+      ],
+    });
+
+    await game.waitForPhase('playCards');
+    await game.playCard('grimms_fairy_tales_the_woodsmans_axe');
+    await game.waitForInteraction('grimms_fairy_tales_the_woodsmans_axe', 10000);
+    await game.selectInteractionOptionBy(
+      option => option.value?.minionUid === 'wolf',
+      '樵夫的斧子选择大灰狼',
+    );
+    await game.waitForInteraction('grimms_fairy_tales_the_woodsmans_axe_deck', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasCardUid(option, 'deck-hansel'),
+      '樵夫的斧子选择牌库中的汉瑟额外打出',
+    );
+    await game.waitForNoInteraction(10000);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      return {
+        base0Minions: state.core.bases[0]?.minions?.map((minion: { uid?: string }) => minion.uid) ?? [],
+        deckUids: state.core.players['0']?.deck?.map((card: { uid?: string }) => card.uid) ?? [],
+        discardUids: state.core.players['0']?.discard?.map((card: { uid?: string }) => card.uid) ?? [],
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+      };
+    }, { timeout: 15000 }).toEqual({
+      base0Minions: ['deck-hansel'],
+      deckUids: [],
+      discardUids: ['axe'],
+      interactionOpen: false,
+    });
+    await game.screenshot('11-樵夫的斧子-大灰狼销毁与额外出牌收口', testInfo);
+  });
+
+  test('樵夫的斧子从真实入口销毁基地行动并获得额外行动', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'grimms_fairy_tales,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260922,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'axe', defId: 'grimms_fairy_tales_the_woodsmans_axe', type: 'action', owner: '0' },
+        ],
+        deck: [],
+        discard: [],
+        factions: ['grimms_fairy_tales', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        {
+          defId: 'base_gingerbread_house',
+          minions: [],
+          ongoingActions: [
+            { uid: 'base-action', defId: 'grimms_fairy_tales_grimms_blessing', ownerId: '1' },
+          ],
+        },
+        { defId: 'base_woodland_cottage', minions: [] },
+      ],
+    });
+
+    await game.waitForPhase('playCards');
+    await game.playCard('grimms_fairy_tales_the_woodsmans_axe');
+    await game.waitForInteraction('grimms_fairy_tales_the_woodsmans_axe', 10000);
+    await game.selectInteractionOptionBy(
+      option => option.value?.actionUid === 'base-action',
+      '樵夫的斧子选择基地行动',
+    );
+    await game.waitForNoInteraction(10000);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      return {
+        ongoingUids: state.core.bases[0]?.ongoingActions?.map((action: { uid?: string }) => action.uid) ?? [],
+        actionLimit: state.core.players['0']?.actionLimit ?? 0,
+        discardUids: state.core.players['0']?.discard?.map((card: { uid?: string }) => card.uid) ?? [],
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+      };
+    }, { timeout: 10000 }).toEqual({
+      ongoingUids: [],
+      actionLimit: 2,
+      discardUids: ['axe'],
+      interactionOpen: false,
+    });
+    await game.screenshot('12-樵夫的斧子-基地行动销毁与额外行动收口', testInfo);
+  });
+
+  test('青蛙王子从真实打出随从入口触发反应并额外打出弃牌堆随从', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'grimms_fairy_tales,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260922,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'frog', defId: 'grimms_fairy_tales_the_frog_prince', type: 'minion', owner: '0' },
+          { uid: 'played-hansel', defId: 'grimms_fairy_tales_hansel', type: 'minion', owner: '0' },
+        ],
+        deck: [
+          { uid: 'deck-card', defId: 'grimms_fairy_tales_basket_of_goodies', type: 'action', owner: '0' },
+        ],
+        discard: [
+          { uid: 'discard-gretel', defId: 'grimms_fairy_tales_gretel', type: 'minion', owner: '0' },
+        ],
+        factions: ['grimms_fairy_tales', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 2,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        { defId: 'base_gingerbread_house', minions: [] },
+        { defId: 'base_woodland_cottage', minions: [] },
+      ],
+    });
+
+    await game.waitForPhase('playCards');
+    await game.playCard('grimms_fairy_tales_the_frog_prince', { targetBaseIndex: 0 });
+    await game.waitForNoInteraction(10000);
+
+    await game.playCard('grimms_fairy_tales_hansel', { targetBaseIndex: 0 });
+    await game.waitForInteraction('smashup_reaction_choose', 15000);
+    const reactionState = await game.getState();
+    const frogTrigger = (reactionState.core.triggerQueue ?? []).find(
+      (trigger: { sourceDefId?: string }) => trigger.sourceDefId === 'grimms_fairy_tales_the_frog_prince',
+    );
+    expect(frogTrigger, '青蛙王子必须保留真实反应触发项').toBeTruthy();
+    await game.selectInteractionOptionBy(
+      option => option.value?.triggerId === frogTrigger?.id,
+      '选择青蛙王子反应',
+    );
+    await game.waitForInteraction('grimms_fairy_tales_the_frog_prince', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasCardUid(option, 'discard-gretel'),
+      '青蛙王子从弃牌堆选择格雷特额外打出',
+    );
+    await game.waitForNoInteraction(10000);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      return {
+        base0Minions: state.core.bases[0]?.minions?.map((minion: { uid?: string }) => minion.uid).sort() ?? [],
+        deckUids: state.core.players['0']?.deck?.map((card: { uid?: string }) => card.uid).sort() ?? [],
+        discardUids: state.core.players['0']?.discard?.map((card: { uid?: string }) => card.uid).sort() ?? [],
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+      };
+    }, { timeout: 15000 }).toEqual({
+      base0Minions: ['discard-gretel', 'played-hansel'],
+      deckUids: ['deck-card', 'frog'],
+      discardUids: [],
+      triggerQueueLength: 0,
+      interactionOpen: false,
+    });
+    await game.screenshot('13-青蛙王子-反应与弃牌堆额外出牌收口', testInfo);
   });
 });

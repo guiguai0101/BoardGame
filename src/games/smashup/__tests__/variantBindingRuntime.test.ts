@@ -64,6 +64,42 @@ describe('Smash Up 变体绑定运行时回归', () => {
         expect(hasRegisteredTrigger('ninja_infiltrate_pod', 'onTurnStart')).toBe(false);
     });
 
+    it('经典版 id 不得绑定 POD-only 或 separate-only surface', () => {
+        expect(hasRegisteredTrigger('mega_troopers_omega_protocol', 'onTurnStart')).toBe(false);
+        expect(getRegisteredAbilityKeys().has('fairies_titania_pod::onPlay')).toBe(true);
+        expect(shouldGenerateSmashUpPodAlias('ability', 'fairies_titania')).toBe(false);
+    });
+
+    it('POD 基地池不会回退到经典版基地 id', () => {
+        expect(getBaseDefIdsForFactions([SMASHUP_FACTION_IDS.FAIRIES_POD]).every((baseId) => baseId.endsWith('_pod'))).toBe(true);
+        expect(getBaseDefIdsForFactions([SMASHUP_FACTION_IDS.PRINCESSES_POD]).every((baseId) => baseId.endsWith('_pod'))).toBe(true);
+    });
+
+    it('实际 POD faction 数据都必须有变体 profile', () => {
+        expect(collectSmashUpVariantBindingErrors()).not.toContainEqual(
+            expect.stringContaining('缺少变体绑定 profile'),
+        );
+    });
+
+    it('校验 helper 能发现有 POD faction 数据但缺 profile 的家族', () => {
+        expect(collectMissingSmashUpPodVariantProfileFactionIds(
+            [
+                { id: 'known_card_pod', faction: 'known_pod' },
+                { id: 'missing_card_pod', faction: 'missing_pod' },
+                { id: 'classic_card', faction: 'classic' },
+            ],
+            [
+                { podFactionId: 'known_pod' },
+            ],
+        )).toEqual(['missing_pod']);
+        expect(collectMissingSmashUpPodVariantProfileFactionIds(
+            [
+                { id: 'fairies_probe', faction: SMASHUP_FACTION_IDS.FAIRIES_POD },
+            ],
+            getAllSmashUpVariantProfiles(),
+        )).toEqual([]);
+    });
+
     it('显式分离的 POD 泰坦不会再继承经典泰坦的 talent 与打随从限制', () => {
         const abilityKeys = getRegisteredAbilityKeys();
         expect(abilityKeys.has('tricksters_big_funny_giant_pod::talent')).toBe(false);

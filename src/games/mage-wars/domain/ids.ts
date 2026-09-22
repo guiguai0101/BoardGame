@@ -38,6 +38,7 @@ export const MAGE_WARS_MAGE_ABILITY_IDS = {
 } as const;
 
 export const MAGE_WARS_OBJECT_ABILITY_IDS = {
+    ASYRAN_TEMPLE_PLACE_MANA: 'mw.object.2203.place-mana',
     BLUE_GREMLIN_SWIFT_TELEPORT: 'mw.object.2822.swift-teleport',
     ASYRAN_CLERIC_HEALING_LIGHT: 'mw.object.2811.healing-light',
     GREY_ANGEL_REDEMPTION_SACRIFICE: 'mw.object.2907.redemption-sacrifice',

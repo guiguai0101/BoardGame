@@ -199,7 +199,8 @@ describe('latest discovery presentation', () => {
       dismissedRecentRollId: null,
       viewerPlayerId: '0',
       inventoryActionPlayerId: '0',
-      hasRecentRollModifier: false,
+       hasRecentRollModifier: false,
+       isConfirmedExorciseRoll: false,
       pendingEventChoice: null,
       shouldShowHauntRevealCue: false,
       latestDiscoverySearchRevealIndex: 0,
@@ -231,6 +232,76 @@ describe('latest discovery presentation', () => {
     expect(panel.continueButton.cardResolutionRequiredCount).toBe(1);
     expect(panel.continueButton.disabled).toBe(true);
     expect(panel.continueButton.label).toBe('等待确认 0/1');
+  });
+
+  it('让预兆牌发起者也看到与事件投骰一致的确认进度', () => {
+    const currentDiscovery = discovery('omen', '书本');
+    const currentEntry = entry(
+      '0::omen::书本::omen-resolution',
+      '0::omen::书本',
+      currentDiscovery,
+      '0',
+    );
+    const panel = resolveBetrayalLatestDiscoveryPanelPresentation({
+      core: {
+        playerIds: ['0', '1', '2'],
+        latestDiscovery: currentDiscovery,
+        latestDiscoveryOwnerPlayerId: '0',
+        pendingCardResolutionQueue: [{
+          id: 'omen-resolution',
+          playerId: '0',
+          requiredPlayerIds: ['0', '1', '2'],
+          acknowledgedPlayerIds: [],
+          deckKind: 'omen',
+          cardId: 'omen-book',
+          cardName: '书本',
+          discoveryTitle: '书本',
+          stepKind: 'drawn-card',
+          text: '已加入持有区：书本',
+          index: 1,
+          total: 1,
+        }],
+      } as unknown as BetrayalCore,
+      selection: {
+        queuedEntry: null,
+        visibleCurrentEntry: currentEntry,
+        entry: currentEntry,
+        discovery: currentDiscovery,
+        recentRoll: null,
+        ownerPlayerId: '0',
+        key: currentEntry.key,
+        coreRecentRollDisplayKey: null,
+        recentRollDisplayKey: null,
+      },
+      dismissedLatestDiscoveryKey: null,
+      dismissedRecentRollId: null,
+      viewerPlayerId: '0',
+      inventoryActionPlayerId: '0',
+      hasRecentRollModifier: false,
+      isConfirmedExorciseRoll: false,
+      pendingEventChoice: null,
+      shouldShowHauntRevealCue: false,
+      latestDiscoverySearchRevealIndex: 0,
+      eventRollConfirmation: {
+        requiredPlayerIds: [],
+        acknowledgedPlayerIds: [],
+        confirmedCount: 0,
+        totalCount: 0,
+        viewerHasAcknowledged: false,
+        canViewerAcknowledge: false,
+      },
+      isRecentRollReadable: true,
+      t: (key, params) => {
+        if (key === 'board.discovery.confirmWithProgress') {
+          return `确认 ${params?.confirmed}/${params?.total}`;
+        }
+        return key;
+      },
+    });
+
+    expect(panel.continueButton.label).toBe('确认 0/3');
+    expect(panel.continueButton.cardResolutionConfirmedCount).toBe(0);
+    expect(panel.continueButton.cardResolutionRequiredCount).toBe(3);
   });
 
   it('keeps item and omen discovery visible until every required player acknowledges it', () => {
@@ -296,7 +367,8 @@ describe('latest discovery presentation', () => {
         dismissedRecentRollId: null,
         viewerPlayerId,
         inventoryActionPlayerId: viewerPlayerId,
-        hasRecentRollModifier: false,
+         hasRecentRollModifier: false,
+         isConfirmedExorciseRoll: false,
         pendingEventChoice: null,
         shouldShowHauntRevealCue: false,
         latestDiscoverySearchRevealIndex: 0,
@@ -323,5 +395,76 @@ describe('latest discovery presentation', () => {
     expect(createPanel(['0'], '0').shouldShow).toBe(true);
     expect(createPanel(['0', '1'], '1').shouldShow).toBe(true);
     expect(createPanel(['0', '1', '2'], '2').shouldShow).toBe(false);
+  });
+
+  it('keeps the table chrome open while event damage is shown as an independent roll', () => {
+    const currentDiscovery = discovery('event', '摇曳灯光');
+    const recentRoll = {
+      id: 'event-damage-roll',
+      kind: 'eventRolledDamage',
+      playerId: '0',
+      sourceTitle: '摇曳灯光',
+      rollLabel: '事件伤害骰',
+      dice: [2],
+      passiveBonus: 0,
+      latestLabel: '造成 2 点精神伤害',
+      consumedRabbitFootCardIds: [],
+      eventRolledDamageResults: [
+        {
+          damageKind: 'mental',
+          rolls: [2],
+          total: 2,
+          appliedAmount: 2,
+        },
+      ],
+    } as unknown as BetrayalCore['recentRoll'];
+    const core = {
+      playerIds: ['0'],
+      latestDiscovery: currentDiscovery,
+      latestDiscoveryOwnerPlayerId: '0',
+      recentRoll,
+      activityLog: [{ id: 'event-log', text: '摇曳灯光', tone: 'accent' }],
+      pendingCardResolutionQueue: [],
+      pendingEventChoice: null,
+      pendingEventRollResolution: null,
+      turnEndedByDiscovery: false,
+    } as unknown as BetrayalCore;
+    const currentEntry = buildLatestDiscoveryDisplayEntry(core);
+    const selection = resolveBetrayalLatestDiscoverySelectionPresentation({
+      core,
+      currentEntry,
+      queue: [],
+      dismissedLatestDiscoveryKey: null,
+      dismissedLatestDiscoveryKeys: new Set(),
+    });
+
+    const panel = resolveBetrayalLatestDiscoveryPanelPresentation({
+      core,
+      selection,
+      dismissedLatestDiscoveryKey: null,
+      dismissedRecentRollId: null,
+      viewerPlayerId: '0',
+      inventoryActionPlayerId: '0',
+       hasRecentRollModifier: false,
+       isConfirmedExorciseRoll: false,
+      pendingEventChoice: null,
+      shouldShowHauntRevealCue: false,
+      latestDiscoverySearchRevealIndex: 0,
+      eventRollConfirmation: {
+        requiredPlayerIds: [],
+        acknowledgedPlayerIds: [],
+        confirmedCount: 0,
+        totalCount: 0,
+        viewerHasAcknowledged: false,
+        canViewerAcknowledge: false,
+      },
+      isRecentRollReadable: true,
+      t: (key) => key,
+    });
+
+    expect(panel.shouldDisplayEventRolledDamageAsIndependentRoll).toBe(true);
+    expect(panel.shouldShow).toBe(false);
+    expect(panel.shouldKeepTableChromeOpenForEventResult).toBe(true);
+    expect(panel.shouldHideTableChromeForBlockingOverlay).toBe(false);
   });
 });

@@ -4332,6 +4332,10 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
               "data-transition-target-testid",
               "betrayal-explorer-figure-token-0",
             );
+            await expect(gainTransitionBlocker).toHaveAttribute(
+              "data-transition-ready",
+              "true",
+            );
             await expect(playerPage.getByTestId("betrayal-board")).toHaveAttribute(
               "data-betrayal-visual-busy",
               "true",
@@ -4339,10 +4343,26 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
             await expect(
               playerPage.getByTestId(`betrayal-inventory-${cardCase.cardId}`),
             ).toHaveCount(0);
+            const gainTransition = playerPage.locator(
+              '[data-testid^="betrayal-visual-transition-transition-"]',
+            );
+            await expect(gainTransition).toBeVisible();
+            await expect(gainTransition).toHaveAttribute(
+              "data-transition-kind",
+              "possession-gain",
+            );
+            await expect(gainTransition).toHaveAttribute(
+              "data-transition-phase",
+              "moving",
+            );
+            await expect(gainTransition).toHaveAttribute(
+              "data-transition-token-visible",
+              "true",
+            );
             const kindLabel = cardCase.kind === "item" ? "物品" : "预兆";
             await saveScreenshot(
               playerPage,
-              `${screenshotBase}-${kindLabel}-03-最后确认飞入对应玩家.jpg`,
+              `${screenshotBase}-${kindLabel}-03-最后确认飞行动画进行中.jpg`,
             );
             await expect(gainTransitionBlocker).toHaveCount(0);
           }

@@ -51,8 +51,6 @@ import {
     canMageWarsObjectUsePostMoveQuickAction,
     isMageWarsImplementedForceGripSpell,
     isMageWarsEquipmentArenaObject,
-    isMageWarsElementalStaffBindableSpell,
-    isMageWarsElementalStaffSpell,
     isMageWarsSpellBindingBindableSpell,
     isMageWarsSpellBindingStaffSpell,
     isMageWarsImplementedWeaponAttackEquipmentSpell,
@@ -1365,6 +1363,9 @@ export function validateCommand(
             if (source.allowedTypeLineIncludes?.some((term) => !spell.typeLine?.includes(term))) {
                 return invalid('spellTypeLineNotAllowed');
             }
+            if (source.allowedSchoolLineIncludes?.some((term) => !spell.schoolLine?.includes(term))) {
+                return invalid('spellSchoolLineNotAllowed');
+            }
             return { valid: true };
         }
 
@@ -1427,7 +1428,13 @@ export function validateCommand(
                 if (source.allowedTypeLineIncludes?.some((term) => !costResolution.spell.typeLine?.includes(term))) {
                     return invalid('spellTypeLineNotAllowed');
                 }
+                if (source.allowedSchoolLineIncludes?.some((term) => !costResolution.spell.schoolLine?.includes(term))) {
+                    return invalid('spellSchoolLineNotAllowed');
+                }
                 const objectMana = casterObject.mana ?? 0;
+                if (source.minimumMana !== undefined && objectMana < source.minimumMana) {
+                    return invalid('insufficientSourceMana');
+                }
                 if (objectMana + player.mana < costResolution.manaCost) return invalid('insufficientMana');
             }
             if (

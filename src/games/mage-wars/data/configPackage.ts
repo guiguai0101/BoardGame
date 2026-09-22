@@ -278,7 +278,9 @@ export interface MageWarsSpellcastingSource {
     phase: 'creatureAction' | 'deployment';
     allowedSpellTypes: string[];
     allowedTypeLineIncludes?: string[];
+    allowedSchoolLineIncludes?: string[];
     maxSpellLevel?: number;
+    minimumMana?: number;
     channeling: number;
 }
 
@@ -413,7 +415,14 @@ function readOptionalSpellcastingSource(
         data.allowedTypeLineIncludes,
         `${context}.allowedTypeLineIncludes`,
     );
+    const allowedSchoolLineIncludes = readOptionalStringArray(
+        data.allowedSchoolLineIncludes,
+        `${context}.allowedSchoolLineIncludes`,
+    );
     const maxSpellLevel = readOptionalPositiveInteger(data.maxSpellLevel, `${context}.maxSpellLevel`);
+    const minimumMana = data.minimumMana === undefined
+        ? undefined
+        : assertNonNegativeInteger(data.minimumMana, `${context}.minimumMana`);
     const channeling = assertNonNegativeInteger(data.channeling, `${context}.channeling`);
     if ((kind === 'familiar' && phase !== 'creatureAction') || (kind === 'spawn-point' && phase !== 'deployment')) {
         throw new Error(`invalid Mage Wars spellcasting source phase for ${kind} at ${context}.phase`);
@@ -424,7 +433,9 @@ function readOptionalSpellcastingSource(
         phase,
         allowedSpellTypes,
         ...(allowedTypeLineIncludes ? { allowedTypeLineIncludes } : {}),
+        ...(allowedSchoolLineIncludes ? { allowedSchoolLineIncludes } : {}),
         ...(maxSpellLevel === undefined ? {} : { maxSpellLevel }),
+        ...(minimumMana === undefined ? {} : { minimumMana }),
         channeling,
     };
 }

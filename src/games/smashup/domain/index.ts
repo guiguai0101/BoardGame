@@ -3521,7 +3521,6 @@ function postProcessSystemEvents(
 
     let ms = matchState ?? createReactionQueueFallbackState(state);
     const inputEventsAlreadyReduced = !!options?.inputEventsAlreadyReduced;
-    const interactionIdBeforePostProcess = ms.sys.interaction?.current?.id;
 
     const destroySys = getSmashUpRuntimeSys(ms);
     if (!destroySys._processedDestroyEvents || !(destroySys._processedDestroyEvents instanceof Set)) {

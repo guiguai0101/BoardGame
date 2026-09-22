@@ -5544,7 +5544,7 @@ describe('Betrayal Board foundation', () => {
             kind: 'event',
             title: '外星几何',
             summary: '即时生效',
-            detail: '知识检定 6：获得 1 点知识；知识 +1',
+            detail: '判定要求（总点数）：达到 4 点：获得 1 点知识；知识 +1',
             tone: 'accent',
             resolutionSteps: [{
                 id: 'test-event-effect',
@@ -5640,6 +5640,16 @@ describe('Betrayal Board foundation', () => {
         expect(screen.getByTestId('betrayal-discovery-detail')).not.toHaveTextContent(
             '知识检定',
         );
+        expect(screen.getByTestId('betrayal-discovery-visible-detail')).not.toHaveTextContent(
+            '判定要求',
+        );
+        expect(screen.getByTestId('betrayal-discovery-visible-detail')).not.toHaveTextContent(
+            '总点数',
+        );
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).not.toHaveTextContent(
+            '判定要求',
+        );
+        expect(screen.getByTestId('betrayal-discovery-visible-detail')).toHaveTextContent('知识 +1');
         expect(screen.getByTestId('betrayal-discovery-detail')).toHaveTextContent('知识 +1');
         const alienGeometrySteps = expectDiscoveryResolutionLedgerTraceOnly(1);
         expect(alienGeometrySteps[0]).toHaveTextContent('事件效果');
@@ -5842,6 +5852,9 @@ describe('Betrayal Board foundation', () => {
         );
         expect(screen.getByTestId('betrayal-discovery-detail')).not.toHaveTextContent(
             /作祟检定|总点数|已触发|未触发/,
+        );
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).not.toHaveTextContent(
+            '判定要求',
         );
         expect(screen.getByTestId('betrayal-discovery-continue')).toHaveAttribute(
             'data-card-resolution-required-count',

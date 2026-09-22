@@ -23,6 +23,7 @@ export type MageWarsObjectAbilityTargetMode =
     | 'self'
     | 'living-object'
     | 'friendly-living-animal'
+    | 'friendly-living-priest'
     | 'bound-spell';
 export type MageWarsObjectAbilityManaCostRule =
     | { type: 'fixed'; amount: number }
@@ -165,6 +166,25 @@ export const mageWarsAbilityRegistry = createAbilityRegistry<MageWarsSpellAbilit
 mageWarsAbilityRegistry.registerAll(buildMageWarsSpellAbilityDefs());
 
 export const mageWarsObjectAbilityDefs: MageWarsObjectAbilityDef[] = [
+    {
+        id: MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_TEMPLE_PLACE_MANA,
+        name: '阿希拉神殿放置法力',
+        description: '每回合最多两次，令一个友方牧师生物使用标准行动，为阿希拉神殿放置1点法力。',
+        trigger: 'arena-object-ability',
+        effects: [{ type: 'object-ability-runtime', summary: 'spend a friendly priest creature action to place one mana' }],
+        tags: ['mage-wars', 'object-ability', 'source:area-conjuration', 'implementation:implemented'],
+        meta: {
+            abilityId: MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_TEMPLE_PLACE_MANA,
+            sourceKind: 'area-conjuration',
+            sourceSpellCardId: 2203,
+            actionSpeed: 'source-trait',
+            actionCost: 'none',
+            manaCost: { type: 'fixed', amount: 0 },
+            targetMode: 'friendly-living-priest',
+            implementationStatus: 'implemented',
+            stateDebt: ['abilityUseRoundNumbers'],
+        },
+    },
     {
         id: MAGE_WARS_OBJECT_ABILITY_IDS.BLUE_GREMLIN_SWIFT_TELEPORT,
         name: '蓝色精怪迅捷传送',

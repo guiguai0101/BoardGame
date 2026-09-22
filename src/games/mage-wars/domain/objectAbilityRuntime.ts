@@ -24,11 +24,9 @@ import {
     getMageWarsZoneDistance,
     hasMageWarsStunStatus,
     isMageWarsAnimalArenaObject,
-    isMageWarsElementalStaffBindableSpell,
     isMageWarsHiddenEnchantmentArenaObject,
     isMageWarsLivingArenaObject,
     resolveMageWarsAttachedBeastStaff,
-    resolveMageWarsAttachedElementalStaff,
     resolveMageWarsAttachedSpellBindingStaff,
     isMageWarsSpellBindingBindableSpell,
     resolveMageWarsObjectAbilityActionTrack,
@@ -41,7 +39,7 @@ import type {
     MageWarsPlayerState,
 } from './types';
 import { getArenaObject } from './utils';
-import { hasObjectAbilityUseInRound } from './objectAbilityUsage';
+import { getObjectAbilityUseCountInRound, hasObjectAbilityUseInRound } from './objectAbilityUsage';
 import { hasTemporarySwift, hasTemporaryTeleportMovement } from './temporaryTraits';
 import { createMageWarsArenaObjectSourceConsumeAvailableEvent } from './sourceConsumeEvents';
 import {
@@ -295,7 +293,39 @@ function validateDecoyReveal(ctx: MageWarsObjectAbilityValidationContext): Valid
     return { valid: true };
 }
 
+function validateAsyranTemplePlaceMana(ctx: MageWarsObjectAbilityValidationContext): ValidationResult {
+    if (ctx.phase !== 'creatureAction') return invalid('wrongPhase');
+    const source = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    if (!source) return invalid('invalidSourceObject');
+    if (source.ownerId !== ctx.player.id) return invalid('notYourObject');
+    if (source.kind !== 'conjuration' || source.sourceSpellCardId !== 2203) {
+        return invalid('invalidArenaObjectAbilitySource');
+    }
+    if (getObjectAbilityUseCountInRound(source, ctx.command.payload.abilityId, ctx.state.core.turnNumber) >= 2) {
+        return invalid('objectAbilityAlreadyUsedThisRound');
+    }
+    if (ctx.command.payload.manaCost !== 0) return invalid('manaCostMismatch');
+    if (ctx.command.payload.mode !== undefined || ctx.command.payload.boundSpellCardId !== undefined) {
+        return invalid('invalidTargetMode');
+    }
+    if (!ctx.command.payload.targetObjectId) return invalid('missingTarget');
+    const targetObject = getArenaObject(ctx.state.core, ctx.command.payload.targetObjectId);
+    if (
+        !targetObject
+        || targetObject.ownerId !== ctx.player.id
+        || !isMageWarsLivingArenaObject(targetObject)
+        || targetObject.kind !== 'creature'
+        || !targetObject.typeLine?.includes('牧师')
+    ) {
+        return invalid('invalidTargetObject');
+    }
+    if (!targetObject.actionReady) return invalid('objectActionSpent');
+    if (hasMageWarsStunStatus(targetObject)) return invalid('objectStunned');
+    return { valid: true };
+}
+
 const mageWarsObjectAbilityValidators: Record<MageWarsObjectAbilityId, MageWarsObjectAbilityValidator> = {
+    [MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_TEMPLE_PLACE_MANA]: validateAsyranTemplePlaceMana,
     [MAGE_WARS_OBJECT_ABILITY_IDS.BLUE_GREMLIN_SWIFT_TELEPORT]: validateBlueGremlinSwiftTeleport,
     [MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_CLERIC_HEALING_LIGHT]: validateAsyranClericHealingLight,
     [MAGE_WARS_OBJECT_ABILITY_IDS.GREY_ANGEL_REDEMPTION_SACRIFICE]: validateGreyAngelRedemptionSacrifice,
@@ -448,6 +478,7 @@ function buildMageWarsObjectAbilityTargetRequest(ability: MageWarsObjectAbilityD
     if (
         ability.meta.targetMode === 'living-object'
         || ability.meta.targetMode === 'friendly-living-animal'
+        || ability.meta.targetMode === 'friendly-living-priest'
     ) {
         return {
             kind: 'select-object' as const,
@@ -525,6 +556,7 @@ function buildMageWarsObjectAbilityActivationCandidates(args: {
     if (
         args.ability.meta.targetMode === 'living-object'
         || args.ability.meta.targetMode === 'friendly-living-animal'
+        || args.ability.meta.targetMode === 'friendly-living-priest'
     ) {
         const modes = args.ability.meta.targetMode === 'friendly-living-animal'
             ? MAGE_WARS_BEAST_STAFF_MODES
@@ -918,6 +950,44 @@ function executeDecoyReveal(ctx: MageWarsObjectAbilityContext): AbilityResult<Ma
     };
 }
 
+function executeAsyranTemplePlaceMana(ctx: MageWarsObjectAbilityContext): AbilityResult<MageWarsEvent> {
+    const source = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
+    const targetObject = ctx.command.payload.targetObjectId
+        ? getArenaObject(ctx.state.core, ctx.command.payload.targetObjectId)
+        : undefined;
+    if (
+        !source
+        || source.kind !== 'conjuration'
+        || source.sourceSpellCardId !== ctx.ability.meta.sourceSpellCardId
+        || !targetObject
+        || targetObject.ownerId !== ctx.ownerId
+        || !isMageWarsLivingArenaObject(targetObject)
+        || targetObject.kind !== 'creature'
+        || !targetObject.typeLine?.includes('牧师')
+    ) {
+        return { events: [] };
+    }
+    return {
+        events: [{
+            type: MAGE_WARS_EVENTS.ARENA_OBJECT_ABILITY_RESOLVED,
+            payload: {
+                ownerId: ctx.ownerId,
+                objectId: source.id,
+                abilityId: ctx.ability.id,
+                abilityName: ctx.ability.name,
+                manaCost: 0,
+                targetObjectId: targetObject.id,
+                roundNumber: ctx.state.core.turnNumber,
+                actionCost: 'none',
+                targetActionCost: 'normal',
+                manaGain: 1,
+            },
+            sourceCommandType: ctx.command.type,
+            timestamp: ctx.timestamp,
+        }],
+    };
+}
+
 function executeAsyranClericHealingLight(ctx: MageWarsObjectAbilityContext): AbilityResult<MageWarsEvent> {
     const object = getArenaObject(ctx.state.core, ctx.command.payload.objectId);
     const targetObject = ctx.command.payload.targetObjectId
@@ -1113,6 +1183,11 @@ function executeBinsaraHand(ctx: MageWarsObjectAbilityContext): AbilityResult<Ma
     };
 }
 
+mageWarsObjectAbilityExecutorRegistry.register(
+    MAGE_WARS_OBJECT_ABILITY_IDS.ASYRAN_TEMPLE_PLACE_MANA,
+    executeAsyranTemplePlaceMana,
+    { tag: 'arena-object-ability' },
+);
 mageWarsObjectAbilityExecutorRegistry.register(
     MAGE_WARS_OBJECT_ABILITY_IDS.BLUE_GREMLIN_SWIFT_TELEPORT,
     executeBlueGremlinSwiftTeleport,

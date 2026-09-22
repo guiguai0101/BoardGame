@@ -4894,7 +4894,6 @@
         "typeLine": "魔物 / 神殿、传送门",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
         "standardStartingRulesName": "阿希拉神殿",
         "standardStartingMageIds": [
           "priestess_apprentice"
@@ -4915,7 +4914,29 @@
         "attackOrTraitLine": "再生点·区域独占；史诗·限定神圣法师",
         "printCode": "MW1J23",
         "rawCost": "10",
-        "manaCost": 10
+        "manaCost": 10,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          }
+        },
+        "spellcastingSource": {
+          "abilityId": "mw.source.2203.spawn-point",
+          "kind": "spawn-point",
+          "phase": "deployment",
+          "allowedSpellTypes": [
+            "生物"
+          ],
+          "allowedSchoolLineIncludes": [
+            "圣光"
+          ],
+          "minimumMana": 2,
+          "channeling": 0
+        },
+        "requiresCodeSupport": false
       },
       "assetRefs": [
         "spell-card-2203-frame",
@@ -5145,7 +5166,6 @@
         "typeLine": "魔物 / 传送门、符文",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
         "standardStartingRulesName": "五星魔阵",
         "standardStartingMageIds": [
           "warlock_apprentice"
@@ -5166,7 +5186,29 @@
         "attackOrTraitLine": "再生点·区域独占·虚体；史诗·限定邪术师",
         "printCode": "MW1J17",
         "rawCost": "14",
-        "manaCost": 14
+        "manaCost": 14,
+        "semantics": {
+          "abilityKind": "visible-area-conjuration",
+          "attachment": {
+            "kind": "conjuration",
+            "visibility": "revealed",
+            "anchor": "zone"
+          }
+        },
+        "spellcastingSource": {
+          "abilityId": "mw.source.2209.spawn-point",
+          "kind": "spawn-point",
+          "phase": "deployment",
+          "allowedSpellTypes": [
+            "生物"
+          ],
+          "allowedSchoolLineIncludes": [
+            "黑暗"
+          ],
+          "minimumMana": 2,
+          "channeling": 0
+        },
+        "requiresCodeSupport": false
       },
       "assetRefs": [
         "spell-card-2209-frame",

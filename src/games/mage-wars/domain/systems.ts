@@ -80,7 +80,8 @@ export type MageWarsBattleFuryChoiceValue =
 export type MageWarsFearHelmetChoiceValue =
     | {
         action: 'retarget';
-        attackerObjectId: string;
+        attackerObjectId?: string;
+        attackerId?: string;
         helmetObjectId: string;
         originalTargetPlayerId: string;
         attackProfileId: string;
@@ -93,7 +94,8 @@ export type MageWarsFearHelmetChoiceValue =
     }
     | {
         action: 'guard' | 'cancel';
-        attackerObjectId: string;
+        attackerObjectId?: string;
+        attackerId?: string;
         helmetObjectId: string;
         originalTargetPlayerId: string;
         effectDieResult: number;
@@ -242,14 +244,16 @@ function isBattleFuryChoiceValue(value: unknown): value is MageWarsBattleFuryCho
 function isFearHelmetChoiceValue(value: unknown): value is MageWarsFearHelmetChoiceValue {
     if (!value || typeof value !== 'object') return false;
     const candidate = value as Partial<MageWarsFearHelmetChoiceValue>;
+    const hasAttackerReference = typeof candidate.attackerObjectId === 'string'
+        || typeof candidate.attackerId === 'string';
     if (candidate.action === 'guard' || candidate.action === 'cancel') {
-        return typeof candidate.attackerObjectId === 'string'
+        return hasAttackerReference
             && typeof candidate.helmetObjectId === 'string'
             && typeof candidate.originalTargetPlayerId === 'string'
             && typeof candidate.effectDieResult === 'number';
     }
     return candidate.action === 'retarget'
-        && typeof candidate.attackerObjectId === 'string'
+        && hasAttackerReference
         && typeof candidate.helmetObjectId === 'string'
         && typeof candidate.originalTargetPlayerId === 'string'
         && typeof candidate.attackProfileId === 'string'
@@ -1047,17 +1051,26 @@ export function createMageWarsInteractionSystem(): EngineSystem<MageWarsCore> {
                     if (event.payload.sourceId === MAGE_WARS_INTERACTION_SOURCE_IDS.FEAR_HELMET_CHOICE) {
                         if (!isFearHelmetChoiceValue(event.payload.value)) continue;
                         const value = event.payload.value;
-                        const attacker = nextState.core.objects[value.attackerObjectId];
+                        const attacker = value.attackerObjectId
+                            ? nextState.core.objects[value.attackerObjectId]
+                            : undefined;
+                        const attackerMage = value.attackerId
+                            ? nextState.core.players[value.attackerId]
+                            : undefined;
+                        const attackerRefId = value.attackerObjectId ?? value.attackerId;
+                        const attackerOwnerId = attacker?.ownerId ?? attackerMage?.id;
                         const helmet = nextState.core.objects[value.helmetObjectId];
                         if (
-                            !attacker
+                            (!attacker && !attackerMage)
+                            || !attackerRefId
+                            || !attackerOwnerId
                             || !helmet
                             || !isMageWarsFearHelmetArenaObject(helmet)
                             || helmet.anchoredToPlayerId !== value.originalTargetPlayerId
                             || !isMageWarsFearHelmetAttackBlocked(
                                 nextState.core,
                                 value.originalTargetPlayerId,
-                                value.attackerObjectId,
+                                attackerRefId,
                             )
                         ) {
                             continue;
@@ -1066,7 +1079,9 @@ export function createMageWarsInteractionSystem(): EngineSystem<MageWarsCore> {
                         events.push({
                             type: MAGE_WARS_EVENTS.ATTACK_MISSED,
                             payload: {
-                                attackerObjectId: attacker.id,
+                                ...(attacker
+                                    ? { attackerObjectId: attacker.id }
+                                    : { attackerId: attackerMage!.id }),
                                 targetPlayerId: value.originalTargetPlayerId,
                                 sourceAbilityId: 'mw.spell.3720.fear-helmet',
                                 effectDieResult: value.effectDieResult,
@@ -1076,12 +1091,12 @@ export function createMageWarsInteractionSystem(): EngineSystem<MageWarsCore> {
                         });
 
                         if (value.action === 'guard') {
-                            if (attacker.kind !== 'creature') continue;
+                            if (attacker && attacker.kind !== 'creature') continue;
                             events.push({
                                 type: MAGE_WARS_EVENTS.GUARD_GAINED,
                                 payload: {
-                                    playerId: attacker.ownerId,
-                                    targetObjectId: attacker.id,
+                                    playerId: attackerOwnerId,
+                                    ...(attacker ? { targetObjectId: attacker.id } : {}),
                                 },
                                 sourceCommandType: ctx.command.type,
                                 timestamp: event.timestamp,
@@ -1090,20 +1105,31 @@ export function createMageWarsInteractionSystem(): EngineSystem<MageWarsCore> {
                         }
                         if (value.action === 'cancel') continue;
 
-                        events.push(...resolveMageWarsObjectAttackEvents({
-                            state: nextState,
-                            sourceCommandType: ctx.command.type,
-                            timestamp: event.timestamp ?? 0,
-                            random: ctx.random,
-                            attackerObjectId: attacker.id,
-                            attackProfileId: value.attackProfileId,
-                            targetPlayerId: value.targetPlayerId,
-                            targetObjectId: value.targetObjectId,
-                            actionCost: 'none',
-                            allowCounterstrikeOpportunity: value.allowCounterstrikeOpportunity,
-                            removeGuardAfterMelee: value.removeGuardAfterMelee,
-                            counterstrikeSourceObjectId: value.counterstrikeSourceObjectId,
-                        }));
+                        if (attacker) {
+                            events.push(...resolveMageWarsObjectAttackEvents({
+                                state: nextState,
+                                sourceCommandType: ctx.command.type,
+                                timestamp: event.timestamp ?? 0,
+                                random: ctx.random,
+                                attackerObjectId: attacker.id,
+                                attackProfileId: value.attackProfileId,
+                                targetPlayerId: value.targetPlayerId,
+                                targetObjectId: value.targetObjectId,
+                                actionCost: 'none',
+                                allowCounterstrikeOpportunity: value.allowCounterstrikeOpportunity,
+                                removeGuardAfterMelee: value.removeGuardAfterMelee,
+                                counterstrikeSourceObjectId: value.counterstrikeSourceObjectId,
+                            }));
+                        } else if (attackerMage && value.targetPlayerId) {
+                            events.push(...resolveMageWarsBasicAttackEvents({
+                                state: nextState,
+                                sourceCommandType: ctx.command.type,
+                                timestamp: event.timestamp ?? 0,
+                                random: ctx.random,
+                                attackerId: attackerMage.id,
+                                defenderId: value.targetPlayerId,
+                            }));
+                        }
                         continue;
                     }
                     if (event.payload.sourceId === MAGE_WARS_INTERACTION_SOURCE_IDS.UPKEEP_EQUIPMENT_DIRECT_DAMAGE_CHOICE) {

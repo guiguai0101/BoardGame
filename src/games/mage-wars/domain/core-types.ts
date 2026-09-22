@@ -14,7 +14,9 @@ export interface MageWarsSpellcastingSource {
     phase?: 'creatureAction' | 'deployment';
     allowedSpellTypes?: string[];
     allowedTypeLineIncludes?: string[];
+    allowedSchoolLineIncludes?: string[];
     maxSpellLevel?: number;
+    minimumMana?: number;
     channeling?: number;
 }
 
@@ -137,6 +139,7 @@ export interface MageWarsArenaObjectState {
     fearHelmetRoundNumber?: number;
     fearHelmetAttackerObjectIdsThisRound?: string[];
     abilityUseRoundNumbers?: Partial<Record<string, number>>;
+    abilityUseCountsThisRound?: Partial<Record<string, number>>;
 }
 
 export interface MageWarsArenaZone {
