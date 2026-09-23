@@ -12473,6 +12473,15 @@
         }
       }
     },
+    "zh-CN/mage-wars/cards/spells/compressed/spell-conjuration-core-b-atlas": {
+      "variants": {
+        "webp": {
+          "sha256": "1d2801d8237fb83aff7ab50fdb64f8a7ec9de6b9b9104e4970ee41379f11b145",
+          "bytes": 6989450,
+          "mime": "image/webp"
+        }
+      }
+    },
     "zh-CN/mage-wars/cards/spells/compressed/spell-creature-core-a-atlas": {
       "variants": {
         "webp": {
@@ -12514,6 +12523,15 @@
         "webp": {
           "sha256": "5a2ee2b1120163d7d91df402264091121c65388a15fffbc9ae299e19bf3e5353",
           "bytes": 6528396,
+          "mime": "image/webp"
+        }
+      }
+    },
+    "zh-CN/mage-wars/cards/spells/compressed/spell-equipment-core-b-atlas": {
+      "variants": {
+        "webp": {
+          "sha256": "681e77acf02a78912b7cda8e6ea69e1fc2b84ffe1e4ec41c34b91f5a74b436d5",
+          "bytes": 6784924,
           "mime": "image/webp"
         }
       }
@@ -12581,6 +12599,15 @@
         }
       }
     },
+    "zh-CN/mage-wars/cards/spells/spell-conjuration-core-b-atlas": {
+      "variants": {
+        "png": {
+          "sha256": "2cb2c61932235c4fbbe246ee0d1b69d9a3e83fdcc899e792fe120f68ac92f74e",
+          "bytes": 40292293,
+          "mime": "image/png"
+        }
+      }
+    },
     "zh-CN/mage-wars/cards/spells/spell-creature-core-a-atlas": {
       "variants": {
         "png": {
@@ -12622,6 +12649,15 @@
         "png": {
           "sha256": "da584dd0b194a45913542e5a86b173803aeb5e691f2338eb075abe2b4cff00e3",
           "bytes": 39861566,
+          "mime": "image/png"
+        }
+      }
+    },
+    "zh-CN/mage-wars/cards/spells/spell-equipment-core-b-atlas": {
+      "variants": {
+        "png": {
+          "sha256": "de0dabd462aecfc4e5ccad293121c68df6b85849b91a4bfe3297d3df0c7172bc",
+          "bytes": 40815254,
           "mime": "image/png"
         }
       }

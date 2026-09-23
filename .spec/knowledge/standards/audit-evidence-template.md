@@ -41,6 +41,21 @@ Evidence 只记录证据和结论，不创建新的规则来源。若记录过�
 
 对象清单用于记录锁定范围内每个对象的覆盖状态；全量口径、共享流程引用和残余范围裁定回到 [`description-to-implementation-audit.md`](description-to-implementation-audit.md)。
 
+## 2.1 新交互覆盖矩阵
+
+只要本轮改动新增或改变玩家可见的点击、选择、目标指定、确认、跳过、响应、阶段推进、视角切换、状态观察或结果反馈，必须在这里逐项记录。没有这一节，或任一新增项没有直接证据，不得使用“已验证 / 已收口 / 全面审计完成”。
+
+| 新增交互 / 可见状态 | 玩家真实动作 | 直接断言 | 截图 / trace / 录屏 / PASS 清单 | VIEWER_URL | 当前结论 | 未覆盖范围 |
+| --- | --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  | `passed` / `current-scope-gap` / `not-applicable` |  |
+
+填写要求：
+
+- `passed` 必须来自当前 worktree、当前入口和同一次真实运行；截图应为整屏 / 整牌桌主证据，局部图只能作辅证。
+- `not-applicable` 只能用于没有玩家可见入口的自动结算 / 后台消费，并写清不适用理由和对应证据。
+- 共享流程引用不能替代新增交互的直接证据；只要动作、权限、目标、响应窗口、状态生命周期或结果承载有差异，就填 `current-scope-gap` 并补直接 E2E。
+- 所有 `passed` 行收口后，必须用 `open-verified-image.mjs --dir "<最终截图目录>" --no-open` 生成并记录脚本返回的 `VIEWER_URL`；用户要求自己打开时只交付该链接，不代为打开。
+
 ## 3. 结论等级
 
 从以下结论里选一项，禁止写模糊总评：
@@ -111,6 +126,8 @@ npm run audit:evidence:selfcheck -- <本 evidence 文件>
 | 最终权威结果 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
 | 交互真实入口 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
 | 验证证据 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
+| 新交互覆盖矩阵 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
+| 最终截图 PASS 清单与 VIEWER_URL | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
 | 共享影响与代表链依据 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
 | 缺口分类与范围裁定 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |
 | 旧 evidence / 旧结论回写 | `passed` / `representative_only` / `blocked` / `scoped_debt` |  |

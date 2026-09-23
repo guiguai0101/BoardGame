@@ -13,7 +13,10 @@ import {
 import { canSmashMagicCamera } from "../../src/games/betrayal/hauntSpecialActionReadModel";
 import { BETRAYAL_COMMANDS } from "../../src/games/betrayal/commands";
 import { BETRAYAL_DISCOVERY_POOLS } from "../../src/games/betrayal/scenarioConfig";
-import { MOBILE_LANDSCAPE_REFERENCE_VIEWPORT } from "../../src/shared/referenceViewports";
+import {
+  DESKTOP_REFERENCE_VIEWPORT,
+  MOBILE_LANDSCAPE_REFERENCE_VIEWPORT,
+} from "../../src/shared/referenceViewports";
 import {
   applyBetrayalCommand,
   createBetrayalScriptedRandom,
@@ -4251,7 +4254,6 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
         : [];
       baseCore.currentExplorer = {
         ...baseCore.currentExplorer,
-        roomId: "kitchen",
         traits: { ...baseCore.currentExplorer.traits, might: 4, sanity: 4 },
         inventory: inventoryCard,
       };
@@ -4281,10 +4283,22 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
       }];
 
       await injectCore(page, baseCore);
-      await expect(page.getByTestId("betrayal-discovery-panel")).toBeVisible();
+      const discoveryPanel = page.getByTestId("betrayal-discovery-panel");
+      await expect(discoveryPanel).toBeVisible();
+      await expect(discoveryPanel).toHaveAttribute(
+        "aria-label",
+        new RegExp(cardCase.title),
+      );
+      await expect(
+        discoveryPanel.getByTestId("betrayal-discovery-card-front-atlas"),
+      ).toHaveAttribute("aria-label", cardCase.title);
       const confirm = page.getByTestId("betrayal-discovery-continue");
       await expect(confirm).toBeEnabled();
-      await expect(confirm).toContainText("确认");
+      await expect(confirm).toHaveText("确认 0/3");
+      await saveScreenshot(
+        page,
+        `${screenshotBase}-${cardCase.kindLabel}-00-初始确认进度-确认0-3.jpg`,
+      );
       await confirm.click();
       let currentCore = await readCurrentCore(page);
       expect(currentCore.pendingCardResolutionQueue?.[0]?.acknowledgedPlayerIds).toEqual(["0"]);
@@ -6002,7 +6016,11 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
     const discoveryDetail = page.getByTestId(
       "betrayal-discovery-visible-detail",
     );
-    await expect(discoveryDetail).toHaveCount(0);
+    await expect(discoveryDetail).toBeVisible();
+    await expect(discoveryDetail).toContainText(/知识\s*\+1|获得\s*1\s*点知识/);
+    await expect(discoveryDetail).not.toContainText(
+      /判定要求|知识检定|投\s*3\s*颗骰子|总点数/,
+    );
     await saveScreenshot(
       page,
       `${screenshotBase}-04-投掷后描述不重复检定结果.jpg`,
@@ -6010,7 +6028,18 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
 
     const rollPanel = discoveryPanel.getByTestId("betrayal-recent-roll-panel");
     await expect(rollPanel).toBeVisible({ timeout: 30000 });
-    await expect(rollPanel).toContainText("知识检定");
+    await expect(
+      rollPanel.getByTestId("betrayal-recent-roll-label"),
+    ).toBeVisible();
+    await expect(
+      rollPanel.getByTestId("betrayal-recent-roll-label"),
+    ).toHaveText("知识检定");
+    await expect(
+      rollPanel.getByTestId("betrayal-recent-roll-thresholds"),
+    ).toHaveCount(0);
+    await expect(
+      rollPanel.getByTestId("betrayal-recent-roll-outcome"),
+    ).toHaveCount(0);
     await expect(
       page.getByTestId("betrayal-house-dice-3d-group"),
     ).toHaveAttribute("data-dice-count", "3");
@@ -6025,7 +6054,8 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
     await expectPhysicalDiceSeparated(rollPanel, { minDiceCount: 3 });
     await saveScreenshot(page, `${screenshotBase}-05-骰盘停稳直接结算.jpg`);
 
-    await expect(discoveryDetail).toHaveCount(0);
+    await expect(discoveryDetail).toBeVisible();
+    await expect(discoveryDetail).toContainText(/知识\s*\+1|获得\s*1\s*点知识/);
     await expect(page.getByTestId("betrayal-event-choice-panel")).toHaveCount(
       0,
     );
@@ -7414,6 +7444,82 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
     assertNoFatalFrontendErrors([
       {
         label: "betrayal-event-choice-mobile-secret-passage-full-chain",
+        diagnostics,
+      },
+    ]);
+  });
+
+  test("移动端事件检定复核不能隐藏整套牌桌 UI", async ({ page }) => {
+    test.setTimeout(120000);
+    const diagnostics = attachPageDiagnostics(
+      page,
+      "betrayal-mobile-event-roll-review-keeps-table-chrome",
+    );
+    const screenshotBase = `${EVIDENCE_DIR}/移动端横屏-事件检定复核保留牌桌`;
+    const sourceTitle = "地下回声";
+    const core = createRuntimeCore();
+    core.latestDiscovery = {
+      kind: "event",
+      title: sourceTitle,
+      summary: "知识检定已结算",
+      detail: "检定成功；知识 +1。",
+      tone: "accent",
+    };
+    core.latestDiscoveryOwnerPlayerId = "0";
+    core.recentRoll = {
+      id: "mobile-event-trait-review",
+      kind: "eventTraitCheck",
+      playerId: "0",
+      sourceTitle,
+      trait: "knowledge",
+      rollLabel: "知识检定",
+      dice: [3],
+      passiveBonus: 0,
+      latestLabel: "检定成功",
+      consumedRabbitFootCardIds: [],
+    } satisfies BetrayalRecentRollState;
+    core.pendingEventChoice = null;
+    core.pendingEventRollStart = null;
+    core.pendingEventRollResolution = null;
+    core.pendingCardResolutionQueue = [];
+    core.turnEndedByDiscovery = true;
+    core.recommendedAction = "endTurn";
+    core.activityLog = [
+      { id: "mobile-event-review-log", text: sourceTitle, tone: "accent" },
+    ];
+
+    await page.setViewportSize(MOBILE_LANDSCAPE_REFERENCE_VIEWPORT);
+    await page.goto("/play/betrayal?bgForceCoarsePointer=1", {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForBetrayalPageReady(page);
+    await injectCore(page, core);
+
+    await expect(page.getByTestId("betrayal-desktop-layout")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-mobile-layout-preset",
+      "board-shell",
+    );
+    await expect(page.getByTestId("betrayal-phase-chip")).toBeVisible();
+    await expect(page.getByTestId("betrayal-action-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-status-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-recent-roll-panel")).toBeVisible();
+    await expect(page.getByTestId("betrayal-roll-continue")).toBeVisible();
+    await expect(page.getByTestId("betrayal-roll-continue")).toHaveText(
+      /返回牌桌/,
+    );
+    await saveScreenshot(page, `${screenshotBase}-01-事件检定复核.jpg`);
+
+    await page.setViewportSize(DESKTOP_REFERENCE_VIEWPORT);
+    await expect(page.getByTestId("betrayal-phase-chip")).toBeVisible();
+    await expect(page.getByTestId("betrayal-action-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-status-rail")).toBeVisible();
+    await expect(page.getByTestId("betrayal-recent-roll-panel")).toBeVisible();
+    await saveScreenshot(page, `${screenshotBase}-02-PC对照.jpg`);
+
+    assertNoFatalFrontendErrors([
+      {
+        label: "betrayal-mobile-event-roll-review-keeps-table-chrome",
         diagnostics,
       },
     ]);

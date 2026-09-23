@@ -582,7 +582,10 @@ const foolishMagicianPromptProgram = createPromptProgram<FoolishMagicianContext,
             ]),
             {
                 sourceId: 'russian_fairy_tales_foolish_magician',
-                targetType: 'hand',
+                // Each drawn card exposes two distinct choices (deck top / bottom).
+                // The hand-direct surface collapses options by cardUid, so use the
+                // generic card panel to preserve both legal choices in the UI.
+                targetType: 'generic',
                 multi: { min: count, max: count },
                 autoResolveIfSingle: false,
                 responseValidationMode: 'live',

@@ -45,15 +45,31 @@ function makeFearHelmet(id = 'fear-helmet-1'): ReturnType<typeof makeArenaObject
     });
 }
 
-function makeFearHelmetState(): MatchState<MageWarsCore> {
+function makeFearHelmetState(
+    attackerOverrides: Partial<ReturnType<typeof makeArenaObject>> = {},
+): MatchState<MageWarsCore> {
     const base = setupState('creatureAction');
     const withTargetMage = withPlayerInZone(base.core, '1', PLAYER_ZERO_START_ZONE);
     const attacker = makeArenaObject('fear-attacker-0', '0', PLAYER_ZERO_START_ZONE, {
         attackOrTraitLine: '利爪：快速近战 2 骰',
         createdAtSequence: 2,
+        ...attackerOverrides,
     });
     return {
         core: withArenaObject(withArenaObject(withTargetMage, attacker), makeFearHelmet()),
+        sys: base.sys,
+    };
+}
+
+function makeMageFearHelmetState(): MatchState<MageWarsCore> {
+    const base = setupState('creatureAction');
+    const core = withPlayerInZone(
+        withPlayerInZone(base.core, '0', PLAYER_ZERO_START_ZONE),
+        '1',
+        PLAYER_ZERO_START_ZONE,
+    );
+    return {
+        core: withArenaObject(core, makeFearHelmet()),
         sys: base.sys,
     };
 }
@@ -206,6 +222,94 @@ describe('mage-wars Fear Helmet', () => {
             isCounterstrike: true,
         });
         expect(counterstrikeEvents.some((event) => event.type === MAGE_WARS_EVENTS.FEAR_HELMET_AVAILABLE)).toBe(false);
+    });
+
+    it('also intercepts the mage basic melee attack and allows the mage to guard instead', () => {
+        const attacked = runCommand(makeMageFearHelmetState(), {
+            type: MAGE_WARS_COMMANDS.DECLARE_ATTACK,
+            playerId: '0',
+            payload: { targetPlayerId: '1' },
+        }, fearHelmetRandom);
+
+        expect(attacked.success).toBe(true);
+        expect(attacked.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.ATTACK_DECLARED,
+                payload: expect.objectContaining({
+                    attackerId: '0',
+                    defenderId: '1',
+                    effectDieResult: 9,
+                    baseDamage: 0,
+                }),
+            }),
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.FEAR_HELMET_AVAILABLE,
+                payload: expect.objectContaining({
+                    attackerId: '0',
+                    targetPlayerId: '1',
+                    attackProfileId: 'mage-basic-melee',
+                }),
+            }),
+        ]));
+
+        const interaction = getSimpleChoicePrompt(attacked.state, 'mw.fear-helmet.choice');
+        const guardOption = getPromptOptions(attacked.state).find((option) => (
+            (option.value as { action?: string } | undefined)?.action === 'guard'
+        ));
+        expect(interaction).toBeDefined();
+        expect(guardOption).toBeDefined();
+
+        const guarded = runCommand(attacked.state, {
+            type: INTERACTION_COMMANDS.RESPOND,
+            playerId: '0',
+            payload: { interactionId: interaction!.id, optionId: guardOption!.id },
+        } as Command, fearHelmetRandom);
+
+        expect(guarded.success).toBe(true);
+        expect(guarded.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.ATTACK_MISSED,
+                payload: expect.objectContaining({
+                    attackerId: '0',
+                    targetPlayerId: '1',
+                    effectDieResult: 9,
+                }),
+            }),
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.GUARD_GAINED,
+                payload: { playerId: '0' },
+            }),
+        ]));
+        expect(guarded.state.core.players['0']).toMatchObject({
+            actionReady: false,
+            guarding: true,
+        });
+        expect(guarded.state.core.players['1'].damage).toBe(0);
+    });
+
+    it('keeps fear helmet timing at the first strike of a multi-strike attack action', () => {
+        const attacked = runCommand(makeFearHelmetState({
+            attackOrTraitLine: '三重噬咬：完整行动近战 2 骰，三连击',
+        }), {
+            type: MAGE_WARS_COMMANDS.DECLARE_OBJECT_ATTACK,
+            playerId: '0',
+            payload: {
+                attackerObjectId: 'fear-attacker-0',
+                attackProfileId: 'attack-0',
+                targetPlayerId: '1',
+            },
+        }, fearHelmetRandom);
+
+        expect(attacked.success).toBe(true);
+        expect(attacked.events).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                type: MAGE_WARS_EVENTS.FEAR_HELMET_AVAILABLE,
+                payload: expect.objectContaining({
+                    strikeIndex: 0,
+                    strikeCount: 3,
+                }),
+            }),
+        ]));
     });
 
     it('allows guarding only on the first attack and clears the restriction after the round advances', () => {

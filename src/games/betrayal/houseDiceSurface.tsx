@@ -144,10 +144,12 @@ export function BetrayalHouseDice3DGroup({
   const [physicsStates, setPhysicsStates] = React.useState<DicePhysicsState[]>(
     [],
   );
+  const [physicsSettled, setPhysicsSettled] = React.useState(rollDice.length === 0);
   React.useEffect(() => {
     setHasPhysicsState(false);
     setPhysicsStates([]);
-  }, [diceSignature, roll.id]);
+    setPhysicsSettled(rollDice.length === 0);
+  }, [diceSignature, roll.id, rollDice.length]);
   const visibleRuleValues = React.useMemo(
     () =>
       rollDice.map((pip, index) => {
@@ -254,6 +256,7 @@ export function BetrayalHouseDice3DGroup({
           : "theme-surface"
       }
       data-dice-physics-ready={hasPhysicsState ? "true" : "false"}
+      data-dice-physics-motion={physicsSettled ? "settled" : "rolling"}
       data-dice-preload-state="none"
       data-dice-physics-state-count={physicsStates.length}
       data-dice-count={roll.dice.length}
@@ -323,6 +326,9 @@ export function BetrayalHouseDice3DGroup({
           setPhysicsStates(states);
         }}
         onSettledChange={(settled, identity) => {
+          if (!identity || identity === rollMotionId) {
+            setPhysicsSettled(settled);
+          }
           onDiceSettledChange?.(identity ?? rollMotionId, settled);
         }}
       />

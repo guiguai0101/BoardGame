@@ -373,6 +373,7 @@ function resolveAttackAfterDefenseChoice(
             random,
             attackerId: value.attackerId,
             defenderId: value.defenderId,
+            skipFearHelmet: true,
         });
     }
     if (value.attackerId && value.defenderId && value.spellCardId) {

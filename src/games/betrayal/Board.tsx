@@ -250,6 +250,9 @@ import {
   readBetrayalViewportRect,
   type BetrayalVisualTransition,
 } from "./visualTransitionSurface";
+import {
+  BETRAYAL_DISCOVERY_ITEM_AUTO_ADVANCE_DELAY_MS,
+} from "./visualTiming";
 import { BetrayalReferenceOverlaySurface } from "./referenceOverlaySurface";
 import { BetrayalReferenceQuickActionsSurface } from "./referenceQuickActionsSurface";
 import { BetrayalPreviewOverlaySurface } from "./previewOverlaySurface";
@@ -322,6 +325,7 @@ export default function BetrayalBoard({
   const {
     beginSequence: beginVisualSequence,
     endSequence: endVisualSequence,
+    reset: resetVisualSequence,
     isVisualBusy,
   } = useVisualSequenceGate();
   const [visualTransition, setVisualTransition] =
@@ -333,6 +337,11 @@ export default function BetrayalBoard({
       isBetrayalCore(G?.core) ? G.core : createBetrayalCharacterSelectCore(),
     [G],
   );
+  const rollbackRevision = G?.sys?.undo?.rollbackRevision ?? 0;
+  const [previousRollbackRevision, setPreviousRollbackRevision] =
+    React.useState(rollbackRevision);
+  const authoritativeHistoryRewound =
+    rollbackRevision > previousRollbackRevision;
   const viewerPlayerId = String(
     playerID ?? baseCore.currentPlayer ?? baseCore.playerIds[0] ?? "0",
   );
@@ -836,11 +845,14 @@ export default function BetrayalBoard({
   ]);
 
   React.useEffect(() => {
+    if (authoritativeHistoryRewound) {
+      return;
+    }
     setPreviewState((previousState) =>
       resolveNextPreviewStateAfterCoreChange(baseCore, previousState),
     );
     setInventoryPreviewCardId(null);
-  }, [baseCore]);
+  }, [authoritativeHistoryRewound, baseCore]);
   React.useEffect(() => {
     if (!referencePages.some((page) => page.id === referenceSide)) {
       setReferenceSide(referencePages[0]?.id ?? "front");
@@ -2751,37 +2763,51 @@ export default function BetrayalBoard({
     () => buildLatestDiscoveryDisplayEntry(core),
     [core],
   );
+  const effectiveDismissedLatestDiscoveryKey = authoritativeHistoryRewound
+    ? null
+    : previewState.dismissedLatestDiscoveryKey;
+  const effectiveDismissedLatestDiscoveryKeys = React.useMemo(
+    () =>
+      authoritativeHistoryRewound
+        ? new Set<string>()
+        : dismissedLatestDiscoveryKeys,
+    [authoritativeHistoryRewound, dismissedLatestDiscoveryKeys],
+  );
+  const effectiveLatestDiscoveryQueue = React.useMemo(
+    () => (authoritativeHistoryRewound ? [] : latestDiscoveryQueue),
+    [authoritativeHistoryRewound, latestDiscoveryQueue],
+  );
   React.useEffect(() => {
     setLatestDiscoveryQueue((previousQueue) =>
       resolveBetrayalLatestDiscoveryQueueAfterCurrentEntry({
         core,
         currentEntry: currentLatestDiscoveryEntry,
         queue: previousQueue,
-        dismissedLatestDiscoveryKey: previewState.dismissedLatestDiscoveryKey,
-        dismissedLatestDiscoveryKeys,
+        dismissedLatestDiscoveryKey: effectiveDismissedLatestDiscoveryKey,
+        dismissedLatestDiscoveryKeys: effectiveDismissedLatestDiscoveryKeys,
       }),
     );
   }, [
     core,
     currentLatestDiscoveryEntry,
-    dismissedLatestDiscoveryKeys,
-    previewState.dismissedLatestDiscoveryKey,
+    effectiveDismissedLatestDiscoveryKey,
+    effectiveDismissedLatestDiscoveryKeys,
   ]);
   const latestDiscoverySelection = React.useMemo(
     () =>
       resolveBetrayalLatestDiscoverySelectionPresentation({
         core,
         currentEntry: currentLatestDiscoveryEntry,
-        queue: latestDiscoveryQueue,
-        dismissedLatestDiscoveryKey: previewState.dismissedLatestDiscoveryKey,
-        dismissedLatestDiscoveryKeys,
+        queue: effectiveLatestDiscoveryQueue,
+        dismissedLatestDiscoveryKey: effectiveDismissedLatestDiscoveryKey,
+        dismissedLatestDiscoveryKeys: effectiveDismissedLatestDiscoveryKeys,
       }),
     [
       core,
       currentLatestDiscoveryEntry,
-      dismissedLatestDiscoveryKeys,
-      latestDiscoveryQueue,
-      previewState.dismissedLatestDiscoveryKey,
+      effectiveDismissedLatestDiscoveryKey,
+      effectiveDismissedLatestDiscoveryKeys,
+      effectiveLatestDiscoveryQueue,
     ],
   );
   const latestDiscoveryEntry = latestDiscoverySelection.entry;
@@ -2804,7 +2830,9 @@ export default function BetrayalBoard({
     confirmedExorciseRollId === core.recentRoll.id;
   const isRecentRollDismissed = Boolean(
     coreRecentRollDisplayKey &&
-    previewState.dismissedRecentRollId === coreRecentRollDisplayKey,
+    (authoritativeHistoryRewound
+      ? false
+      : previewState.dismissedRecentRollId === coreRecentRollDisplayKey),
   );
   React.useEffect(() => {
     setSettledRecentRollId((previousRollId) =>
@@ -3156,8 +3184,10 @@ export default function BetrayalBoard({
       resolveBetrayalLatestDiscoveryPanelPresentation({
         core,
         selection: latestDiscoverySelection,
-        dismissedLatestDiscoveryKey: previewState.dismissedLatestDiscoveryKey,
-        dismissedRecentRollId: previewState.dismissedRecentRollId,
+        dismissedLatestDiscoveryKey: effectiveDismissedLatestDiscoveryKey,
+        dismissedRecentRollId: authoritativeHistoryRewound
+          ? null
+          : previewState.dismissedRecentRollId,
         viewerPlayerId,
         inventoryActionPlayerId,
         hasRecentRollModifier,
@@ -3174,6 +3204,8 @@ export default function BetrayalBoard({
       }),
     [
       core,
+      authoritativeHistoryRewound,
+      effectiveDismissedLatestDiscoveryKey,
       eventRollConfirmation,
       hasRecentRollModifier,
       isConfirmedExorciseRoll,
@@ -3181,7 +3213,6 @@ export default function BetrayalBoard({
       latestDiscoverySearchRevealIndex,
       latestDiscoverySelection,
       pendingEventChoice,
-      previewState.dismissedLatestDiscoveryKey,
       previewState.dismissedRecentRollId,
       scenarioReaderOpen,
       shouldPauseHauntBoardActions,
@@ -3331,6 +3362,72 @@ export default function BetrayalBoard({
     sourceKey: string;
     rollId: string;
   } | null>(null);
+  const resetBetrayalPresentationAfterUndo = React.useCallback(() => {
+    setPreviewState((previousState) =>
+      resolveNextPreviewStateAfterCoreChange(baseCore, previousState, {
+        authoritativeHistoryRewound: true,
+      }),
+    );
+    setReferenceOpen(false);
+    setScenarioReaderOpen(false);
+    setReferenceSide("front");
+    setReferenceScenarioBookSpreadIndex(0);
+    setReferenceScenarioOpeningStageActive(false);
+    setReferenceScenarioOpeningStageIncluded(false);
+    setReferenceScenarioTurnDirection(null);
+    setReferenceScenarioTurnSnapshot(null);
+    setScenarioStartOpeningCinematicKey(null);
+    setDismissedScenarioStartOpeningCinematicKey(null);
+    setRoomPreviewId(null);
+    setInventoryPreviewCardId(null);
+    setLatestDiscoverySearchRevealIndex(0);
+    setConfirmedExorciseRollId(null);
+    setSettledRecentRollId(null);
+    setLatestDiscoveryQueue([]);
+    setDismissedLatestDiscoveryKeys(new Set());
+    setDismissedHauntRevealDiscoveryKey(null);
+    setInspectedExplorerPlayerId(null);
+    setInspectedMonsterId(null);
+    setObservedExplorerPlayerId(null);
+    observationReturnPlayerIdRef.current = null;
+    setSelectedRoomMapFloor(resolveExplorerFloor(baseCore));
+    setRoomFocusPanTarget(null);
+    pendingScenarioStartOpeningKeyRef.current = null;
+    pendingScenarioTurnTutorialAdvanceRef.current = false;
+    if (pendingScenarioTurnTutorialAdvanceTimerRef.current !== null) {
+      window.clearTimeout(pendingScenarioTurnTutorialAdvanceTimerRef.current);
+      pendingScenarioTurnTutorialAdvanceTimerRef.current = null;
+    }
+    setVisualTransition(null);
+    activeVisualTransitionIdRef.current = null;
+    resetVisualSequence();
+    autoOpenedHauntScenarioReaderKeysRef.current.clear();
+    hasObservedHauntRevealAutoOpenStateRef.current = false;
+    previousHauntRevealAutoOpenKeyRef.current = null;
+    completedTutorialUseBookRollKeyRef.current = null;
+    completedTutorialUseRabbitFootRollKeyRef.current = null;
+    pendingDiscoveryGainVisualRef.current = null;
+    lastAnimatedPendingDiscoveryResolutionIdRef.current = null;
+    latestDiscoveryPendingResolutionSeenRef.current = null;
+    latestDiscoveryPendingEventRollSeenRef.current = null;
+    selectedAttackWeaponCardIdRef.current = null;
+    previousBoardPhaseRef.current = baseCore.phase;
+    previousFloorFollowTargetRef.current = {
+      currentPlayer: baseCore.currentPlayer,
+      currentExplorerFloor: resolveExplorerFloor(baseCore),
+    };
+  }, [baseCore, resetVisualSequence]);
+  React.useEffect(() => {
+    if (!authoritativeHistoryRewound) {
+      return;
+    }
+    resetBetrayalPresentationAfterUndo();
+    setPreviousRollbackRevision(rollbackRevision);
+  }, [
+    authoritativeHistoryRewound,
+    resetBetrayalPresentationAfterUndo,
+    rollbackRevision,
+  ]);
   const startPendingDiscoveryGainVisual = React.useCallback(
     (
       pendingGain: {
@@ -3527,6 +3624,41 @@ export default function BetrayalBoard({
     handleDismissLatestDiscovery,
     latestDiscoveryEntry?.sourceKey,
     latestDiscoveryPendingCardResolution,
+  ]);
+  React.useEffect(() => {
+    const pendingResolution = latestDiscoveryPendingCardResolution;
+    if (
+      !pendingResolution
+      || latestDiscoveryPendingPossessionCard?.kind !== "item"
+      || pendingResolution.stepKind !== "drawn-card"
+      || pendingResolution.total !== 1
+      || pendingResolution.requiredPlayerIds?.length !== 1
+      || pendingResolution.playerId !== viewerPlayerId
+      || pendingResolution.acknowledgedPlayerIds?.includes(viewerPlayerId)
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const currentResolution = latestDiscoveryPendingCardResolution;
+      if (
+        currentResolution?.id !== pendingResolution.id
+        || !canCurrentViewerAcknowledgeCardResolution
+        || isVisualBusy
+      ) {
+        return;
+      }
+      dispatch(BETRAYAL_COMMANDS.ACKNOWLEDGE_CARD_RESOLUTION, {
+        resolutionId: pendingResolution.id,
+      });
+    }, BETRAYAL_DISCOVERY_ITEM_AUTO_ADVANCE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [
+    canCurrentViewerAcknowledgeCardResolution,
+    dispatch,
+    isVisualBusy,
+    latestDiscoveryPendingCardResolution,
+    latestDiscoveryPendingPossessionCard?.kind,
+    viewerPlayerId,
   ]);
   const handleDismissHauntRevealCue = () => {
     if (!hauntRevealDiscoveryKey) {

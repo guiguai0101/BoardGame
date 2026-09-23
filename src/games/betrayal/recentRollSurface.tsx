@@ -163,17 +163,38 @@ export function RecentRollPanel({
         })
       : "";
   const primaryOutcomeLabel = roll.latestLabel;
+  const hauntThreshold =
+    roll.kind === "hauntRoll" && roll.branchThresholds?.length
+      ? Math.max(...roll.branchThresholds.map((branch) => branch.min))
+      : null;
   const eventThresholdsLabel = roll.branchThresholds?.length
     ? [...roll.branchThresholds]
       .sort((left, right) => right.min - left.min)
-      .map((branch) =>
-        t("board.roll.threshold", {
+      .map((branch) => {
+        if (hauntThreshold !== null) {
+          return t(
+            branch.min === hauntThreshold
+              ? "board.roll.hauntSuccessThreshold"
+              : "board.roll.hauntFailureThreshold",
+            {
+              threshold: hauntThreshold,
+              label: branch.label,
+            },
+          );
+        }
+        return t("board.roll.threshold", {
           value: branch.min,
           label: branch.label,
-        }),
-      )
+        });
+      })
       .join(" · ")
     : "";
+  const eventThresholdsDescriptionLabel =
+    eventThresholdsLabel
+      && !showEventDamageDiceStage
+      && (showOutcome || roll.kind === "hauntRoll")
+      ? t("board.roll.thresholds", { value: eventThresholdsLabel })
+      : "";
   const diceStageRoll: BetrayalRecentRollState = showEventDamageDiceStage
     ? roll.kind === "eventRolledDamage"
       ? roll
@@ -259,7 +280,7 @@ export function RecentRollPanel({
       shouldShowEventDamageSubtitle ||
       shouldShowEventDamageEffect ||
       shouldShowPrimaryOutcome ||
-      Boolean(eventThresholdsLabel && showOutcome && !showEventDamageDiceStage) ||
+      Boolean(eventThresholdsDescriptionLabel) ||
       shouldShowEventDamageVisibleSummary ||
       (showBreakdown && attackComparisonText),
   );
@@ -373,6 +394,19 @@ export function RecentRollPanel({
             className="mt-0.5 truncate text-[12px] font-semibold text-[#d8c38b]"
           >
             {roll.rollLabel ?? t("board.roll.fallbackLabel")}
+          </div>
+        ) : null}
+        {eventThresholdsDescriptionLabel ? (
+          <div
+            data-testid="betrayal-recent-roll-thresholds"
+            data-result-role="thresholds"
+            className={`mt-1 max-w-full font-semibold tracking-[0.02em] text-[#d8c38b] ${
+              denseResult
+                ? "whitespace-normal break-words text-[11px] leading-[15px]"
+                : "whitespace-normal break-words text-[12px] leading-[16px]"
+            }`}
+          >
+            {eventThresholdsDescriptionLabel}
           </div>
         ) : null}
         {shouldShowEventDamageDescription ? (
@@ -515,6 +549,9 @@ export function RecentRollPanel({
       {shouldShowEventDamageDescription ? <span>{eventDamageDescriptionLabel}</span> : null}
       {shouldShowEventDamageSubtitle ? <span>{eventDamageSubtitleLabel}</span> : null}
       {shouldShowEventDamageEffect ? <span>{eventDamageEffectLabel}</span> : null}
+      {eventThresholdsDescriptionLabel ? (
+        <span>{eventThresholdsDescriptionLabel}</span>
+      ) : null}
       {shouldShowPrimaryOutcome ? <span>{primaryOutcomeLabel}</span> : null}
     </div>
   );

@@ -991,6 +991,8 @@
       "total": "Total {{value}}",
       "thresholds": "Check requirement (total): {{value}}",
       "threshold": "Total {{value}}: {{label}}",
+      "hauntSuccessThreshold": "Total {{threshold}} or higher: {{label}}",
+      "hauntFailureThreshold": "Below {{threshold}}: {{label}}",
       "eventRollTotal": "Event total {{value}}",
       "eventRollDiceSubtotal": "Event dice faces {{value}}",
       "eventDamageDiceLabel": "Damage Dice",

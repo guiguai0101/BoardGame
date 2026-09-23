@@ -70,6 +70,13 @@ export interface UndoState {
     snapshots: unknown[];
     /** 最大快照数 */
     maxSnapshots: number;
+    /**
+     * 权威撤回版本。
+     *
+     * 仅在真正恢复快照时递增，且不会随快照恢复回退。
+     * UI / transport 消费它来失效撤回前的本地展示投影。
+     */
+    rollbackRevision?: number;
     /** 撤销请求（多人握手） */
     pendingRequest?: {
         requesterId: PlayerId;

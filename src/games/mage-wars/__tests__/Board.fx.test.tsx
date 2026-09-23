@@ -940,6 +940,8 @@ describe('MageWarsBoard FX wiring', () => {
             const targetCard = screen.getByText('缓冲目标').closest('[data-testid="mage-wars-zone-field-card"]');
             expect(targetCard?.getAttribute('data-visual-damage')).toBe('0');
             expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).not.toBeNull();
+            expect(screen.getByTestId('mage-wars-fx-attack-melee-strike').getAttribute('data-visual-role')).toBe('melee-slash');
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-impact')).not.toBeNull();
 
             act(() => {
                 advanceSharedFxClockDelay(420);
@@ -1046,12 +1048,14 @@ describe('MageWarsBoard FX wiring', () => {
             expect(heldTargetCard?.getAttribute('data-object-id')).toBe(targetBefore.id);
             expect(heldTargetCard?.getAttribute('data-visual-held')).toBe('true');
             expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).toBeNull();
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-impact')).toBeNull();
 
             act(() => {
                 advanceSharedFxClockDelay(32);
             });
             await act(async () => {});
             expect(screen.queryByTestId('mage-wars-fx-attack-melee-strike')).not.toBeNull();
+            expect(screen.queryByTestId('mage-wars-fx-attack-melee-impact')).not.toBeNull();
 
             act(() => {
                 advanceSharedFxClockDelay(4200);
@@ -2462,7 +2466,7 @@ describe('MageWarsBoard spell cast choices', () => {
         });
     });
 
-    it('keeps a blocked prepared spell on the formal cast entry with a denial toast', () => {
+    it('keeps a phase-incompatible prepared spell on the formal cast entry with a denial toast', () => {
         const dispatch = vi.fn();
         const { container } = renderBoardWithProviders(
             <MageWarsBoard
@@ -2483,7 +2487,7 @@ describe('MageWarsBoard spell cast choices', () => {
         fireEvent.click(blockedPreparedCard!);
 
         expect(dispatch).not.toHaveBeenCalled();
-        expect(screen.getByTestId('mage-wars-toast-probe')).toHaveTextContent('error.spellRequiresCodeSupport');
+        expect(screen.getByTestId('mage-wars-toast-probe')).toHaveTextContent('error.actionUnavailable');
         expect(blockedPreparedCard?.getAttribute('data-selected')).toBeNull();
         expect(container.querySelector('[data-testid="mage-wars-selected-card-frame"]')).toBeNull();
         expect(container.querySelector('[data-testid="mage-wars-zone-mage-entity"][data-player-id="0"]')?.getAttribute('role'))

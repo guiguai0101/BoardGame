@@ -44,6 +44,27 @@ const RECENT_ROLL_REROLL_ITEM_RULES_BY_CARD_ID: Record<string, RecentRollRerollI
     'lucky-coin': { label: '幸运硬币', mode: 'blank-trait-check-dice' },
 };
 
+export function possessionCardRequiresSharedDiscoveryAcknowledgement(
+    card: Pick<BetrayalInventoryCard, 'id' | 'kind'> | null | undefined,
+): boolean {
+    if (!card || card.kind !== 'item') {
+        return false;
+    }
+    const effectId = resolveInventoryEffectId(card.id);
+    if (Object.prototype.hasOwnProperty.call(RECENT_ROLL_REROLL_ITEM_RULES_BY_CARD_ID, effectId)) {
+        return true;
+    }
+    const effect = resolveUseEffect(card);
+    return effect?.mode === 'nextNonCombatTraitReplacement'
+        || effect?.mode === 'nextNonCombatTraitRollTotalReplacement'
+        || effect?.mode === 'rolledDamage'
+        || effect?.mode === 'traitRoll'
+        || effect?.mode === 'chooseTraitRoll'
+        || effect?.mode === 'allTraitChecks'
+        || effect?.mode === 'optionalEventRoll'
+        || effect?.mode === 'optionalHauntRoll';
+}
+
 export interface BetrayalPossessionSpecialActionStatus {
     sourceKind: 'possession';
     sourceId: string;

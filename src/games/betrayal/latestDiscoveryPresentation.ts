@@ -55,6 +55,7 @@ export type BetrayalLatestDiscoveryPanelPresentation = {
   shouldDisplayEventRolledDamageAsIndependentRoll: boolean;
   shouldKeepTableChromeOpenForEventResult: boolean;
   shouldHideTableChromeForBlockingOverlay: boolean;
+  shouldShowRecentRollReview: boolean;
   isRecentRollDismissed: boolean;
   hasActionableRollModifier: boolean;
   shouldAutoReturnAfterLatestDiscovery: boolean;
@@ -382,14 +383,27 @@ export function resolveBetrayalLatestDiscoverySelectionPresentation(options: {
   const pendingCardResolutionSourceKey = activePendingCardResolution
     ? buildPendingCardResolutionSourceKey(core, activePendingCardResolution)
     : null;
+  const activePendingEventRollResolution =
+    core.pendingEventRollResolution ?? null;
+  const pendingEventRollResolutionSourceKey =
+    activePendingEventRollResolution &&
+    core.latestDiscoveryOwnerPlayerId === activePendingEventRollResolution.playerId &&
+    core.latestDiscovery?.title === activePendingEventRollResolution.sourceTitle
+      ? buildLatestDiscoverySourceKey(
+          core.latestDiscoveryOwnerPlayerId,
+          core.latestDiscovery,
+        )
+      : null;
+  const activePendingResolutionSourceKey =
+    pendingCardResolutionSourceKey ?? pendingEventRollResolutionSourceKey;
   const stateRelevantQueue = queue.filter((entry) => {
     const entryTargetsActivePendingResolution = Boolean(
-      pendingCardResolutionSourceKey &&
-        entry.sourceKey === pendingCardResolutionSourceKey,
+      activePendingResolutionSourceKey &&
+        entry.sourceKey === activePendingResolutionSourceKey,
     );
     if (
-      pendingCardResolutionSourceKey &&
-      entry.sourceKey !== pendingCardResolutionSourceKey
+      activePendingResolutionSourceKey &&
+      entry.sourceKey !== activePendingResolutionSourceKey
     ) {
       return false;
     }
@@ -418,22 +432,22 @@ export function resolveBetrayalLatestDiscoverySelectionPresentation(options: {
   const queuedEntry = stateRelevantQueue[0] ?? null;
   const currentEntryTargetsActivePendingResolution = Boolean(
     currentEntry &&
-      pendingCardResolutionSourceKey &&
-      currentEntry.sourceKey === pendingCardResolutionSourceKey,
+      activePendingResolutionSourceKey &&
+      currentEntry.sourceKey === activePendingResolutionSourceKey,
   );
   const visibleCurrentEntry =
     currentEntry &&
-    currentEntry.key !== dismissedLatestDiscoveryKey &&
-    !dismissedLatestDiscoveryKeys.has(currentEntry.key) &&
     (currentEntryTargetsActivePendingResolution ||
-      (currentEntry.sourceKey !== dismissedLatestDiscoveryKey &&
+      (currentEntry.key !== dismissedLatestDiscoveryKey &&
+        !dismissedLatestDiscoveryKeys.has(currentEntry.key) &&
+        currentEntry.sourceKey !== dismissedLatestDiscoveryKey &&
         !dismissedLatestDiscoveryKeys.has(currentEntry.sourceKey)))
       ? currentEntry
       : null;
   const shouldPreferCurrentPendingResolution = Boolean(
     visibleCurrentEntry &&
-      activePendingCardResolution &&
-      visibleCurrentEntry.sourceKey === pendingCardResolutionSourceKey,
+      (activePendingCardResolution || activePendingEventRollResolution) &&
+      visibleCurrentEntry.sourceKey === activePendingResolutionSourceKey,
   );
   const entry =
     shouldPreferCurrentPendingResolution
@@ -772,6 +786,9 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
   isConfirmedExorciseRoll: boolean;
   pendingEventChoice: BetrayalCore["pendingEventChoice"];
   shouldShowHauntRevealCue: boolean;
+  shouldPauseHauntBoardActions: boolean;
+  scenarioReaderOpen: boolean;
+  shouldShowScenarioStartOpening: boolean;
   latestDiscoverySearchRevealIndex: number;
   eventRollConfirmation: EventRollConfirmationPresentation;
   isRecentRollReadable: boolean;
@@ -788,6 +805,9 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
     isConfirmedExorciseRoll,
     pendingEventChoice,
     shouldShowHauntRevealCue,
+    shouldPauseHauntBoardActions,
+    scenarioReaderOpen,
+    shouldShowScenarioStartOpening,
     latestDiscoverySearchRevealIndex,
     eventRollConfirmation,
     isRecentRollReadable,
@@ -797,20 +817,40 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
     selection;
   const activePendingCardResolution =
     core.pendingCardResolutionQueue?.[0] ?? null;
+  const activePendingEventRollResolution =
+    core.pendingEventRollResolution ?? null;
+  const isActivePendingEventRollEntry = Boolean(
+    entry &&
+      activePendingEventRollResolution &&
+      core.latestDiscoveryOwnerPlayerId ===
+        activePendingEventRollResolution.playerId &&
+      core.latestDiscovery?.title === activePendingEventRollResolution.sourceTitle &&
+      entry.sourceKey ===
+        buildLatestDiscoverySourceKey(
+          core.latestDiscoveryOwnerPlayerId,
+          core.latestDiscovery,
+        ),
+  );
   const hasDisplayEntry = Boolean(
-    discovery && key !== dismissedLatestDiscoveryKey,
+    discovery && (key !== dismissedLatestDiscoveryKey || isActivePendingEventRollEntry),
   );
   const isRecentRollDismissed = Boolean(
     selection.recentRollDisplayKey &&
       dismissedRecentRollId === selection.recentRollDisplayKey,
   );
-  const hasEventDamageResultContext = Boolean(
+  const hasEventResultContext = Boolean(
     core.latestDiscovery?.kind === "event" &&
-      core.recentRoll?.kind === "eventRolledDamage" &&
+      core.recentRoll &&
+      (core.recentRoll.kind === "eventTraitCheck" ||
+        core.recentRoll.kind === "eventDiceRoll" ||
+        core.recentRoll.kind === "eventRolledDamage") &&
       core.recentRoll.sourceTitle === core.latestDiscovery.title &&
       !isRecentRollDismissed &&
       !shouldShowHauntRevealCue &&
       !isConfirmedExorciseRoll,
+  );
+  const hasEventDamageResultContext = Boolean(
+    hasEventResultContext && core.recentRoll?.kind === "eventRolledDamage",
   );
   const shouldDisplayEventRolledDamageAsIndependentRoll = Boolean(
     hasEventDamageResultContext &&
@@ -843,7 +883,7 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
       !hasActionableRollModifier,
   );
   const shouldKeepTableChromeOpenForEventResult = Boolean(
-    hasEventDamageResultContext &&
+    hasEventResultContext &&
       !shouldAutoReturnAfterLatestDiscovery,
   );
   const shouldHideAcknowledgedSearchResolutionForViewer = Boolean(
@@ -864,13 +904,17 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
       !shouldShowHauntRevealCue &&
       !shouldDisplayEventRolledDamageAsIndependentRoll,
   );
-  const shouldShowBlockingRecentRollOverlay = Boolean(
+  const shouldShowRecentRollReview = Boolean(
     core.recentRoll &&
+      core.phase !== "endgame" &&
       !isRecentRollDismissed &&
       !isConfirmedExorciseRoll &&
       !pendingEventChoice &&
       !shouldAutoReturnAfterLatestDiscovery &&
       !shouldShowHauntRevealCue &&
+      !shouldPauseHauntBoardActions &&
+      !scenarioReaderOpen &&
+      !shouldShowScenarioStartOpening &&
       ((core.recentRoll.kind !== "hauntRoll" &&
         core.recentRoll.kind !== "eventTraitCheck" &&
         core.recentRoll.kind !== "eventDiceRoll" &&
@@ -878,6 +922,7 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
         Boolean(selection.recentRollDisplayKey)) &&
       !shouldShow,
   );
+  const shouldShowBlockingRecentRollOverlay = shouldShowRecentRollReview;
   const hasOpenEventTableContext = Boolean(
     ((discovery?.kind === "event" &&
       !shouldAutoReturnAfterLatestDiscovery &&
@@ -1071,6 +1116,7 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
     shouldDisplayEventRolledDamageAsIndependentRoll,
     shouldKeepTableChromeOpenForEventResult,
     shouldHideTableChromeForBlockingOverlay,
+    shouldShowRecentRollReview,
     isRecentRollDismissed,
     hasActionableRollModifier,
     shouldAutoReturnAfterLatestDiscovery,

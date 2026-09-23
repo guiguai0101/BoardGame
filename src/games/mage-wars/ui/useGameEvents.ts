@@ -19,6 +19,7 @@ interface UseMageWarsGameEventsParams {
 interface UseMageWarsGameEventsResult {
     damageBuffer: UseVisualStateBufferReturn;
     heldObjects: MageWarsArenaObjectState[];
+    meleeAttack: MageWarsMeleeAttackVisual | null;
     onEffectImpact: (id: string) => void;
     onEffectComplete: (id: string) => void;
     debug: {
@@ -28,6 +29,14 @@ interface UseMageWarsGameEventsResult {
         lastConsumedTypes: string[];
         lastFxCues: string[];
     };
+}
+
+export interface MageWarsMeleeAttackVisual {
+    attackEventId: number;
+    sourceObjectId: string;
+    targetObjectId: string;
+    sourceSnapshot: FxAnchorSnapshot;
+    targetSnapshot: FxAnchorSnapshot;
 }
 
 export function mageWarsPlayerDamageKey(playerId: string): string {
@@ -308,6 +317,7 @@ function captureCoreAnchorSnapshots(
 function resolveInstructionSnapshots(
     instruction: ReturnType<typeof mapMageWarsEventToFx>,
     resolveFxAnchorSnapshot?: UseMageWarsGameEventsParams['resolveFxAnchorSnapshot'],
+    fallbackSnapshots?: Map<string, FxAnchorSnapshot>,
 ): ReturnType<typeof mapMageWarsEventToFx> {
     if (!instruction || !resolveFxAnchorSnapshot) return instruction;
     const params = instruction.params ?? {};
@@ -324,8 +334,16 @@ function resolveInstructionSnapshots(
         params.objectId ?? params.targetObjectId ?? params.targetPlayerId ?? params.defenderId ?? params.targetId,
         params.objectId || params.targetObjectId || params.targetId ? 'entity' : 'player',
     );
-    const sourceSnapshot = explicitSourceSnapshot ?? (sourceAnchor ? resolveFxAnchorSnapshot(sourceAnchor) : null);
-    const targetSnapshot = explicitTargetSnapshot ?? (targetAnchor ? resolveFxAnchorSnapshot(targetAnchor) : null);
+    const sourceSnapshot = explicitSourceSnapshot
+        ?? (sourceAnchor ? resolveFxAnchorSnapshot(sourceAnchor) : null)
+        ?? (sourceAnchor
+            ? fallbackSnapshots?.get(anchorSnapshotCacheKey(sourceAnchor.anchorKind ?? 'entity', sourceAnchor.anchorId)) ?? null
+            : null);
+    const targetSnapshot = explicitTargetSnapshot
+        ?? (targetAnchor ? resolveFxAnchorSnapshot(targetAnchor) : null)
+        ?? (targetAnchor
+            ? fallbackSnapshots?.get(anchorSnapshotCacheKey(targetAnchor.anchorKind ?? 'entity', targetAnchor.anchorId)) ?? null
+            : null);
 
     return {
         ...instruction,
@@ -347,11 +365,13 @@ function resolveInstructionSnapshots(
 export function useMageWarsGameEvents({ G, fxBus, resolveFxAnchorSnapshot }: UseMageWarsGameEventsParams): UseMageWarsGameEventsResult {
     const fxBusRef = useRef(fxBus);
     const fxImpactMapRef = useRef(new Map<string, string[]>());
+    const meleeFxSourceMapRef = useRef(new Map<string, string>());
     const scheduledHeldFxRef = useRef(new Set<FxFrameSubscription>());
     const previousCoreRef = useRef(G.core);
     const anchorSnapshotCacheRef = useRef(new Map<string, FxAnchorSnapshot>());
     const damageBuffer = useVisualStateBuffer();
     const visualEntityBuffer = useVisualEntityBuffer<MageWarsArenaObjectState>();
+    const [meleeAttack, setMeleeAttack] = useState<MageWarsMeleeAttackVisual | null>(null);
     const [debug, setDebug] = useState<UseMageWarsGameEventsResult['debug']>(() => ({
         eventCount: 0,
         latestEntryId: 0,
@@ -380,15 +400,21 @@ export function useMageWarsGameEvents({ G, fxBus, resolveFxAnchorSnapshot }: Use
     const latestEntryId = entries[entries.length - 1]?.id ?? 0;
 
     useLayoutEffect(() => {
-        const { entries: newEntries, didReset } = consumeNew();
+        const {
+            entries: newEntries,
+            didReset,
+            didOptimisticRollback,
+        } = consumeNew();
         const consumedTypes: string[] = [];
         const fxCues: string[] = [];
-        if (didReset) {
+        if (didReset || didOptimisticRollback) {
             for (const cancel of scheduledHeldFxRef.current) {
                 cancel();
             }
             scheduledHeldFxRef.current.clear();
             fxImpactMapRef.current.clear();
+            meleeFxSourceMapRef.current.clear();
+            queueMicrotask(() => setMeleeAttack(null));
             damageBuffer.clear();
             visualEntityBuffer.clear();
         }
@@ -434,26 +460,58 @@ export function useMageWarsGameEvents({ G, fxBus, resolveFxAnchorSnapshot }: Use
             instruction: ReturnType<typeof mapMageWarsEventToFx>,
             releaseKeys: string[],
             holdOwnerId?: string,
-        ) => {
+        ): string | null => {
             const resolvedInstruction = resolveInstructionSnapshots(
                 instruction,
                 resolveFxAnchorSnapshot,
+                previousAnchorSnapshots,
             );
             if (!resolvedInstruction) {
                 if (holdOwnerId) visualEntityBuffer.releaseOwner(holdOwnerId);
-                return;
+                return null;
             }
             const fxId = fxBusRef.current.push(resolvedInstruction.cue, resolvedInstruction.ctx, resolvedInstruction.params);
             if (!fxId) {
                 if (holdOwnerId) visualEntityBuffer.releaseOwner(holdOwnerId);
-                return;
+                return null;
             }
             if (releaseKeys.length > 0) {
                 fxImpactMapRef.current.set(fxId, releaseKeys);
             }
+            const params = resolvedInstruction.params ?? {};
+            const sourceObjectId = typeof params.sourceObjectId === 'string'
+                ? params.sourceObjectId
+                : null;
+            const targetObjectId = typeof params.targetObjectId === 'string'
+                ? params.targetObjectId
+                : null;
+            const sourceSnapshot = isFxAnchorSnapshot(params.sourceSnapshot)
+                ? params.sourceSnapshot
+                : null;
+            const targetSnapshot = isFxAnchorSnapshot(params.targetSnapshot)
+                ? params.targetSnapshot
+                : null;
+            if (
+                resolvedInstruction.cue === MW_FX.ATTACK_IMPACT
+                && params.rangeKind === 'melee'
+                && sourceObjectId
+                && targetObjectId
+            ) {
+                if (sourceSnapshot && targetSnapshot) {
+                    meleeFxSourceMapRef.current.set(fxId, sourceObjectId);
+                    setMeleeAttack({
+                        attackEventId: resolvedInstruction.sourceEventId,
+                        sourceObjectId,
+                        targetObjectId,
+                        sourceSnapshot,
+                        targetSnapshot,
+                    });
+                }
+            }
             if (holdOwnerId) {
                 visualEntityBuffer.transferOwner(holdOwnerId, fxId);
             }
+            return fxId;
         };
 
         for (const entry of newEntries) {
@@ -466,7 +524,9 @@ export function useMageWarsGameEvents({ G, fxBus, resolveFxAnchorSnapshot }: Use
                 mapMageWarsEventToFx(entry, visualCore),
                 previousAnchorSnapshots,
             );
-            if (!instruction) continue;
+            if (!instruction) {
+                continue;
+            }
             fxCues.push(instruction.cue);
             const releaseKeys = getDamageReleaseKeysForEvent(event, damageTargets.targetKeys, drivenDamageTargetIds);
             const heldObjectIds = getHeldObjectIdsForEvent(event, heldObjectCandidates);
@@ -528,11 +588,19 @@ export function useMageWarsGameEvents({ G, fxBus, resolveFxAnchorSnapshot }: Use
     const onEffectComplete = useCallback((id: string) => {
         fxImpactMapRef.current.delete(id);
         visualEntityBuffer.releaseOwner(id);
+        const sourceObjectId = meleeFxSourceMapRef.current.get(id);
+        if (sourceObjectId) {
+            meleeFxSourceMapRef.current.delete(id);
+            setMeleeAttack((current) => (
+                current?.sourceObjectId === sourceObjectId ? null : current
+            ));
+        }
     }, [visualEntityBuffer]);
 
     return {
         damageBuffer,
         heldObjects: visualEntityBuffer.heldSnapshots,
+        meleeAttack,
         onEffectImpact,
         onEffectComplete,
         debug,

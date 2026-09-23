@@ -477,8 +477,8 @@ export function resolveBetrayalRoomExploredPayload(
     const drawnCardBaseDetail = drawnCardEffect
         ? formatEffectLabel(drawnCardEffect)
         : roomDiscoveryRewardNames.gained.length > 0
-            ? `符号抽到${drawnCard.name}，按卡面规则持有`
-            : '按卡面规则持有';
+            ? `符号抽到${drawnCard.name}`
+            : null;
     const mummyForcedOmenDetail = mummyForcedOmenDraw.forcedOmenSearch
         ? mummyForcedOmenDraw.forcedOmenSearch.role === 'hero-book'
             ? '木乃伊横行：英雄首次需要预兆时，从预兆堆找出书本并洗牌'

@@ -311,6 +311,7 @@ export function BetrayalLatestDiscoverySurface({
                 actorLabel={rollActorLabel}
                 showSource={false}
                 showRollLabel
+                showOutcome={recentRoll.kind === "eventRolledDamage"}
                 openTable
                 compactResult
                 denseResult={false}

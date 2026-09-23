@@ -556,6 +556,12 @@
       "description": "缠绕藤蔓"
     },
     {
+      "id": "spell-card-2303-frame",
+      "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#2303",
+      "kind": "atlas-frame",
+      "description": "生命巨树默克塔利"
+    },
+    {
       "id": "spell-card-2500-frame",
       "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#2500",
       "kind": "atlas-frame",
@@ -1088,6 +1094,30 @@
       "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#3726",
       "kind": "atlas-frame",
       "description": "摩洛王的折磨"
+    },
+    {
+      "id": "spell-card-3800-frame",
+      "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#3800",
+      "kind": "atlas-frame",
+      "description": "月光项链"
+    },
+    {
+      "id": "spell-card-3801-frame",
+      "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#3801",
+      "kind": "atlas-frame",
+      "description": "阿希拉之戒"
+    },
+    {
+      "id": "spell-card-3802-frame",
+      "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#3802",
+      "kind": "atlas-frame",
+      "description": "群兽之戒"
+    },
+    {
+      "id": "spell-card-3803-frame",
+      "path": "atlas://public/assets/atlas-configs/mage-wars/apprentice-spell-atlases.json#3803",
+      "kind": "atlas-frame",
+      "description": "诅咒之戒"
     },
     {
       "id": "spell-card-back",
@@ -4285,8 +4315,7 @@
             "kind": "enchantment",
             "visibility": "revealed",
             "anchor": "zone"
-          },
-          "unsupportedRules": ["trigger-on-enemy-enter-and-teleport"]
+          }
         },
         "standardStartingRulesName": "传送陷阱",
         "standardStartingMageIds": [
@@ -5316,6 +5345,7 @@
         "attackOrTraitLine": "非活体；精神免疫；无法移动；聚魔4",
         "sourceContract": "docs/games/mage-wars/rule/familiar-spellcasting-card-contract.md",
         "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "atlasId": "spell-conjuration-core-atlas",
         "atlasCardId": 2218,
         "deck": 22,
@@ -5688,6 +5718,14 @@
         "mappingStatus": "single-candidate",
         "deck": 23,
         "slot": 3,
+        "atlasId": "spell-conjuration-core-b-atlas",
+        "atlasCardId": 2303,
+        "frame": {
+          "left": 0.428571,
+          "top": 0,
+          "width": 0.142857,
+          "height": 0.25
+        },
         "semantics": {
           "abilityKind": "visible-area-conjuration",
           "attachment": {
@@ -5695,9 +5733,12 @@
             "visibility": "revealed",
             "anchor": "zone"
           }
-        },
-        "assetStatus": "blocked-missing-runtime-atlas"
-      }
+        }
+      },
+      "assetRefs": [
+        "spell-card-2303-frame",
+        "spell-card-back"
+      ]
     },
     {
       "id": "spell-2500",
@@ -8177,8 +8218,24 @@
         "level": 3,
         "targetRule": "0-0` / 区域",
         "attackOrTraitLine": "乌鸦：快速近战1骰，穿刺+1；飞行；小型；传奇",
+        "combatProfiles": {
+          "attacks": [
+            {
+              "id": "attack-0",
+              "name": "乌鸦",
+              "action": "quick",
+              "rangeKind": "melee",
+              "diceCount": 1,
+              "pierce": 1,
+              "strikeCount": 1,
+              "damageTypes": []
+            }
+          ],
+          "defenses": []
+        },
         "sourceContract": "docs/games/mage-wars/rule/familiar-spellcasting-card-contract.md",
         "contractStatus": "locked",
+        "requiresCodeSupport": false,
         "atlasId": "spell-creature-core-b-atlas",
         "atlasCardId": 2908,
         "deck": 29,
@@ -10983,7 +11040,7 @@
         "typeLine": "装备",
         "sourceContract": "docs/games/mage-wars/rule/standard-starting-spellbooks.md",
         "contractStatus": "locked",
-        "requiresCodeSupport": true,
+        "requiresCodeSupport": false,
         "standardStartingRulesName": "恐惧头盔",
         "standardStartingMageIds": [
           "warlock_apprentice"
@@ -11282,11 +11339,22 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 0,
+        "atlasId": "spell-equipment-core-b-atlas",
+        "atlasCardId": 3800,
+        "frame": {
+          "left": 0,
+          "top": 0,
+          "width": 0.142857,
+          "height": 0.25
+        },
         "equipmentTraits": {
           "channeling": 1
-        },
-        "assetStatus": "blocked-missing-runtime-atlas"
-      }
+        }
+      },
+      "assetRefs": [
+        "spell-card-3800-frame",
+        "spell-card-back"
+      ]
     },
     {
       "id": "spell-3801",
@@ -11320,6 +11388,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 1,
+        "atlasId": "spell-equipment-core-b-atlas",
+        "atlasCardId": 3801,
+        "frame": {
+          "left": 0.142857,
+          "top": 0,
+          "width": 0.142857,
+          "height": 0.25
+        },
         "equipmentTraits": {
           "spellCostReduction": {
             "amount": 1,
@@ -11327,9 +11403,12 @@
             "schoolLineIncludes": ["圣光"],
             "revealOnlyForEnchantments": true
           }
-        },
-        "assetStatus": "blocked-missing-runtime-atlas"
-      }
+        }
+      },
+      "assetRefs": [
+        "spell-card-3801-frame",
+        "spell-card-back"
+      ]
     },
     {
       "id": "spell-3802",
@@ -11363,6 +11442,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 2,
+        "atlasId": "spell-equipment-core-b-atlas",
+        "atlasCardId": 3802,
+        "frame": {
+          "left": 0.285714,
+          "top": 0,
+          "width": 0.142857,
+          "height": 0.25
+        },
         "equipmentTraits": {
           "spellCostReduction": {
             "amount": 1,
@@ -11370,9 +11457,12 @@
             "spellType": "生物",
             "typeLineIncludes": ["动物"]
           }
-        },
-        "assetStatus": "blocked-missing-runtime-atlas"
-      }
+        }
+      },
+      "assetRefs": [
+        "spell-card-3802-frame",
+        "spell-card-back"
+      ]
     },
     {
       "id": "spell-3803",
@@ -11406,6 +11496,14 @@
         "mappingStatus": "single-candidate",
         "deck": 38,
         "slot": 3,
+        "atlasId": "spell-equipment-core-b-atlas",
+        "atlasCardId": 3803,
+        "frame": {
+          "left": 0.428571,
+          "top": 0,
+          "width": 0.142857,
+          "height": 0.25
+        },
         "equipmentTraits": {
           "spellCostReduction": {
             "amount": 1,
@@ -11413,9 +11511,12 @@
             "typeLineIncludes": ["诅咒"],
             "revealOnlyForEnchantments": true
           }
-        },
-        "assetStatus": "blocked-missing-runtime-atlas"
-      }
+        }
+      },
+      "assetRefs": [
+        "spell-card-3803-frame",
+        "spell-card-back"
+      ]
     }
   ],
   "decks": [

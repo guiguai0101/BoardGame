@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ZoomIn } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { CardPreviewRef } from '../../core';
 import { EndgameOverlay } from '../../components/game/framework/widgets/EndgameOverlay';
 import { ZoomPanViewport } from '../../components/game/framework';
@@ -87,6 +88,7 @@ import {
     mageWarsPlayerDamageKey,
     useMageWarsGameEvents,
     MAGE_WARS_ARENA_FX_SURFACE_ID,
+    type MageWarsMeleeAttackVisual,
 } from './ui/useGameEvents';
 import {
     canMageWarsObjectUsePostMoveQuickAction,
@@ -289,6 +291,7 @@ function CardInspectButton({
     readableCompact = false,
     alwaysVisible = false,
     revealOnGroupHover = true,
+    placement = 'inside',
     onInspect,
 }: {
     title: string;
@@ -297,6 +300,7 @@ function CardInspectButton({
     readableCompact?: boolean;
     alwaysVisible?: boolean;
     revealOnGroupHover?: boolean;
+    placement?: 'inside' | 'outside';
     onInspect: () => void;
 }) {
     const { t } = useTranslation('game-mage-wars');
@@ -317,7 +321,8 @@ function CardInspectButton({
         <button
             type="button"
             className={cx(
-                'absolute right-1 top-1 z-40 grid place-items-center rounded-full border border-amber-100/55 bg-black/74 text-amber-50 shadow-[0_6px_14px_rgba(0,0,0,0.5)] transition-[opacity,border-color,background-color,color] duration-150 hover:border-amber-100 hover:bg-amber-300 hover:text-stone-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100',
+                'absolute z-40 grid place-items-center rounded-full border border-amber-100/55 bg-black/74 text-amber-50 shadow-[0_6px_14px_rgba(0,0,0,0.5)] transition-[opacity,border-color,background-color,color] duration-150 hover:border-amber-100 hover:bg-amber-300 hover:text-stone-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100',
+                placement === 'outside' ? '-right-6 top-0' : 'right-1 top-1',
                 compact && (readableCompact ? 'h-10 w-10' : 'h-5 w-5'),
                 shouldShowInspectButton
                     ? 'pointer-events-auto opacity-100'
@@ -483,6 +488,7 @@ function EntityStatusTokenRail({
         )}
             style={tokenRailStyle}
             data-testid="mage-wars-entity-status-token-rail"
+            data-visual-role="entity-status-tokens"
             data-token-rail-position="entity-left-inside-midline"
             data-token-rail-axis="vertical"
             data-token-rail-placement="inside"
@@ -1428,6 +1434,7 @@ function ZoneFieldCard({
     visualHeld = false,
     showLifeTotals = false,
     fxAnchorRef,
+    meleeAttack,
 }: {
     cardId: number;
     object?: MageWarsArenaObjectState;
@@ -1442,7 +1449,8 @@ function ZoneFieldCard({
     visualLife?: number;
     visualHeld?: boolean;
     showLifeTotals?: boolean;
-    fxAnchorRef?: (element: HTMLButtonElement | null) => void;
+    fxAnchorRef?: (element: HTMLElement | null) => void;
+    meleeAttack?: MageWarsMeleeAttackVisual | null;
 }) {
     const { t } = useTranslation('game-mage-wars');
     const previewRef = getMageWarsSpellCardPreviewRef(cardId);
@@ -1474,6 +1482,15 @@ function ZoneFieldCard({
     const primaryActionEnabled = Boolean(onClick);
     const hasBrowseInspectAction = !hasPrimaryActionIntent && Boolean(onInspect);
     const hasSecondaryInspect = Boolean(hasPrimaryActionIntent && onInspect);
+    const isMeleeAttacker = Boolean(object?.id && meleeAttack?.sourceObjectId === object.id);
+    const meleeLungeX = isMeleeAttacker && meleeAttack
+        ? ((meleeAttack.targetSnapshot.center.xPct - meleeAttack.sourceSnapshot.center.xPct)
+            / Math.max(meleeAttack.sourceSnapshot.box.width, 0.1)) * 70
+        : 0;
+    const meleeLungeY = isMeleeAttacker && meleeAttack
+        ? ((meleeAttack.targetSnapshot.center.yPct - meleeAttack.sourceSnapshot.center.yPct)
+            / Math.max(meleeAttack.sourceSnapshot.box.height, 0.1)) * 70
+        : 0;
     const objectTutorialTargetId = object ? `mw-arena-object-${object.id}` : undefined;
     const primaryTutorialId = objectTutorialTargetId && tutorialHighlightTarget === objectTutorialTargetId
         ? objectTutorialTargetId
@@ -1528,7 +1545,7 @@ function ZoneFieldCard({
     );
 
     const primaryButton = (
-        <button
+        <motion.button
             type="button"
             className={cx(
                 'group relative block h-full w-full rounded-[0.18rem] text-left shadow-[0_14px_30px_rgba(0,0,0,0.48)] transition-[filter,box-shadow,opacity] duration-150',
@@ -1544,8 +1561,23 @@ function ZoneFieldCard({
                             : 'pointer-events-none',
                 (primaryActionEnabled || hasBrowseInspectAction) && 'hover:brightness-110 hover:shadow-[0_0_24px_rgba(251,191,36,0.32)]',
             )}
-            ref={fxAnchorRef}
             style={cardSizeStyle}
+            animate={isMeleeAttacker ? {
+                x: ['0%', `${meleeLungeX}%`, `${meleeLungeX}%`, '0%'],
+                y: ['0%', `${meleeLungeY}%`, `${meleeLungeY}%`, '0%'],
+                scale: [1, 1.04, 1.04, 1],
+            } : {
+                x: '0%',
+                y: '0%',
+                scale: 1,
+            }}
+            transition={isMeleeAttacker ? {
+                duration: 1.25,
+                times: [0, 0.336, 0.4, 1],
+                ease: 'easeInOut',
+            } : { duration: 0 }}
+            data-melee-lunge-active={isMeleeAttacker ? 'true' : undefined}
+            data-melee-lunge-event-id={isMeleeAttacker ? meleeAttack?.attackEventId : undefined}
             disabled={!primaryActionEnabled && !hasBrowseInspectAction && !hasSecondaryInspect}
             aria-disabled={!primaryActionEnabled && (hasPrimaryActionIntent || hasSecondaryInspect) ? 'true' : undefined}
             {...touchInspectProps}
@@ -1585,11 +1617,15 @@ function ZoneFieldCard({
                 />
             ) : null}
             {content}
-        </button>
+        </motion.button>
     );
 
     return (
-        <div className={cx('group relative z-20 shrink-0 overflow-visible', cardHeightClass)} style={cardSizeStyle}>
+        <div
+            ref={fxAnchorRef}
+            className={cx('group relative z-20 shrink-0 overflow-visible', cardHeightClass)}
+            style={cardSizeStyle}
+        >
             {primaryButton}
             {hasSecondaryInspect ? (
                 <CardInspectButton
@@ -1739,7 +1775,7 @@ function ArenaAttachmentCard({
                         title={title}
                         sourceCardId={object.sourceSpellCardId}
                         compact
-                        readableCompact
+                        placement="outside"
                         onInspect={onInspect!}
                     />
                 ) : null}
@@ -2493,6 +2529,7 @@ function ArenaStage({
     onFxImpact,
     onFxComplete,
     fxAnchors,
+    meleeAttack,
     getVisualObjectDamage,
     getVisualPlayerDamage,
     showLifeTotals = false,
@@ -2543,6 +2580,7 @@ function ArenaStage({
     onFxImpact?: (id: string, cue: string) => void;
     onFxComplete?: (id: string, cue: string) => void;
     fxAnchors: FxAnchorRegistry;
+    meleeAttack?: MageWarsMeleeAttackVisual | null;
     getVisualObjectDamage: (object: MageWarsArenaObjectState) => number;
     getVisualPlayerDamage: (player: MageWarsPlayerState) => number;
     showLifeTotals?: boolean;
@@ -2937,6 +2975,7 @@ function ArenaStage({
                                     visualLife={resolveMageWarsObjectEffectiveLife(core, object)}
                                     visualHeld={visualHeld}
                                     showLifeTotals={showLifeTotals}
+                                    meleeAttack={meleeAttack}
                                     role={fieldRole}
                                     primaryActionIntent={fieldCardInPrimaryActionFamily}
                                     onClick={isObjectAbilityTarget || isMageAbilityTarget
@@ -4898,6 +4937,9 @@ export default function MageWarsBoard({ G, playerID, dispatch, reset, matchData,
                 className="absolute inset-0 z-10"
                 data-testid="mage-wars-arena-viewport-shell"
                 data-tutorial-id="mw-stage"
+                style={{
+                    bottom: `calc(${desktopBottomGap}px + var(--mage-wars-desktop-spellbook-card-height, var(--mage-wars-desktop-card-height, 14rem)) + var(--mage-wars-desktop-section-gap, 1.125rem))`,
+                }}
             >
                 <ZoomPanViewport
                     initialScale={0.6}
@@ -4967,6 +5009,7 @@ export default function MageWarsBoard({ G, playerID, dispatch, reset, matchData,
                         onFxImpact={mageWarsEvents.onEffectImpact}
                         onFxComplete={mageWarsEvents.onEffectComplete}
                         fxAnchors={fxAnchors}
+                        meleeAttack={mageWarsEvents.meleeAttack}
                         getVisualObjectDamage={getVisualObjectDamage}
                         getVisualPlayerDamage={getVisualPlayerDamage}
                         showLifeTotals={showBoardLifeTotals}

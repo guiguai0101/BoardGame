@@ -203,6 +203,9 @@ describe('latest discovery presentation', () => {
        isConfirmedExorciseRoll: false,
       pendingEventChoice: null,
       shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
       latestDiscoverySearchRevealIndex: 0,
       eventRollConfirmation: {
         requiredPlayerIds: [],
@@ -281,6 +284,9 @@ describe('latest discovery presentation', () => {
       isConfirmedExorciseRoll: false,
       pendingEventChoice: null,
       shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
       latestDiscoverySearchRevealIndex: 0,
       eventRollConfirmation: {
         requiredPlayerIds: [],
@@ -371,6 +377,9 @@ describe('latest discovery presentation', () => {
          isConfirmedExorciseRoll: false,
         pendingEventChoice: null,
         shouldShowHauntRevealCue: false,
+        shouldPauseHauntBoardActions: false,
+        scenarioReaderOpen: false,
+        shouldShowScenarioStartOpening: false,
         latestDiscoverySearchRevealIndex: 0,
         eventRollConfirmation: {
           requiredPlayerIds: [],
@@ -395,6 +404,154 @@ describe('latest discovery presentation', () => {
     expect(createPanel(['0'], '0').shouldShow).toBe(true);
     expect(createPanel(['0', '1'], '1').shouldShow).toBe(true);
     expect(createPanel(['0', '1', '2'], '2').shouldShow).toBe(false);
+  });
+
+  it('restores a dismissed event roll after undo while the viewer is still required', () => {
+    const currentDiscovery = discovery('event', '地狱蝙蝠');
+    const recentRoll = {
+      id: 'event-dice-roll',
+      kind: 'eventDiceRoll',
+      playerId: '4',
+      sourceTitle: '地狱蝙蝠',
+      rollLabel: '速度骰',
+      dice: [0, 2, 2],
+      passiveBonus: 0,
+      latestLabel: '总点数 4',
+      consumedRabbitFootCardIds: [],
+      requiredPlayerIds: ['0', '1', '2', '3'],
+      acknowledgedPlayerIds: ['1', '2', '3'],
+    } as unknown as BetrayalCore['recentRoll'];
+    const core = {
+      playerIds: ['0', '1', '2', '3', '4'],
+      latestDiscovery: currentDiscovery,
+      latestDiscoveryOwnerPlayerId: '4',
+      recentRoll,
+      activityLog: [{ id: 'event-log', text: '地狱蝙蝠', tone: 'accent' }],
+      pendingCardResolutionQueue: [],
+      pendingEventChoice: null,
+      pendingEventRollStart: null,
+      pendingEventRollResolution: {
+        rollId: recentRoll.id,
+        playerId: '4',
+        sourceTitle: '地狱蝙蝠',
+        effect: { mode: 'none' },
+        requiredPlayerIds: ['0', '1', '2', '3'],
+        acknowledgedPlayerIds: ['1', '2', '3'],
+        requiresAcknowledgement: true,
+      },
+      turnEndedByDiscovery: true,
+    } as unknown as BetrayalCore;
+    const currentEntry = buildLatestDiscoveryDisplayEntry(core);
+    expect(currentEntry).not.toBeNull();
+
+    const selection = resolveBetrayalLatestDiscoverySelectionPresentation({
+      core,
+      currentEntry,
+      queue: [],
+      dismissedLatestDiscoveryKey: currentEntry!.key,
+      dismissedLatestDiscoveryKeys: new Set([currentEntry!.key]),
+    });
+    const panel = resolveBetrayalLatestDiscoveryPanelPresentation({
+      core,
+      selection,
+      dismissedLatestDiscoveryKey: currentEntry!.key,
+      dismissedRecentRollId: null,
+      viewerPlayerId: '0',
+      inventoryActionPlayerId: '0',
+      hasRecentRollModifier: false,
+      isConfirmedExorciseRoll: false,
+      pendingEventChoice: null,
+      shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
+      latestDiscoverySearchRevealIndex: 0,
+      eventRollConfirmation: {
+        requiredPlayerIds: ['0', '1', '2', '3'],
+        acknowledgedPlayerIds: ['1', '2', '3'],
+        confirmedCount: 3,
+        totalCount: 4,
+        viewerHasAcknowledged: false,
+        canViewerAcknowledge: true,
+      },
+      isRecentRollReadable: true,
+      t: (key, params) =>
+        key === 'board.discovery.confirmWithProgress'
+          ? `确认 ${params?.confirmed}/${params?.total}`
+          : key,
+    });
+
+    expect(selection.entry?.key).toBe(currentEntry!.key);
+    expect(panel.shouldShow).toBe(true);
+    expect(panel.continueButton.disabled).toBe(false);
+    expect(panel.continueButton.eventRollConfirmedCount).toBe(3);
+    expect(panel.continueButton.eventRollRequiredCount).toBe(4);
+  });
+
+  it('keeps table chrome visible after a resolved event roll review', () => {
+    const currentDiscovery = discovery('event', '地下回声');
+    const recentRoll = {
+      id: 'event-trait-roll',
+      kind: 'eventTraitCheck',
+      playerId: '0',
+      sourceTitle: '地下回声',
+      trait: 'knowledge',
+      rollLabel: '知识检定',
+      dice: [3],
+      passiveBonus: 0,
+      latestLabel: '检定成功',
+      consumedRabbitFootCardIds: [],
+    } as unknown as BetrayalCore['recentRoll'];
+    const core = {
+      playerIds: ['0'],
+      latestDiscovery: currentDiscovery,
+      latestDiscoveryOwnerPlayerId: '0',
+      recentRoll,
+      activityLog: [{ id: 'event-log', text: '地下回声', tone: 'accent' }],
+      pendingCardResolutionQueue: [],
+      pendingEventChoice: null,
+      pendingEventRollStart: null,
+      pendingEventRollResolution: null,
+      turnEndedByDiscovery: true,
+    } as unknown as BetrayalCore;
+    const currentEntry = buildLatestDiscoveryDisplayEntry(core);
+    const selection = resolveBetrayalLatestDiscoverySelectionPresentation({
+      core,
+      currentEntry,
+      queue: [],
+      dismissedLatestDiscoveryKey: null,
+      dismissedLatestDiscoveryKeys: new Set(),
+    });
+    const panel = resolveBetrayalLatestDiscoveryPanelPresentation({
+      core,
+      selection,
+      dismissedLatestDiscoveryKey: null,
+      dismissedRecentRollId: null,
+      viewerPlayerId: '0',
+      inventoryActionPlayerId: '0',
+      hasRecentRollModifier: false,
+      isConfirmedExorciseRoll: false,
+      pendingEventChoice: null,
+      shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
+      latestDiscoverySearchRevealIndex: 0,
+      eventRollConfirmation: {
+        requiredPlayerIds: [],
+        acknowledgedPlayerIds: [],
+        confirmedCount: 0,
+        totalCount: 0,
+        viewerHasAcknowledged: false,
+        canViewerAcknowledge: false,
+      },
+      isRecentRollReadable: true,
+      t: (key) => key,
+    });
+
+    expect(panel.shouldShow).toBe(false);
+    expect(panel.shouldShowRecentRollReview).toBe(true);
+    expect(panel.shouldHideTableChromeForBlockingOverlay).toBe(false);
   });
 
   it('keeps the table chrome open while event damage is shown as an independent roll', () => {
@@ -449,6 +606,9 @@ describe('latest discovery presentation', () => {
        isConfirmedExorciseRoll: false,
       pendingEventChoice: null,
       shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
       latestDiscoverySearchRevealIndex: 0,
       eventRollConfirmation: {
         requiredPlayerIds: [],

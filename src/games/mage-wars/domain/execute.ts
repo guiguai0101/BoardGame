@@ -1485,15 +1485,81 @@ export interface MageWarsBasicAttackResolutionParams {
     random: RandomFn;
     attackerId: PlayerId;
     defenderId: PlayerId;
+    skipFearHelmet?: boolean;
+}
+
+function resolveMageWarsBasicAttackFearHelmetEvents(
+    params: MageWarsBasicAttackResolutionParams,
+): MageWarsEvent[] {
+    const { state, sourceCommandType, timestamp, random, attackerId, defenderId } = params;
+    const defender = state.core.players[defenderId];
+    if (!defender || isMageWarsFearHelmetAttackBlocked(state.core, defenderId, attackerId)) return [];
+
+    const fearHelmet = resolveMageWarsFearHelmetForMage(state.core, defenderId);
+    if (!fearHelmet) return [];
+
+    const effectDieResult = random.d(12);
+    if (effectDieResult < 9) return [];
+
+    return [{
+        type: MAGE_WARS_EVENTS.ATTACK_DECLARED,
+        payload: {
+            attackerId,
+            defenderId,
+            diceResults: [],
+            effectDieResult,
+            baseDamage: 0,
+        },
+        sourceCommandType,
+        timestamp,
+    }, {
+        type: MAGE_WARS_EVENTS.FEAR_HELMET_TRIGGERED,
+        payload: {
+            helmetObjectId: fearHelmet.id,
+            attackerId,
+            roundNumber: state.core.turnNumber,
+        },
+        sourceCommandType,
+        timestamp,
+    }, {
+        type: MAGE_WARS_EVENTS.FEAR_HELMET_AVAILABLE,
+        payload: {
+            ownerId: fearHelmet.anchoredToPlayerId ?? fearHelmet.ownerId,
+            helmetObjectId: fearHelmet.id,
+            attackerId,
+            targetPlayerId: defenderId,
+            attackProfileId: 'mage-basic-melee',
+            allowCounterstrikeOpportunity: false,
+            removeGuardAfterMelee: false,
+            strikeIndex: 0,
+            strikeCount: 1,
+            effectDieResult,
+        },
+        sourceCommandType,
+        timestamp,
+    }];
 }
 
 export function resolveMageWarsBasicAttackEvents(
     params: MageWarsBasicAttackResolutionParams,
 ): MageWarsEvent[] {
-    const { state, sourceCommandType, timestamp, random, attackerId, defenderId } = params;
+    const {
+        state,
+        sourceCommandType,
+        timestamp,
+        random,
+        attackerId,
+        defenderId,
+        skipFearHelmet = false,
+    } = params;
     const attacker = state.core.players[attackerId];
     const defender = state.core.players[defenderId];
     if (!attacker || !defender) return [];
+
+    if (!skipFearHelmet) {
+        const fearHelmetEvents = resolveMageWarsBasicAttackFearHelmetEvents(params);
+        if (fearHelmetEvents.length > 0) return fearHelmetEvents;
+    }
 
     if (hasMageWarsDazeStatus(attacker)) {
         const effectDieResult = random.d(12);
@@ -1998,6 +2064,15 @@ export function executeCommand(
         case MAGE_WARS_COMMANDS.DECLARE_ATTACK: {
             const defender = state.core.players[command.payload.targetPlayerId];
             if (!defender) return [];
+            const fearHelmetEvents = resolveMageWarsBasicAttackFearHelmetEvents({
+                state,
+                sourceCommandType: command.type,
+                timestamp,
+                random,
+                attackerId: command.playerId,
+                defenderId: defender.id,
+            });
+            if (fearHelmetEvents.length > 0) return fearHelmetEvents;
             const defenseAvailable = createMageDefenseAvailableEvent(
                 state.core,
                 command.type,
@@ -2016,6 +2091,7 @@ export function executeCommand(
                     random,
                     attackerId: command.playerId,
                     defenderId: defender.id,
+                    skipFearHelmet: true,
                 });
         }
 

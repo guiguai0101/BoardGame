@@ -57,8 +57,12 @@ type BetrayalHarnessWindow = Window & {
         core: BetrayalCore;
         sys?: {
           actionLog?: { entries?: unknown[] };
-          undo?: { snapshots?: unknown[] };
+          undo?: {
+            snapshots?: unknown[];
+            rollbackRevision?: number;
+          };
         };
+        set?: (nextState: unknown) => unknown;
       };
     };
   };
@@ -108,6 +112,30 @@ async function readCurrentCore(page: Page): Promise<BetrayalCore> {
       throw new Error("山屋 E2E 无法读取当前核心状态");
     }
     return snapshot.core;
+  });
+}
+
+async function advanceAuthoritativeRollbackRevision(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const harness = (
+      window as BetrayalHarnessWindow
+    ).__BG_TEST_HARNESS__;
+    const state = harness?.state;
+    const snapshot = state?.get?.();
+    if (!snapshot || !state?.set) {
+      throw new Error("山屋 E2E 无法推进权威撤回版本");
+    }
+    const currentRevision = snapshot.sys?.undo?.rollbackRevision ?? 0;
+    state.set({
+      ...snapshot,
+      sys: {
+        ...snapshot.sys,
+        undo: {
+          ...snapshot.sys?.undo,
+          rollbackRevision: currentRevision + 1,
+        },
+      },
+    });
   });
 }
 
@@ -449,6 +477,88 @@ test.describe("山屋惊魂日志与撤回截图验收", () => {
     assertNoFatalFrontendErrors([
       { label: "betrayal-action-log-undo-screenshots", diagnostics },
     ]);
+  });
+
+  test("撤回恢复同一事件骰后仍显示真人确认入口", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120000);
+    await initBetrayalContext(context);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await warmBetrayalFrontend(context);
+    await page.goto(NAMED_PLAYER_ROUTE, { waitUntil: "domcontentloaded" });
+    await waitForBetrayalPageReady(page);
+
+    await injectCore(page, createEventScreenshotCore());
+    await expect(page.getByTestId("betrayal-board")).toBeVisible({
+      timeout: 30000,
+    });
+    await page.getByTestId("betrayal-action-move").click();
+    await page.getByTestId("betrayal-room-hallway").click();
+    await page.getByTestId("betrayal-action-explore").click();
+    await page.getByTestId("betrayal-room-ground-north").click();
+    await expect(page.getByTestId("betrayal-room-placement-panel")).toBeVisible();
+    await setHarnessRandomQueue(page, [0.834, 0.834]);
+    await page.getByTestId("betrayal-room-placement-confirm").click();
+
+    const eventRollStart = page.getByTestId("betrayal-event-roll-start");
+    await expect(eventRollStart).toBeVisible();
+    await setHarnessRandomQueue(page, [0.834, 0.834]);
+    await eventRollStart.click();
+    await expectEventRollWorkbenchReadable(page, "撤回恢复前的事件骰", {
+      expectedEventFrameIndex: "25",
+    });
+
+    const pendingBeforeResolution = structuredClone(await readCurrentCore(page));
+    const pendingResolution = pendingBeforeResolution.pendingEventRollResolution;
+    expect(pendingResolution).not.toBeNull();
+    const requiredPlayerIds = pendingResolution?.requiredPlayerIds ?? [];
+    expect(requiredPlayerIds).toContain("0");
+
+    for (const playerId of requiredPlayerIds.filter((id) => id !== "0")) {
+      await dispatchHarnessCommand(page, BETRAYAL_COMMANDS.FINALIZE_EVENT_ROLL, playerId, {
+        rollId: pendingResolution!.rollId,
+      });
+    }
+    await expect
+      .poll(async () => (await readCurrentCore(page)).pendingEventRollResolution?.acknowledgedPlayerIds ?? [], {
+        message: "事件骰应先保留真人 0 的待确认状态",
+      })
+      .toEqual(expect.arrayContaining(requiredPlayerIds.filter((id) => id !== "0")));
+
+    const restoredCore = structuredClone(await readCurrentCore(page));
+    await dispatchHarnessCommand(page, BETRAYAL_COMMANDS.FINALIZE_EVENT_ROLL, "0", {
+      rollId: pendingResolution!.rollId,
+    });
+    await expect
+      .poll(async () => (await readCurrentCore(page)).pendingEventRollResolution ?? null, {
+        message: "首次事件骰确认后应完成结算",
+      })
+      .toBeNull();
+
+    await injectCore(page, restoredCore);
+    await advanceAuthoritativeRollbackRevision(page);
+    const discoveryPanel = page.getByTestId("betrayal-discovery-panel");
+    const continueButton = page.getByTestId("betrayal-discovery-continue");
+    await expect(discoveryPanel).toBeVisible();
+    await expect(continueButton).toBeVisible();
+    await expect(continueButton).toBeEnabled();
+    await expect(continueButton).toHaveAttribute(
+      "data-event-roll-confirmed-count",
+      String((requiredPlayerIds.length ?? 0) - 1),
+    );
+    await expect(continueButton).toHaveAttribute(
+      "data-event-roll-required-count",
+      String(requiredPlayerIds.length),
+    );
+    await expect(continueButton).toHaveAttribute("data-event-roll-readable", "true");
+    await continueButton.click();
+    await expect
+      .poll(async () => (await readCurrentCore(page)).pendingEventRollResolution ?? null, {
+        message: "撤回恢复后真人确认应继续完成事件骰结算",
+      })
+      .toBeNull();
   });
 
   test("无线电广播低点数分支从触发到精神伤害结算与日志完整可见", async ({
@@ -855,7 +965,7 @@ test.describe("山屋惊魂日志与撤回截图验收", () => {
     await expect(eventRollPanel).toBeVisible();
     await expect(
       eventRollPanel.getByTestId("betrayal-recent-roll-thresholds"),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(eventRollPanel).toContainText("受到一颗骰子的精神伤害");
 
     let currentCore = await readCurrentCore(page);
@@ -921,7 +1031,7 @@ test.describe("山屋惊魂日志与撤回截图验收", () => {
     await expect(discoveryPanel.getByTestId("betrayal-discovery-continue")).toContainText(
       "确认 2/3",
     );
-    await expect(eventRollPanel.getByTestId("betrayal-recent-roll-thresholds")).toBeVisible();
+    await expect(eventRollPanel.getByTestId("betrayal-recent-roll-thresholds")).toHaveCount(0);
     await expect(page.getByText("知识、神志")).toHaveCount(0);
     await saveScreenshot(page, RADIO_MULTI_CONFIRM_SECOND_SCREENSHOT);
 

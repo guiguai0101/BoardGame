@@ -5646,8 +5646,8 @@ describe('Betrayal Board foundation', () => {
         expect(screen.getByTestId('betrayal-discovery-visible-detail')).not.toHaveTextContent(
             '总点数',
         );
-        expect(screen.getByTestId('betrayal-recent-roll-panel')).not.toHaveTextContent(
-            '判定要求',
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).toHaveTextContent(
+            '判定要求（总点数）：达到 5 点或以上：作祟开始 · 低于 5 点：未触发作祟',
         );
         expect(screen.getByTestId('betrayal-discovery-visible-detail')).toHaveTextContent('知识 +1');
         expect(screen.getByTestId('betrayal-discovery-detail')).toHaveTextContent('知识 +1');
@@ -5804,7 +5804,7 @@ describe('Betrayal Board foundation', () => {
         expect(steps[1]).toHaveTextContent('事件效果');
         expect(steps[1]).toHaveTextContent('知识 +1');
         expect(screen.getByTestId('betrayal-discovery-panel')).toHaveAttribute('data-backdrop-dismiss', 'disabled');
-        expect(screen.getByTestId('betrayal-discovery-continue')).toHaveTextContent('确认');
+        expect(screen.getByTestId('betrayal-discovery-continue')).toHaveTextContent('确认 0/4');
         expect(screen.getByTestId('betrayal-discovery-continue')).toHaveAttribute('data-pending-card-resolution-step', '1/2');
         fireEvent.click(screen.getByTestId('betrayal-discovery-continue'));
         expect(screen.getByTestId('betrayal-discovery-continue')).toHaveAttribute('data-pending-card-resolution-step', '2/2');
@@ -5853,17 +5853,23 @@ describe('Betrayal Board foundation', () => {
         expect(screen.getByTestId('betrayal-discovery-detail')).not.toHaveTextContent(
             /作祟检定|总点数|已触发|未触发/,
         );
-        expect(screen.getByTestId('betrayal-recent-roll-panel')).not.toHaveTextContent(
-            '判定要求',
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).toHaveTextContent(
+            '判定要求（总点数）：达到 5 点或以上：作祟开始 · 低于 5 点：未触发作祟',
         );
         expect(screen.getByTestId('betrayal-discovery-continue')).toHaveAttribute(
             'data-card-resolution-required-count',
             '4',
         );
         expect(screen.getByTestId('betrayal-discovery-panel')).toHaveAttribute('data-backdrop-dismiss', 'disabled');
-        expect(screen.getByTestId('betrayal-discovery-continue')).toHaveTextContent('确认');
+        expect(screen.getByTestId('betrayal-discovery-continue')).toHaveTextContent('确认 0/4');
         expect(screen.getByTestId('betrayal-discovery-continue')).toHaveAttribute('data-pending-card-resolution-step', '1/1');
         expect(screen.getByTestId('betrayal-recent-roll-panel')).toBeInTheDocument();
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).toHaveTextContent(
+            '达到 5 点或以上：作祟开始',
+        );
+        expect(screen.getByTestId('betrayal-recent-roll-panel')).toHaveTextContent(
+            '低于 5 点：未触发作祟',
+        );
         expect(screen.getByTestId('betrayal-house-dice-3d-group')).toHaveAttribute(
             'data-dice-count',
             String(expectedHauntDiceCount),
@@ -5888,7 +5894,7 @@ describe('Betrayal Board foundation', () => {
             'data-result-emphasis',
             'primary-total',
         );
-        expect(screen.getByTestId('betrayal-recent-roll-outcome')).toHaveTextContent('未触发作祟');
+        expect(screen.queryByTestId('betrayal-recent-roll-outcome')).not.toBeInTheDocument();
         expect(screen.queryByTestId('betrayal-recent-roll-stage-surface')).not.toBeInTheDocument();
         expect(screen.getByTestId('betrayal-recent-roll-breakdown')).toBeInTheDocument();
         expect(screen.getByTestId('betrayal-recent-roll-subtotal')).toHaveTextContent('骰面合计');

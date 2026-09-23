@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePendingEventRollResolutionRequiredPlayerIds } from '../acknowledgementReadModel';
+import {
+    resolvePendingEventRollResolutionRequiredPlayerIds,
+    resolveRoomExploredCardResolutionRequiredPlayerIds,
+} from '../acknowledgementReadModel';
 import { resolveBetrayalHauntSpecialActionStatus } from '../hauntSpecialActionReadModel';
 import {
     acknowledgePendingCardResolutions,
@@ -41,6 +44,40 @@ import {
 } from './helpers/firstScenarioRuntimeHarness';
 
 describe('Betrayal first scenario runtime - possessions and recent-roll rerolls', () => {
+it('会让可介入或改写骰子结果的物品等待全员确认，普通物品仍由获得者确认', () => {
+        const core = createStartedFirstScenarioCore();
+        const baseEvent = {
+            payload: {
+                playerId: '0',
+                deckKind: 'item' as const,
+                roomDiscoveryCards: [],
+                buriedRoomDiscoveryCards: [],
+            },
+        };
+
+        expect(resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
+            ...baseEvent,
+            payload: {
+                ...baseEvent.payload,
+                drawnCard: { id: 'map', kind: 'item' as const },
+            },
+        })).toEqual(['0']);
+        expect(resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
+            ...baseEvent,
+            payload: {
+                ...baseEvent.payload,
+                drawnCard: { id: 'rope', kind: 'item' as const },
+            },
+        })).toEqual(core.playerIds);
+        expect(resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
+            ...baseEvent,
+            payload: {
+                ...baseEvent.payload,
+                drawnCard: { id: 'angel-feather', kind: 'item' as const },
+            },
+        })).toEqual(core.playerIds);
+    });
+
 it('事件结果确认只统计真人，不能被兔脚重投前遗留名单覆盖', () => {
         const core = createStartedFirstScenarioCore();
         core.seatControllers = {

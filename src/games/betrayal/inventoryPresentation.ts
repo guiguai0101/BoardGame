@@ -120,7 +120,7 @@ export function resolvePreviewUseEffectLabel(
   const profile =
     "mode" in cardOrEffect ? cardOrEffect : resolveUseEffect(cardOrEffect);
   if (!profile) {
-    return "按卡面规则持有";
+    return "";
   }
   if (profile.mode === "move") {
     return t("board.useEffects.move", {
@@ -201,13 +201,13 @@ export function resolveInventoryRulesSummary(
       "攻击时可选择十字弓，攻击同板块或相邻板块目标，失败不反伤",
     );
 
-  if (activeLabel !== "按卡面规则持有" && passiveLabels.length > 0) {
+  if (activeLabel && passiveLabels.length > 0) {
     return `${activeLabel}；${passiveLabels.join("；")}`;
   }
-  if (activeLabel !== "按卡面规则持有") {
+  if (activeLabel) {
     return activeLabel;
   }
-  return passiveLabels.length > 0 ? passiveLabels.join("；") : activeLabel;
+  return passiveLabels.join("；");
 }
 
 export type BetrayalInventoryDisplayReadModel = {

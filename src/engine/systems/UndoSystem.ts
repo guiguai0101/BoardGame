@@ -432,6 +432,35 @@ function appendSnapshot<TCore>(
     };
 }
 
+function restoreSnapshotAfterUndo<TCore>(
+    currentState: MatchState<TCore>,
+    previousState: MatchState<TCore>,
+    newSnapshots: unknown[],
+    newCursors: number[],
+    restoredCursor: number,
+): MatchState<TCore> {
+    const currentUndo = currentState.sys.undo as UndoState & { aiSeatIds?: PlayerId[] };
+    const restoredUndo = {
+        ...previousState.sys.undo,
+        ...currentUndo,
+        maxSnapshots: currentUndo.maxSnapshots,
+        snapshots: newSnapshots,
+        snapshotCursors: newCursors,
+        aiSeatIds: normalizeAiSeatIds(currentUndo.aiSeatIds),
+        pendingRequest: undefined,
+        restoredRandomCursor: restoredCursor >= 0 ? restoredCursor : undefined,
+        rollbackRevision: (currentUndo.rollbackRevision ?? 0) + 1,
+    };
+
+    return {
+        ...previousState,
+        sys: {
+            ...previousState.sys,
+            undo: restoredUndo,
+        },
+    };
+}
+
 function handleRequestUndo<TCore>(
     state: MatchState<TCore>,
     requesterId: PlayerId,
@@ -471,20 +500,13 @@ function handleRequestUndo<TCore>(
         
         return {
             halt: true, // 阻止后续执行
-            state: {
-                ...previousState,
-                sys: {
-                    ...previousState.sys,
-                    undo: {
-                        maxSnapshots: undo.maxSnapshots,
-                        snapshots: newSnapshots,
-                        snapshotCursors: newCursors,
-                        aiSeatIds: normalizeAiSeatIds(undo.aiSeatIds),
-                        pendingRequest: undefined,
-                        restoredRandomCursor: restoredCursor >= 0 ? restoredCursor : undefined,
-                    },
-                },
-            },
+            state: restoreSnapshotAfterUndo(
+                state,
+                previousState,
+                newSnapshots,
+                newCursors,
+                restoredCursor,
+            ),
         };
     }
 
@@ -507,20 +529,13 @@ function handleRequestUndo<TCore>(
 
         return {
             halt: true,
-            state: {
-                ...previousState,
-                sys: {
-                    ...previousState.sys,
-                    undo: {
-                        maxSnapshots: undo.maxSnapshots,
-                        snapshots: newSnapshots,
-                        snapshotCursors: newCursors,
-                        aiSeatIds: normalizeAiSeatIds(undo.aiSeatIds),
-                        pendingRequest: undefined,
-                        restoredRandomCursor: restoredCursor >= 0 ? restoredCursor : undefined,
-                    },
-                },
-            },
+            state: restoreSnapshotAfterUndo(
+                state,
+                previousState,
+                newSnapshots,
+                newCursors,
+                restoredCursor,
+            ),
         };
     }
 
@@ -600,20 +615,13 @@ function handleApproveUndo<TCore>(
         
         return {
             halt: true,
-            state: {
-                ...previousState,
-                sys: {
-                    ...previousState.sys,
-                    undo: {
-                        maxSnapshots: undo.maxSnapshots,
-                        snapshots: newSnapshots,
-                        snapshotCursors: newCursors,
-                        aiSeatIds: normalizeAiSeatIds(undo.aiSeatIds),
-                        pendingRequest: undefined,
-                        restoredRandomCursor: restoredCursor >= 0 ? restoredCursor : undefined,
-                    },
-                },
-            },
+            state: restoreSnapshotAfterUndo(
+                state,
+                previousState,
+                newSnapshots,
+                newCursors,
+                restoredCursor,
+            ),
         };
     }
 

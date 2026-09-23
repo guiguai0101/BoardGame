@@ -5,6 +5,7 @@ import {
     resumeAbilityRuntimeContinuationEvent,
 } from '../../domain/abilityRuntime';
 import { getMinionPower } from '../../domain/abilityHelpers';
+import { collectBaseAbilityTriggers } from '../../domain/baseAbilityQueue';
 import { collectTriggers } from '../../domain/ongoingEffects';
 import { getEffectiveBreakpoint } from '../../domain/ongoingModifiers';
 import { maybeResolveReactionQueue } from '../../domain/reactionQueue';
@@ -875,17 +876,23 @@ describe('俄罗斯童话代表性玩法行为', () => {
     });
 
     it('巨型芜菁每有一个随从降低 1 临界点', () => {
-        const core = makeState({
-            bases: [
-                makeBase('base_giant_turnip', [
-                    makeMinion('a', 'russian_fairy_tales_tsar_eagle', '0', 2),
-                    makeMinion('b', 'pirate_first_mate', '1', 2),
-                    makeMinion('c', 'russian_fairy_tales_toad', '0', 0),
-                ]),
-            ],
+        const empty = makeState({ bases: [makeBase('base_giant_turnip')] });
+        const one = makeState({
+            bases: [makeBase('base_giant_turnip', [
+                makeMinion('a', 'russian_fairy_tales_tsar_eagle', '0', 2),
+            ])],
+        });
+        const three = makeState({
+            bases: [makeBase('base_giant_turnip', [
+                makeMinion('a', 'russian_fairy_tales_tsar_eagle', '0', 2),
+                makeMinion('b', 'pirate_first_mate', '1', 2),
+                makeMinion('c', 'russian_fairy_tales_toad', '0', 0),
+            ])],
         });
 
-        expect(getEffectiveBreakpoint(core, 0)).toBe(27);
+        expect(getEffectiveBreakpoint(empty, 0)).toBe(30);
+        expect(getEffectiveBreakpoint(one, 0)).toBe(29);
+        expect(getEffectiveBreakpoint(three, 0)).toBe(27);
     });
 
     it('变形之泉在随从打出后可把该随从变形成牌库顶随从，并记录每回合一次', () => {
@@ -923,6 +930,40 @@ describe('俄罗斯童话代表性玩法行为', () => {
         expect(finalCore.bases[0].minions.map(minion => minion.uid)).toEqual(['deck-minion']);
         expect(finalCore.players['0'].deck.map(card => card.uid)).toEqual(['deck-action', 'played']);
         expect(finalCore.bases[0].metadata?.transformationSpringUsedTurn_0).toBe(1);
+    });
+
+    it('变形之泉通过基地触发收集器可收到正式运行态并进入反应队列', () => {
+        const core = makeState({
+            players: {
+                '0': makePlayer('0'),
+                '1': makePlayer('1'),
+            },
+            bases: [makeBase('base_transformation_spring', [
+                makeMinion('played', 'pirate_first_mate', '0', 2),
+            ])],
+        });
+        const matchState = makeMatchState(core);
+
+        const queued = collectBaseAbilityTriggers({
+            core,
+            matchState,
+            timing: 'onMinionPlayed',
+            ownerPlayerId: '0',
+            baseIndex: 0,
+            triggerMinionUid: 'played',
+            triggerMinionDefId: 'pirate_first_mate',
+            triggerMinionPower: 2,
+            frameId: 'test-frame',
+            sourceEventId: 'test-event',
+            now: 61,
+        });
+
+        expect(queued?.payload.triggers).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                sourceDefId: 'base_transformation_spring',
+                triggerMinionUid: 'played',
+            }),
+        ]));
     });
 
     it('白桦木在拥有者回合开始可自毁，并把白桦木女神作为额外随从打到原基地', () => {

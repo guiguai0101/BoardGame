@@ -210,7 +210,7 @@ describe('小黑屋本地 AI', () => {
             cardName: '幸运硬币',
             discoveryTitle: '幸运硬币',
             stepKind: 'drawn-card',
-            text: '已加入持有区：幸运硬币（按卡面规则持有）',
+            text: '已加入持有区：幸运硬币',
             index: 1,
             total: 1,
         }];
@@ -249,7 +249,7 @@ describe('小黑屋本地 AI', () => {
             cardName: '幸运硬币',
             discoveryTitle: '幸运硬币',
             stepKind: 'drawn-card',
-            text: '已加入持有区：幸运硬币（按卡面规则持有）',
+            text: '已加入持有区：幸运硬币',
             index: 1,
             total: 1,
         }];

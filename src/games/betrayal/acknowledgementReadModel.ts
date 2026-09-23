@@ -6,6 +6,7 @@ import type {
     BetrayalRecentRollState,
 } from './game';
 import type { AiSeatController } from '../../engine/ai/types';
+import { possessionCardRequiresSharedDiscoveryAcknowledgement } from './possessionActionReadModel';
 
 type PlayerRoster = Pick<BetrayalCore, 'playerIds'> & {
     seatControllers?: Record<string, AiSeatController>;
@@ -20,6 +21,10 @@ type RoomExploredCardResolutionEvent = {
     payload: {
         playerId: string;
         deckKind: BetrayalDeckKind | null;
+        drawnCard?: {
+            id: string;
+            kind: BetrayalDeckKind;
+        };
         roomDiscoveryCards?: readonly unknown[];
         buriedRoomDiscoveryCards?: readonly unknown[];
     };
@@ -239,9 +244,12 @@ export function resolveRoomExploredCardResolutionRequiredPlayerIds(
         || event.payload.buriedRoomDiscoveryCards?.length,
     );
     if (
-        !hasRoomDiscoveryProcessCards
-        && event.payload.deckKind === 'item'
+        event.payload.deckKind === 'item'
+        && possessionCardRequiresSharedDiscoveryAcknowledgement(event.payload.drawnCard)
     ) {
+        return resolveHumanAcknowledgementPlayerIds(core, event.payload.playerId);
+    }
+    if (!hasRoomDiscoveryProcessCards && event.payload.deckKind === 'item') {
         return [event.payload.playerId];
     }
     return core.playerIds.length > 0 ? [...core.playerIds] : [event.payload.playerId];

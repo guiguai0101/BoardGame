@@ -122,6 +122,7 @@ export function registerBaseAbilityAsQueuedTrigger(
 
 export function collectBaseAbilityTriggers(params: {
   core: SmashUpCore;
+  matchState?: BaseAbilityContext['matchState'];
   timing: BaseTriggerTimingAsTrigger;
   /** who the rules say is the reacting/deciding player for ordering */
   ownerPlayerId: PlayerId;
@@ -149,6 +150,7 @@ export function collectBaseAbilityTriggers(params: {
 }): TriggerQueuedEvent | undefined {
   const {
     core,
+    matchState,
     timing,
     ownerPlayerId,
     baseIndex,
@@ -185,6 +187,7 @@ export function collectBaseAbilityTriggers(params: {
     }
     const optionContext = {
       state: core,
+      matchState,
       baseIndex,
       baseDefId: sourceDefId,
       playerId: ownerPlayerId,
@@ -315,6 +318,7 @@ export function registerExtendedBaseAbilityAsQueuedTrigger(
 
 export function collectExtendedBaseAbilityTriggers(params: {
   core: SmashUpCore;
+  matchState?: BaseAbilityContext['matchState'];
   timing: string;
   ownerPlayerId: PlayerId;
   baseIndex: number;
@@ -338,6 +342,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
 }): TriggerQueuedEvent | undefined {
   const {
     core,
+    matchState,
     timing,
     ownerPlayerId,
     baseIndex,
@@ -367,6 +372,7 @@ export function collectExtendedBaseAbilityTriggers(params: {
     if (!opts) continue;
     const optionContext = {
       state: core,
+      matchState,
       baseIndex,
       baseDefId: sourceDefId,
       playerId: ownerPlayerId,

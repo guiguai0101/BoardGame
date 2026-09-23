@@ -992,6 +992,8 @@
       "total": "总点数 {{value}}",
       "thresholds": "判定要求（总点数）：{{value}}",
       "threshold": "达到 {{value}} 点：{{label}}",
+      "hauntSuccessThreshold": "达到 {{threshold}} 点或以上：{{label}}",
+      "hauntFailureThreshold": "低于 {{threshold}} 点：{{label}}",
       "eventRollTotal": "事件总点数 {{value}}",
       "eventRollDiceSubtotal": "事件骰面合计 {{value}}",
       "eventDamageDiceLabel": "伤害骰",

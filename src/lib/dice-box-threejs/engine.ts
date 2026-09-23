@@ -2337,7 +2337,7 @@ export class DiceBoxThreeEngine {
         this.applyCurrentSkins();
         this.syncDiceHighlightShells();
         this.renderFrame();
-        await this.playContainedRollToSettledTransforms(targetSnapshots, 1000);
+        await this.playContainedRollToSettledTransforms(targetSnapshots, 1500);
         this.setDebugAnimationStage('contained-throw-visible-animation-complete');
         this.applyValues(values, undefined, true);
         this.applyCurrentSkins();
@@ -2357,7 +2357,7 @@ export class DiceBoxThreeEngine {
 
     private async playContainedRollToSettledTransforms(
         targetSnapshots: Map<number, DiceBoxDieTransformSnapshot>,
-        durationMs = 900,
+        durationMs = 1500,
     ): Promise<void> {
         const snapshots: DiceBoxVisibleRollSnapshot[] = Array.from(targetSnapshots.entries())
             .map(([index, end], order): DiceBoxVisibleRollSnapshot | null => {

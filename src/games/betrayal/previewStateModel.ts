@@ -191,8 +191,14 @@ export function resolvePreservedExplorePlacementState(
 export function resolveNextPreviewStateAfterCoreChange(
   core: BetrayalCore,
   previousState: PreviewState,
+  options: {
+    authoritativeHistoryRewound?: boolean;
+  } = {},
 ): PreviewState {
   const nextInitialState = createInitialPreviewState(core);
+  if (options.authoritativeHistoryRewound) {
+    return nextInitialState;
+  }
   const hasActiveTradeDraft =
     previousState.tradeSelectionTouched ||
     previousState.selectedTradeTargetPlayerId !== null ||

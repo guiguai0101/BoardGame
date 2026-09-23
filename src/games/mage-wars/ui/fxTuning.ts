@@ -63,8 +63,6 @@ export const MAGE_WARS_ATTACK_FX_TUNING = {
     shakeDuration: 620,
     impactEffects: { shake: true, hitStop: true } satisfies ImpactEffects,
     damageFlashCompleteMs: 1_550,
-    meleeSlashColor: '#fef2f2',
-    meleeGlowColor: 'rgba(248, 113, 113, 0.9)',
 } as const;
 
 export const MAGE_WARS_TRAVEL_FX_TUNING: Record<MageWarsTravelFxKind, MageWarsTravelFxTuning> = {

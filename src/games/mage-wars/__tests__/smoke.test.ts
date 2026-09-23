@@ -182,7 +182,7 @@ describe('mage-wars foundation', () => {
         expect(previewGetter).toBeDefined();
 
         const registeredSpellCardIds = getMageWarsRegisteredSpellCardIds();
-        expect(registeredSpellCardIds).toHaveLength(152);
+        expect(registeredSpellCardIds).toHaveLength(157);
         expect(getMageWarsSpellCardName(1700)).toBe('火球术');
         expect(getMageWarsSpellCardPreviewRef(1700)).toEqual({
             type: 'atlas',
@@ -238,15 +238,13 @@ describe('mage-wars foundation', () => {
             }
         }
 
-        const missingRuntimeAtlasCardIds = new Set(['2303', '3800', '3801', '3802', '3803']);
-        const previewableSpellbookCardIds = [...spellbookCardIds]
-            .filter((cardId) => !missingRuntimeAtlasCardIds.has(cardId));
+        const previewableSpellbookCardIds = [...spellbookCardIds];
 
         expect(spellbookCardIds).toHaveLength(153);
         expect(registeredSpellCardIds).toEqual(expect.arrayContaining(previewableSpellbookCardIds));
         expect([...spellbookCardIds]
             .filter((cardId) => getMageWarsSpellCardPreviewRef(Number(cardId)) === null)
-            .sort((left, right) => Number(left) - Number(right))).toEqual([...missingRuntimeAtlasCardIds]);
+            .sort((left, right) => Number(left) - Number(right))).toEqual([]);
         for (const cardId of previewableSpellbookCardIds) {
             expect(previewGetter?.(cardId)).toMatchObject({ type: 'atlas' });
         }

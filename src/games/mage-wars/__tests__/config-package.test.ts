@@ -474,31 +474,21 @@ describe('mage-wars config package', () => {
         ]);
     });
 
-    test('maps landed standard starting spell cards to official atlas frames and keeps missing atlas explicit', () => {
+    test('maps all landed standard starting spell cards to official atlas frames', () => {
         const materialized = materializeMageWarsConfigPackage();
-        const missingRuntimeAtlasCardIds = [2303, 3800, 3801, 3802, 3803];
         const standardSpellObjects = materialized.package.objects
             .filter((object) => object.tags?.includes('standard-starting-spell'));
-        const missingAtlasObjects: number[] = [];
 
         expect(standardSpellObjects).toHaveLength(153);
         for (const object of standardSpellObjects) {
             const cardId = object.data?.cardId;
             expect(typeof cardId).toBe('number');
 
-            if (object.data?.assetStatus === 'blocked-missing-runtime-atlas') {
-                missingAtlasObjects.push(cardId as number);
-                expect(object.assetRefs ?? []).not.toContain(`spell-card-${cardId}-frame`);
-                continue;
-            }
-
             expect(object.assetRefs).toContain(`spell-card-${cardId}-frame`);
             const frameAsset = materialized.assetsById.get(`spell-card-${cardId}-frame`);
             expect(frameAsset?.kind).toBe('atlas-frame');
             expect(frameAsset?.path).not.toContain('temp/mage-wars');
         }
-
-        expect(missingAtlasObjects.sort((left, right) => left - right)).toEqual(missingRuntimeAtlasCardIds);
 
         const legacySpellObjects = materialized.package.objects.filter((object) => object.tags?.includes('apprentice-spell'));
 
@@ -850,6 +840,22 @@ describe('mage-wars config package', () => {
             },
         });
         expect(requireMageWarsSpellCardFromConfig(3705).requiresCodeSupport).toBe(false);
+    });
+
+    test('marks implemented familiar and spawn-point cards as code-complete', () => {
+        expect(requireMageWarsSpellCardFromConfig(2218).requiresCodeSupport).toBe(false);
+        expect(requireMageWarsSpellCardFromConfig(2908).requiresCodeSupport).toBe(false);
+        expect(requireMageWarsSpellCardFromConfig(1907).semantics).toEqual({
+            abilityKind: 'visible-area-enchantment',
+            attachment: {
+                kind: 'enchantment',
+                visibility: 'revealed',
+                anchor: 'zone',
+            },
+            continuousModifiers: undefined,
+            grants: undefined,
+            unsupportedRules: undefined,
+        });
     });
 
     test('exposes Demon Cuirass damage barrier from structured config', () => {

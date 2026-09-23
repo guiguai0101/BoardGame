@@ -1512,6 +1512,7 @@ function collectMinionPlayedFollowupTriggers(
     const frameId = `minion-played-frame:${cardUid}:${baseIndex}:${now}`;
     const queuedBase = collectBaseAbilityTriggers({
         core,
+        matchState: params.matchState,
         timing: 'onMinionPlayed',
         ownerPlayerId: playerId,
         baseIndex,

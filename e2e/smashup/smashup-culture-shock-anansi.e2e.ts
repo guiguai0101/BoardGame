@@ -1092,4 +1092,185 @@ test.describe('大杀四方文化冲击阿南西传说真实入口验证', () =>
     });
     await game.screenshot('21-阿南西之网-首次标准行动后转移与抽牌', testInfo);
   });
+
+  test('奥塞波豹从真实打出入口在转牌后获得力量指示物', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'anansi_tales,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260922,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'osebo-card', defId: 'anansi_tales_osebo_the_leopard', type: 'minion', owner: '0' },
+          { uid: 'beans-card', defId: 'anansi_tales_pot_of_beans', type: 'action', owner: '0' },
+        ],
+        deck: [],
+        discard: [],
+        factions: ['anansi_tales', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 2,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        {
+          defId: 'base_the_jungle',
+          minions: [
+            { uid: 'ally', defId: 'anansi_tales_akye_the_turtle', owner: '0', controller: '0', power: 3 },
+          ],
+        },
+        { defId: 'base_storytellers_hut', minions: [] },
+      ],
+    });
+
+    await game.waitForPhase('playCards');
+    await game.playCard('anansi_tales_osebo_the_leopard', { targetBaseIndex: 0 });
+    await game.waitForNoInteraction(10000);
+    await game.playCard('anansi_tales_pot_of_beans');
+    await game.waitForInteraction('anansi_tales_pot_of_beans_counter_allocation', 10000);
+    await game.selectInteractionOptionBy(
+      option => option.value?.minionUid === 'ally',
+      '一锅豆子选择己方目标放置两个力量指示物',
+    );
+    await game.waitForInteraction('anansi_tales_pot_of_beans_gift_player', 10000);
+    await game.selectInteractionOptionBy(
+      option => optionHasPlayerId(option, '1'),
+      '一锅豆子把自己给玩家 1',
+    );
+    await game.waitForNoInteraction(10000);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const minions = state.core.bases[0]?.minions ?? [];
+      return {
+        base0Minions: minions.map((minion: { uid?: string }) => minion.uid),
+        oseboCounters: minions.find((minion: { uid?: string }) => minion.uid === 'osebo-card')?.powerCounters ?? 0,
+        allyCounters: minions.find((minion: { uid?: string }) => minion.uid === 'ally')?.powerCounters ?? 0,
+        p1Hand: state.core.players['1']?.hand?.map((card: { uid?: string }) => card.uid) ?? [],
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+      };
+    }, { timeout: 15000 }).toEqual({
+      base0Minions: ['ally', 'osebo-card'],
+      oseboCounters: 1,
+      allyCounters: 2,
+      p1Hand: ['beans-card'],
+      interactionOpen: false,
+    });
+    await game.screenshot('22-奥塞波豹-真实入场与转牌加力收口', testInfo);
+  });
+
+  test('奥尼尼巨蟒真实打出并由手牌中的马布罗大黄蜂响应借来的牌', async ({ page, game }, testInfo) => {
+    test.setTimeout(120000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'anansi_tales,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260922,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [
+          { uid: 'onini-card', defId: 'anansi_tales_onini_the_python', type: 'minion', owner: '0' },
+          { uid: 'mboro-card', defId: 'anansi_tales_mboro_hornet', type: 'minion', owner: '0' },
+        ],
+        deck: [],
+        discard: [],
+        factions: ['anansi_tales', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [
+          { uid: 'borrowed-action', defId: 'anansi_tales_trading_stories', type: 'action', owner: '0' },
+        ],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        { defId: 'base_the_jungle', minions: [] },
+        { defId: 'base_storytellers_hut', minions: [] },
+      ],
+    });
+
+    await game.waitForPhase('playCards');
+    await game.playCard('anansi_tales_onini_the_python', { targetBaseIndex: 0 });
+    await game.waitForNoInteraction(10000);
+    await game.advancePhase();
+    await expect.poll(async () => {
+      const state = await game.getState();
+      return {
+        currentPlayerIndex: state.core.currentPlayerIndex,
+        phase: state.sys?.phase,
+      };
+    }, { timeout: 10000 }).toEqual({ currentPlayerIndex: 1, phase: 'playCards' });
+    await game.playCard('anansi_tales_trading_stories');
+
+    await selectReactionTriggerBySource(game, 'anansi_tales_onini_the_python');
+    await game.waitForInteraction('anansi_tales_onini_the_python_counter', 10000);
+    await game.selectInteractionOptionBy(
+      option => option.value?.minionUid === 'onini-card',
+      '奥尼尼巨蟒给自己放置力量指示物',
+    );
+    await selectReactionTriggerBySource(game, 'anansi_tales_mboro_hornet');
+    await game.waitForInteraction('anansi_tales_mboro_hornet', 10000);
+    await game.selectInteractionOptionBy(
+      option => option.value?.baseIndex === 1,
+      '马布罗大黄蜂额外打到第二基地',
+    );
+    await game.waitForNoInteraction(10000);
+
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const base0 = state.core.bases[0]?.minions ?? [];
+      const base1 = state.core.bases[1]?.minions ?? [];
+      return {
+        base0Minions: base0.map((minion: { uid?: string }) => minion.uid),
+        base1Minions: base1.map((minion: { uid?: string }) => minion.uid),
+        oniniCounters: base0.find((minion: { uid?: string }) => minion.uid === 'onini-card')?.powerCounters ?? 0,
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+      };
+    }, { timeout: 15000 }).toEqual({
+      base0Minions: ['onini-card'],
+      base1Minions: ['mboro-card'],
+      oniniCounters: 1,
+      interactionOpen: false,
+    });
+    await game.screenshot('23-奥尼尼大黄蜂-真实入场与借牌反应收口', testInfo);
+  });
 });

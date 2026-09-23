@@ -111,6 +111,39 @@ describe('格林童话代表性玩法行为', () => {
         expect(getMinionPower(core, core.bases[2].minions[1], 2)).toBe(3);
         expect(getMinionPower(core, core.bases[2].minions[2], 2)).toBe(2);
 
+        const separatedPartnerCore = makeState({
+            bases: [
+                makeBase('base_gingerbread_house', [
+                    makeMinion('hansel-only', 'grimms_fairy_tales_hansel', '0', 2),
+                ]),
+                makeBase('base_woodland_cottage', [
+                    makeMinion('gretel-away', 'grimms_fairy_tales_gretel', '0', 2),
+                ]),
+            ],
+        });
+        expect(getMinionPower(separatedPartnerCore, separatedPartnerCore.bases[0].minions[0], 0)).toBe(2);
+
+        const opponentControlledPartnerCore = makeState({
+            bases: [
+                makeBase('base_gingerbread_house', [
+                    makeMinion('hansel-owned-by-0', 'grimms_fairy_tales_hansel', '0', 2),
+                    makeMinion('gretel-controlled-by-1', 'grimms_fairy_tales_gretel', '0', 2),
+                ]),
+            ],
+        });
+        opponentControlledPartnerCore.bases[0].minions[1].controller = '1';
+        expect(getMinionPower(opponentControlledPartnerCore, opponentControlledPartnerCore.bases[0].minions[0], 0)).toBe(2);
+
+        const hoodWithWolfCore = makeState({
+            bases: [
+                makeBase('base_gingerbread_house', [
+                    makeMinion('hood', 'grimms_fairy_tales_red_riding_hood', '0', 3),
+                    makeMinion('wolf', 'grimms_fairy_tales_big_bad_wolf', '1', 6),
+                ]),
+            ],
+        });
+        expect(getMinionPower(hoodWithWolfCore, hoodWithWolfCore.bases[0].minions[0], 0)).toBe(3);
+
         const wolfCore = makeState({
             bases: [
                 core.bases[2],
