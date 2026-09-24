@@ -6,10 +6,6 @@ import {
   useTutorialBridge,
 } from "../../contexts/TutorialContext";
 import { UndoProvider } from "../../contexts/UndoContext";
-import {
-  HudPortal,
-  UI_Z_INDEX,
-} from "../../core";
 import type { ActionBarAction } from "../../core/ui/types";
 import {
   playSound,
@@ -2647,7 +2643,6 @@ export default function BetrayalBoard({
     sicknessExchangeTargetStepText,
   } = resolveBetrayalTradeFlowReadModel({
     t,
-    recommendedAction: core.recommendedAction,
     shouldPauseHauntBoardActions,
     hasActiveHauntTargetGuide: Boolean(activeHauntTargetGuide),
     mummyReward: mummyPendingReward

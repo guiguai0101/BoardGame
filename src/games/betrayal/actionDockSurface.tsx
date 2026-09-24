@@ -183,7 +183,6 @@ function resolveDesktopActionButtonClassName({
 
 function resolveBetrayalActionButtonStyle({
   action,
-  isHauntPrimaryButton,
   isHauntTargetCancelButton,
   isHauntTargetingMode,
   isInventoryUseConfirmation,
@@ -191,7 +190,6 @@ function resolveBetrayalActionButtonStyle({
   isRoomEndTurnEffectAction,
 }: {
   action: ActionBarAction;
-  isHauntPrimaryButton: boolean;
   isHauntTargetCancelButton: boolean;
   isHauntTargetingMode: boolean;
   isInventoryUseConfirmation: boolean;
@@ -283,7 +281,6 @@ export function BetrayalActionDockSurface({
         });
         const style = resolveBetrayalActionButtonStyle({
           action,
-          isHauntPrimaryButton,
           isHauntTargetCancelButton,
           isHauntTargetingMode,
           isInventoryUseConfirmation,

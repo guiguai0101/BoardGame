@@ -36,7 +36,6 @@ export type BetrayalTradeFlowReadModel = {
 
 export type BetrayalTradeFlowReadModelInput = {
   t: TradeFlowText;
-  recommendedAction: string | null | undefined;
   shouldPauseHauntBoardActions: boolean;
   hasActiveHauntTargetGuide: boolean;
   mummyReward: AttackRewardPromptInput;
@@ -140,7 +139,6 @@ export function resolveBetrayalTradeActionCommand({
 
 export function resolveBetrayalTradeFlowReadModel({
   t,
-  recommendedAction,
   shouldPauseHauntBoardActions,
   hasActiveHauntTargetGuide,
   mummyReward,
