@@ -274,7 +274,6 @@ const VAMPIRE_LORD_HERO_CARDS: AbilityCard[] = [
         description: cardText('card-vampire-lord-drink-up', 'description'),
         sfxKey: VAMPIRE_LORD_SFX_LIGHT,
         ...vampireLordCardRef(31),
-        playCondition: { requireTokenStacks: { tokenId: TOKEN_IDS.BLOOD_POWER, min: 2 } },
         effects: [customAction('vampire-lord-drink-up-choice', cardText('card-vampire-lord-drink-up', 'description'))],
     },
     {

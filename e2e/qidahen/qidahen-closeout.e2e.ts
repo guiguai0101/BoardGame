@@ -350,9 +350,11 @@ test.describe('七大恨新游戏收口', () => {
         await expect(page.locator('[data-tutorial-step="wheel-result"]')).toBeVisible({ timeout: 10000 });
         await expect(page.locator('[data-testid="qidahen-season-summary"]')).toBeVisible({ timeout: 10000 });
         await expect(page.locator('[data-testid="qidahen-season-summary"]')).toContainText('轮盘征兵/训练');
+        await expect(page.locator('[data-testid="tutorial-highlight-ring"]')).toHaveAttribute('data-tutorial-highlight-target', 'qidahen-season-summary');
         await expect(page.locator('[data-testid="tutorial-overlay-card"]')).toContainText('从军屯推进到征兵训练');
-        await expect(page.locator('[data-testid="tutorial-overlay-card"]')).toContainText('建立 2 个等级 2 正规军');
-        await expect(page.locator('[data-testid="tutorial-overlay-card"]')).toContainText('火炮技术');
+        await expect(page.locator('[data-testid="tutorial-overlay-card"]')).toContainText('大明在宣府进行征兵训练');
+        await expect(page.locator('[data-testid="tutorial-overlay-card"]')).toContainText('部队增加 2 个');
+        await expect(page.locator('[data-testid="tutorial-overlay-card"]')).not.toContainText('火炮技术');
         await saveScreenshot(page, TUTORIAL_STEP_04);
         await page.locator('[data-testid="tutorial-next-button"]').click();
 

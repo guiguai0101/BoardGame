@@ -60,7 +60,6 @@ export async function resolveOnlineAiRecoveryDispatch(args: {
     if (candidate.fingerprintHint?.startsWith(MANUAL_FORCE_ADVANCE_AFTER_CONFIRMED_ROLL_PREFIX)) {
         return { kind: 'no-legal-action' };
     }
-
     const resolveStrictOnlineDecisionView = (playerId: string) => aiModule.resolveOnlineAiDecisionView({
         runtime: aiModule.getGameAiRuntime(args.gameId) ?? null,
         sharedState: args.sharedState,

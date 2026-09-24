@@ -2955,7 +2955,7 @@ test.describe('DiceThrone 吸血鬼领主真实入口', () => {
                 discardHasCard: true,
                 interactionKind: 'simple-choice',
                 sourceId: cardId,
-                optionValues: [2, 3, 4],
+                optionValues: [0, 1, 2],
                 optionCustomIds: [
                     'vampire-lord-drink-up-spend',
                     'vampire-lord-drink-up-spend',
@@ -2967,8 +2967,9 @@ test.describe('DiceThrone 吸血鬼领主真实入口', () => {
             const modalRoot = page.locator('#modal-root');
             await expect(modalRoot.getByRole('heading', { name: '技能结算选择' })).toBeVisible({ timeout: 5000 });
             await expect(modalRoot.getByText('饮血如酒：选择花费的鲜血之力')).toBeVisible({ timeout: 5000 });
-            await expect(modalRoot.locator('button[data-option-id="option-0"]')).toContainText('花费 2 个鲜血之力');
-            await expect(modalRoot.locator('button[data-option-id="option-2"]')).toContainText('花费 4 个鲜血之力');
+            await expect(modalRoot.locator('button[data-option-id="option-0"]')).toContainText('不花费');
+            await expect(modalRoot.locator('button[data-option-id="option-1"]')).toContainText('花费 1 个鲜血之力');
+            await expect(modalRoot.locator('button[data-option-id="option-2"]')).toContainText('花费 2 个鲜血之力');
             await game.screenshot('吸血鬼领主-饮血如酒-花费血力选择', testInfo);
 
             await modalRoot.locator('button[data-option-id="option-2"]').click();
@@ -2985,13 +2986,13 @@ test.describe('DiceThrone 吸血鬼领主真实入口', () => {
                 };
             }, { timeout: 10000 }).toEqual({
                 interactionKind: null,
-                bloodPower: 0,
-                cp: 8,
+                bloodPower: 2,
+                cp: 4,
                 discardIds: [cardId],
                 events: expect.arrayContaining(['CHOICE_RESOLVED', 'TOKEN_CONSUMED', 'CP_CHANGED']),
             });
             await waitForDiceThroneVisualIdle(page);
-            await game.screenshot('吸血鬼领主-饮血如酒-花费4血力获得8CP', testInfo);
+            await game.screenshot('吸血鬼领主-饮血如酒-花费2血力获得4CP', testInfo);
         });
     });
 

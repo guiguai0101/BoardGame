@@ -115,7 +115,7 @@ export interface ManualSetupSelectionResult {
 
 export interface ManualForceEndAiPhaseResult {
     accepted: boolean;
-    reason?: 'unauthorized' | 'unavailable' | 'busy' | 'rejected';
+    reason?: 'unauthorized' | 'unavailable' | 'busy' | 'rejected' | 'not-connected' | 'timeout';
 }
 
 // ============================================================================

@@ -2468,6 +2468,19 @@ const hasPendingTokenResponseForPlayer = (
     return Boolean(pendingDamage && pendingDamage.responderId === playerId);
 };
 
+const hasBlockingDisplayOnlyBonusSettlementForPlayer = (
+    state: DiceThroneState,
+    playerId: PlayerId,
+): boolean => {
+    const settlement = state.core.pendingBonusDiceSettlement as PendingBonusDiceSettlement | undefined;
+    return Boolean(
+        settlement
+        && settlement.displayOnly === true
+        && settlement.attackerId === playerId
+        && isCurrentBonusRollSettlement(state.core, settlement),
+    );
+};
+
 const buildResponseActions = (state: DiceThroneState, playerId: PlayerId, phase: TurnPhase): AiLegalAction[] => {
     const actions: AiLegalAction[] = [];
     const responseWindow = state.sys.responseWindow?.current;
@@ -3123,14 +3136,25 @@ export function buildDiceThroneAiLegalActions(args: {
         return buildSetupActions(state, args.playerId);
     }
 
-    if (state.sys.responseWindow?.current || hasPendingTokenResponseForPlayer(state, args.playerId)) {
-        return buildResponseActions(state, args.playerId, phase);
-    }
-
     const settlement = state.core.pendingBonusDiceSettlement as PendingBonusDiceSettlement | undefined;
     const hasActiveBonusDiceSettlement = Boolean(
         settlement && isCurrentBonusRollSettlement(state.core, settlement),
     );
+    const shouldConfirmBlockingDisplayOnlyBonusSettlement =
+        hasPendingTokenResponseForPlayer(state, args.playerId)
+        && !state.sys.responseWindow?.current
+        && hasBlockingDisplayOnlyBonusSettlementForPlayer(state, args.playerId);
+    if (shouldConfirmBlockingDisplayOnlyBonusSettlement) {
+        const bonusDiceActions = buildBonusDiceActions(state, args.playerId);
+        if (bonusDiceActions.length > 0) {
+            return bonusDiceActions;
+        }
+    }
+
+    if (state.sys.responseWindow?.current || hasPendingTokenResponseForPlayer(state, args.playerId)) {
+        return buildResponseActions(state, args.playerId, phase);
+    }
+
     if (hasActiveBonusDiceSettlement) {
         const bonusDiceActions = [
             ...buildBonusDicePlayableCardActions(state, args.playerId, phase),

@@ -369,15 +369,19 @@ test.describe('大杀四方杀人狂真实入口审计', () => {
       '野蛮攻击摧毁面具测试目标',
     );
 
-    await game.waitForInteraction('smashup_reaction_choose', 15000);
-    const reactionState = await game.getState();
-    const reactionOptions = (reactionState.sys?.interaction?.current?.data?.options ?? []) as InteractionOption[];
-    expect(reactionOptions.some(option => option.value?.triggerId?.includes('diy_killers_captain_kirk_mask'))).toBe(true);
-    await game.screenshot('15-杀人狂-柯克船长面具摧毁后的反应窗口', testInfo);
-    await game.selectInteractionOptionBy(
-      option => option.value?.triggerId?.includes('diy_killers_captain_kirk_mask'),
-      '选择柯克船长面具触发',
-    );
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const host = state.core.bases[0]?.minions?.find((minion: { uid?: string }) => minion.uid === 'mask-host');
+      const victim = state.core.bases[0]?.minions?.find((minion: { uid?: string }) => minion.uid === 'mask-victim');
+      return {
+        hostTempPowerModifier: host?.tempPowerModifier ?? 0,
+        victimPresent: Boolean(victim),
+      };
+    }, { timeout: 10000 }).toEqual({
+      hostTempPowerModifier: 3,
+      victimPresent: false,
+    });
+    await game.screenshot('15-杀人狂-柯克船长面具自动累计力量', testInfo);
 
     await game.waitForInteraction('diy_killers_savage_attack_boost', 10000);
     await game.selectInteractionOptionBy(option => option.value?.skip === true, '跳过野蛮攻击额外加力');
@@ -1157,5 +1161,124 @@ test.describe('大杀四方杀人狂真实入口审计', () => {
       interactionOpen: false,
     });
     await game.screenshot('16-杀人狂-弗莱迪摧毁目标并完成爪子手套触发收口', testInfo);
+  });
+
+  test('爪子手套从真实附着天赋入口给同基地仆从减力并在下回合开始清除', async ({ page, game }, testInfo) => {
+    test.setTimeout(150000);
+    await setChineseLocale(page.context());
+    await game.openTestGame('smashup', {
+      p0: 'diy_killers,aliens',
+      p1: 'pirates,ninjas',
+      skipFactionSelect: true,
+      skipInitialization: false,
+      seed: 20260923,
+    }, 45000);
+
+    await game.setupScene({
+      gameId: 'smashup',
+      currentPlayer: '0',
+      phase: 'playCards',
+      player0: {
+        hand: [{ uid: 'glove-card', defId: 'diy_killers_clawed_glove', type: 'action', owner: '0' }],
+        deck: [],
+        discard: [],
+        factions: ['diy_killers', 'aliens'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      player1: {
+        hand: [],
+        deck: [],
+        discard: [],
+        factions: ['pirates', 'ninjas'],
+        minionsPlayed: 0,
+        minionLimit: 1,
+        actionsPlayed: 0,
+        actionLimit: 1,
+        vp: 0,
+      },
+      bases: [
+        {
+          defId: 'base_the_factory',
+          minions: [
+            { uid: 'freddy-card', defId: 'diy_killers_freddy_krueger', owner: '0', controller: '0' },
+            { uid: 'weak-target', defId: 'ghost_ghost', owner: '1', controller: '1' },
+            { uid: 'strong-target', defId: 'ghost_spirit', owner: '1', controller: '1' },
+          ],
+        },
+        { defId: 'base_the_mothership', minions: [] },
+      ],
+    });
+
+    await game.playCard('diy_killers_clawed_glove', { targetBaseIndex: 0, targetMinionUid: 'freddy-card' });
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const freddy = state.core.bases[0]?.minions?.find((minion: { uid?: string }) => minion.uid === 'freddy-card');
+      return {
+        hand: state.core.players['0']?.hand?.map((card: { uid?: string }) => card.uid) ?? [],
+        attached: freddy?.attachedActions?.map((action: { uid?: string }) => action.uid) ?? [],
+      };
+    }, { timeout: 10000 }).toEqual({
+      hand: [],
+      attached: ['glove-card'],
+    });
+    await game.screenshot('17-杀人狂-爪子手套真实附着', testInfo);
+
+    await expect(page.locator('[data-attached-action-uid="glove-card"]')).toBeVisible({ timeout: 10000 });
+    await page.locator('[data-attached-action-uid="glove-card"]').click({ force: true });
+    await game.waitForInteraction('diy_killers_clawed_glove', 10000);
+    const promptState = await game.getState();
+    const promptOptions = (promptState.sys?.interaction?.current?.data?.options ?? []) as Array<{
+      value?: { minionUid?: string };
+    }>;
+    expect(promptOptions.some(option => option.value?.minionUid === 'weak-target')).toBe(true);
+    expect(promptOptions.some(option => option.value?.minionUid === 'strong-target')).toBe(true);
+    await game.screenshot('18-杀人狂-爪子手套同基地目标选择', testInfo);
+    await game.selectInteractionOptionBy(
+      option => option.value?.minionUid === 'weak-target',
+      '爪子手套选择同基地目标',
+    );
+
+    await game.waitForNoInteraction(10000);
+    await dismissSpotlightIfPresent(page);
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const base = state.core.bases[0];
+      const target = base?.minions?.find((minion: { uid?: string }) => minion.uid === 'weak-target');
+      const freddy = base?.minions?.find((minion: { uid?: string }) => minion.uid === 'freddy-card');
+      return {
+        targetPowerModifier: target?.powerModifier ?? 0,
+        attached: freddy?.attachedActions?.map((action: { uid?: string }) => action.uid) ?? [],
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 10000 }).toEqual({
+      targetPowerModifier: -1,
+      attached: ['glove-card'],
+      interactionOpen: false,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('19-杀人狂-爪子手套减力收口', testInfo);
+
+    await game.advancePhase();
+    await expect.poll(async () => {
+      const state = await game.getState();
+      const target = state.core.bases[0]?.minions?.find((minion: { uid?: string }) => minion.uid === 'weak-target');
+      return {
+        targetPowerModifier: target?.powerModifier ?? 0,
+        interactionOpen: Boolean(state.sys?.interaction?.current),
+        triggerQueueLength: state.core.triggerQueue?.length ?? 0,
+      };
+    }, { timeout: 20000 }).toEqual({
+      targetPowerModifier: 0,
+      interactionOpen: false,
+      triggerQueueLength: 0,
+    });
+    await game.screenshot('20-杀人狂-爪子手套下回合开始清除减力', testInfo);
   });
 });

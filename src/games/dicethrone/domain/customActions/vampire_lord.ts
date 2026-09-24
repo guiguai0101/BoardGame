@@ -333,16 +333,15 @@ function handleDrinkUpChoice({
     timestamp,
 }: CustomActionContext): DiceThroneEvent[] {
     const currentBloodPower = state.players[attackerId]?.tokens[TOKEN_IDS.BLOOD_POWER] ?? 0;
-    if (currentBloodPower < 2) return [];
-
-    const maxSpend = Math.min(currentBloodPower, getTokenStackLimit(state, attackerId, TOKEN_IDS.BLOOD_POWER));
-    const options = Array.from({ length: maxSpend - 1 }, (_, index) => {
-        const value = index + 2;
+    const maxSpend = Math.min(currentBloodPower, 2, getTokenStackLimit(state, attackerId, TOKEN_IDS.BLOOD_POWER));
+    const options = Array.from({ length: maxSpend + 1 }, (_, value) => {
         return {
             value,
             customId: VAMPIRE_LORD_DRINK_UP_CHOICE_ID,
-            labelKey: 'choices.vampireLordDrinkUp.spend',
-            labelParams: { value },
+            labelKey: value === 0
+                ? 'choices.vampireLordDrinkUp.noSpend'
+                : 'choices.vampireLordDrinkUp.spend',
+            ...(value === 0 ? {} : { labelParams: { value } }),
         };
     });
 
@@ -749,7 +748,8 @@ export function registerVampireLordCustomActions(): void {
         const spend = typeof value === 'number' && Number.isFinite(value)
             ? Math.trunc(value)
             : 0;
-        if (spend < 2 || spend > currentBloodPower) return [];
+        if (spend < 0 || spend > Math.min(currentBloodPower, 2)) return [];
+        if (spend === 0) return [];
 
         const currentCp = player.resources[RESOURCE_IDS.CP] ?? 0;
         const newCp = Math.min(currentCp + spend * 2, CP_MAX);

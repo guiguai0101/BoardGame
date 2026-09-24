@@ -6,7 +6,6 @@ import type {
     BetrayalRecentRollState,
 } from './game';
 import type { AiSeatController } from '../../engine/ai/types';
-import { possessionCardRequiresSharedDiscoveryAcknowledgement } from './possessionActionReadModel';
 
 type PlayerRoster = Pick<BetrayalCore, 'playerIds'> & {
     seatControllers?: Record<string, AiSeatController>;
@@ -154,6 +153,15 @@ export function resolveRecentRollRequiredPlayerIds(
     core: PlayerRoster,
     recentRoll: BetrayalRecentRollState,
 ): string[] {
+    const publicJudgementKinds: BetrayalRecentRollState['kind'][] = [
+        'eventTraitCheck',
+        'eventDiceRoll',
+        'eventRolledDamage',
+        'hauntRoll',
+    ];
+    if (publicJudgementKinds.includes(recentRoll.kind)) {
+        return resolveHumanAcknowledgementPlayerIds(core, recentRoll.playerId);
+    }
     const configuredPlayerIds = recentRoll.requiredPlayerIds?.filter((playerId) => playerId.length > 0) ?? [];
     if (configuredPlayerIds.length > 0) {
         return configuredPlayerIds;
@@ -211,7 +219,10 @@ export function resolveAcknowledgeableRecentRoll(
         return null;
     }
     const acknowledgeableKinds: BetrayalRecentRollState['kind'][] = [
+        'eventTraitCheck',
+        'eventDiceRoll',
         'eventRolledDamage',
+        'hauntRoll',
         'mysticElevator',
         'attackRoll',
         'hauntActionTraitCheck',
@@ -243,12 +254,6 @@ export function resolveRoomExploredCardResolutionRequiredPlayerIds(
         event.payload.roomDiscoveryCards?.length
         || event.payload.buriedRoomDiscoveryCards?.length,
     );
-    if (
-        event.payload.deckKind === 'item'
-        && possessionCardRequiresSharedDiscoveryAcknowledgement(event.payload.drawnCard)
-    ) {
-        return resolveHumanAcknowledgementPlayerIds(core, event.payload.playerId);
-    }
     if (!hasRoomDiscoveryProcessCards && event.payload.deckKind === 'item') {
         return [event.payload.playerId];
     }

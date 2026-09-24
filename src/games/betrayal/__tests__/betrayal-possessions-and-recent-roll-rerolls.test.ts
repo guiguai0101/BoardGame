@@ -44,7 +44,7 @@ import {
 } from './helpers/firstScenarioRuntimeHarness';
 
 describe('Betrayal first scenario runtime - possessions and recent-roll rerolls', () => {
-it('会让可介入或改写骰子结果的物品等待全员确认，普通物品仍由获得者确认', () => {
+it('物品发现默认只由获得者确认，不按未来能力扩大确认范围', () => {
         const core = createStartedFirstScenarioCore();
         const baseEvent = {
             payload: {
@@ -68,14 +68,21 @@ it('会让可介入或改写骰子结果的物品等待全员确认，普通物�
                 ...baseEvent.payload,
                 drawnCard: { id: 'rope', kind: 'item' as const },
             },
-        })).toEqual(core.playerIds);
+        })).toEqual(['0']);
         expect(resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
             ...baseEvent,
             payload: {
                 ...baseEvent.payload,
                 drawnCard: { id: 'angel-feather', kind: 'item' as const },
             },
-        })).toEqual(core.playerIds);
+        })).toEqual(['0']);
+        expect(resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
+            ...baseEvent,
+            payload: {
+                ...baseEvent.payload,
+                drawnCard: { id: 'lucky-coin', kind: 'item' as const },
+            },
+        })).toEqual(['0']);
     });
 
 it('事件结果确认只统计真人，不能被兔脚重投前遗留名单覆盖', () => {
@@ -782,6 +789,65 @@ it('幸运硬币只重掷刚刚属性检定的空白骰，重投后空白会生�
         expect(traitTrackPosition(core, '0', 'sanity')).toBe(sanityPositionBeforeDamage - 1);
     });
 
+it('幸运硬币改写公开判定后，结果仍需所有真人确认才关闭', () => {
+        let core = createStartedFirstScenarioCore(['0', '1', '2']);
+        core.currentExplorer = {
+            ...core.currentExplorer,
+            inventory: [{ id: 'lucky-coin', name: '幸运硬币', kind: 'item' }],
+        };
+        core.currentExplorerInventory = [...core.currentExplorer.inventory];
+        core.turnStartInventoryCardIds = ['lucky-coin'];
+        core.recentRoll = {
+            id: 'lucky-coin-shared-confirmation',
+            kind: 'eventTraitCheck',
+            playerId: '0',
+            sourceTitle: '幸运硬币公开判定',
+            trait: 'knowledge',
+            dice: [0, 1, 2],
+            passiveBonus: 0,
+            latestLabel: '属性检定空白骰',
+            branchThresholds: [
+                { min: 5, label: '成功', effect: { mode: 'trait', trait: 'knowledge', amount: 1, recommendedAction: 'endTurn' } },
+                { min: 0, label: '失败', effect: { mode: 'trait', trait: 'knowledge', amount: -1, recommendedAction: 'endTurn' } },
+            ],
+            consumedRabbitFootCardIds: [],
+        };
+        markRecentEventRollPendingFinalizationForTest(core);
+
+        core = applyBetrayalCommand(
+            core,
+            BETRAYAL_COMMANDS.USE_ROLL_REROLL_ITEM,
+            '0',
+            { cardId: 'lucky-coin', dieIndex: 0 },
+            100,
+            createBetrayalScriptedRandom(3),
+            false,
+        );
+
+        expect(core.recentRoll?.dice).toEqual([2, 1, 2]);
+        expect(core.pendingEventRollResolution).toMatchObject({
+            requiredPlayerIds: core.playerIds,
+            acknowledgedPlayerIds: [],
+            requiresAcknowledgement: true,
+        });
+
+        core = applyBetrayalCommand(
+            core,
+            BETRAYAL_COMMANDS.FINALIZE_EVENT_ROLL,
+            '0',
+            { rollId: core.pendingEventRollResolution?.rollId },
+            101,
+        );
+
+        expect(core.pendingEventRollResolution).toMatchObject({
+            requiredPlayerIds: core.playerIds,
+            acknowledgedPlayerIds: ['0'],
+            requiresAcknowledgement: true,
+        });
+        core = finalizePendingEventRollForTest(core);
+        expect(core.pendingEventRollResolution).toBeNull();
+    });
+
 it('幸运硬币重投后没有空白时不会生成精神伤害分配', () => {
         let core = createStartedFirstScenarioCore();
         core.currentExplorer = {
@@ -1106,8 +1172,8 @@ it('事件骰出现后使用书本会立即支付神志并按知识重新投骰�
         expect(core.pendingEventRollResolution).toMatchObject({
             rollId: core.recentRoll?.id,
             sourceTitle: '标本剥制',
-            requiredPlayerIds: ['0'],
-            requiresAcknowledgement: false,
+            requiredPlayerIds: core.playerIds,
+            requiresAcknowledgement: true,
             effect: { mode: 'trait', trait: 'sanity', amount: 1 },
         });
         expect(core.latestDiscovery?.title).toBe('标本剥制');
@@ -1184,8 +1250,8 @@ it('书本改骰后兔脚仍失败时，确认新骰面后进入固定物理伤�
         expect(core.recentRoll?.dice).toEqual([2, 0, 0, 0, 0]);
         expect(core.pendingEventRollResolution).toMatchObject({
             sourceTitle: '标本剥制',
-            requiredPlayerIds: ['0'],
-            requiresAcknowledgement: false,
+            requiredPlayerIds: core.playerIds,
+            requiresAcknowledgement: true,
             effect: expect.objectContaining({ mode: 'compound' }),
         });
         expect(core.pendingDamageAllocation).toBeNull();

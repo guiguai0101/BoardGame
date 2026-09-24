@@ -14,6 +14,7 @@ import { readLocalStorageItem, removeLocalStorageItem, writeLocalStorageItem } f
 import { shouldAllowFabDragFromTarget } from './fabDrag';
 import { resolveExpandedFabLayout } from './fabLayout';
 import { resolveFabStoredPosition, serializeFabPositionPercent } from './fabPosition';
+import { readBoardShellScaleValue } from '../../shared/runtimeLayoutUnits';
 
 export interface FabAction {
     id: string;
@@ -44,6 +45,7 @@ interface FabMenuProps {
     /** 可选的位置存储键；游戏内特殊布局可用独立键，避免共享位置挡住主操作区。 */
     storageKey?: string;
     legacyOffsetStorageKey?: string;
+    hudPlacement?: 'in-shell' | 'portal';
 }
 
 type FabAlignment = { v: 'top' | 'bottom'; h: 'left' | 'right' };
@@ -128,6 +130,7 @@ export const FabMenu = ({
     zIndex = UI_Z_INDEX.hud,
     storageKey = HUD_FAB_POSITION_KEY,
     legacyOffsetStorageKey = HUD_FAB_LEGACY_OFFSET_KEY,
+    hudPlacement,
 }: FabMenuProps) => {
     // 响应式尺寸
     const viewport = useRuntimeViewport();
@@ -135,12 +138,22 @@ export const FabMenu = ({
     const viewportHeight = viewport.height;
     const safeAreaInsets: SafeAreaInsets = viewport.safeArea;
     const isMobileViewport = viewportWidth > 0 && viewportWidth <= MOBILE_MAX_VIEWPORT_WIDTH;
-    const dockedButtonSize = isMobileViewport ? 44 : 48;
-    const dockedButtonGap = isMobileViewport ? 8 : 12;
+    const layoutScale = hudPlacement === 'in-shell' ? readBoardShellScaleValue() : 1;
+    const layoutViewportWidth = viewportWidth / layoutScale;
+    const layoutViewportHeight = viewportHeight / layoutScale;
+    const layoutSafeAreaInsets: SafeAreaInsets = {
+        top: safeAreaInsets.top / layoutScale,
+        right: safeAreaInsets.right / layoutScale,
+        bottom: safeAreaInsets.bottom / layoutScale,
+        left: safeAreaInsets.left / layoutScale,
+    };
+    const dockedButtonSize = (isMobileViewport ? 44 : 48) / layoutScale;
+    const dockedButtonGap = (isMobileViewport ? 8 : 12) / layoutScale;
     const expandedButtonSize = dockedButtonSize;
     const expandedButtonGap = dockedButtonGap;
-    const edgePadding = isMobileViewport ? 12 : 32;
-    const edgePeekSize = isMobileViewport ? FAB_EDGE_PEEK_SIZE_MOBILE : FAB_EDGE_PEEK_SIZE_DESKTOP;
+    const edgePadding = (isMobileViewport ? 12 : 32) / layoutScale;
+    const screenEdgePadding = isMobileViewport ? 12 : 32;
+    const edgePeekSize = (isMobileViewport ? FAB_EDGE_PEEK_SIZE_MOBILE : FAB_EDGE_PEEK_SIZE_DESKTOP) / layoutScale;
     
     const [isOpen, setIsOpen] = useState(false);
     const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -181,47 +194,47 @@ export const FabMenu = ({
         target: FabPosition,
         options?: { allowOverflow?: boolean; resolvedButtonSize?: number },
     ) => {
-        if (viewportWidth <= 0 || viewportHeight <= 0) {
+        if (layoutViewportWidth <= 0 || layoutViewportHeight <= 0) {
             return target;
         }
         const allowOverflow = options?.allowOverflow ?? true;
         const resolvedButtonSize = options?.resolvedButtonSize ?? dockedButtonSize;
         const minLeft = allowOverflow
             ? edgePeekSize - resolvedButtonSize
-            : edgePadding + safeAreaInsets.left;
+            : edgePadding + layoutSafeAreaInsets.left;
         const minTop = allowOverflow
             ? edgePeekSize - resolvedButtonSize
-            : edgePadding + safeAreaInsets.top;
+            : edgePadding + layoutSafeAreaInsets.top;
         const maxLeft = allowOverflow
-            ? Math.max(minLeft, viewportWidth - edgePeekSize)
-            : Math.max(minLeft, viewportWidth - resolvedButtonSize - edgePadding - safeAreaInsets.right);
+            ? Math.max(minLeft, layoutViewportWidth - edgePeekSize)
+            : Math.max(minLeft, layoutViewportWidth - resolvedButtonSize - edgePadding - layoutSafeAreaInsets.right);
         const maxTop = allowOverflow
-            ? Math.max(minTop, viewportHeight - edgePeekSize)
-            : Math.max(minTop, viewportHeight - resolvedButtonSize - edgePadding - safeAreaInsets.bottom);
+            ? Math.max(minTop, layoutViewportHeight - edgePeekSize)
+            : Math.max(minTop, layoutViewportHeight - resolvedButtonSize - edgePadding - layoutSafeAreaInsets.bottom);
         return {
             left: Math.min(Math.max(target.left, minLeft), maxLeft),
             top: Math.min(Math.max(target.top, minTop), maxTop),
         };
-    }, [dockedButtonSize, edgePadding, edgePeekSize, safeAreaInsets.bottom, safeAreaInsets.left, safeAreaInsets.right, safeAreaInsets.top, viewportHeight, viewportWidth]);
+    }, [dockedButtonSize, edgePadding, edgePeekSize, layoutSafeAreaInsets.bottom, layoutSafeAreaInsets.left, layoutSafeAreaInsets.right, layoutSafeAreaInsets.top, layoutViewportHeight, layoutViewportWidth]);
 
     const getAlignmentForPosition = useCallback((target: FabPosition, resolvedButtonSize = dockedButtonSize): FabAlignment => {
-        const centerY = viewportHeight / 2;
-        const centerX = viewportWidth / 2;
+        const centerY = layoutViewportHeight / 2;
+        const centerX = layoutViewportWidth / 2;
         const anchorX = target.left + resolvedButtonSize / 2;
         const anchorY = target.top + resolvedButtonSize / 2;
         const v: FabAlignment['v'] = anchorY < centerY ? 'top' : 'bottom';
         const h: FabAlignment['h'] = anchorX < centerX ? 'right' : 'left';
         return { v, h };
-    }, [dockedButtonSize, viewportHeight, viewportWidth]);
+    }, [dockedButtonSize, layoutViewportHeight, layoutViewportWidth]);
 
     const getInitialPosition = useCallback(() => {
-        if (viewportWidth <= 0 || viewportHeight <= 0) {
+        if (layoutViewportWidth <= 0 || layoutViewportHeight <= 0) {
             return { left: 0, top: 0 };
         }
-        const minLeft = edgePadding + safeAreaInsets.left;
-        const minTop = edgePadding + safeAreaInsets.top;
-        const maxLeft = Math.max(minLeft, viewportWidth - dockedButtonSize - edgePadding - safeAreaInsets.right);
-        const maxTop = Math.max(minTop, viewportHeight - dockedButtonSize - edgePadding - safeAreaInsets.bottom);
+        const minLeft = edgePadding + layoutSafeAreaInsets.left;
+        const minTop = edgePadding + layoutSafeAreaInsets.top;
+        const maxLeft = Math.max(minLeft, layoutViewportWidth - dockedButtonSize - edgePadding - layoutSafeAreaInsets.right);
+        const maxTop = Math.max(minTop, layoutViewportHeight - dockedButtonSize - edgePadding - layoutSafeAreaInsets.bottom);
         // 默认位置往内偏移，不贴边
         const DEFAULT_INSET = Math.max(dockedButtonSize, 48);
         const basePosition = initialPosition === 'bottom-right'
@@ -235,11 +248,11 @@ export const FabMenu = ({
             left: basePosition.left + (initialOffset?.left ?? 0),
             top: basePosition.top + (initialOffset?.top ?? 0),
         }, { allowOverflow: false });
-    }, [clampPosition, dockedButtonSize, edgePadding, initialOffset?.left, initialOffset?.top, initialPosition, safeAreaInsets.bottom, safeAreaInsets.left, safeAreaInsets.right, safeAreaInsets.top, viewportHeight, viewportWidth]);
+    }, [clampPosition, dockedButtonSize, edgePadding, initialOffset?.left, initialOffset?.top, initialPosition, layoutSafeAreaInsets.bottom, layoutSafeAreaInsets.left, layoutSafeAreaInsets.right, layoutSafeAreaInsets.top, layoutViewportHeight, layoutViewportWidth]);
 
     // 加载保存的位置（支持百分比格式，兼容旧绝对坐标）
     useEffect(() => {
-        if (viewportWidth <= 0 || viewportHeight <= 0) {
+        if (layoutViewportWidth <= 0 || layoutViewportHeight <= 0) {
             return undefined;
         }
         const frameId = window.requestAnimationFrame(() => {
@@ -247,8 +260,8 @@ export const FabMenu = ({
                 const resolved = resolveFabStoredPosition({
                     savedPosition: readLocalStorageItem(storageKey),
                     legacyOffset: readLocalStorageItem(legacyOffsetStorageKey),
-                    viewportWidth,
-                    viewportHeight,
+                    viewportWidth: layoutViewportWidth,
+                    viewportHeight: layoutViewportHeight,
                     basePosition: getInitialPosition(),
                     normalizePosition,
                     clampPosition,
@@ -268,14 +281,14 @@ export const FabMenu = ({
         });
 
         return () => window.cancelAnimationFrame(frameId);
-    }, [clampPosition, dockedButtonSize, getAlignmentForPosition, getInitialPosition, legacyOffsetStorageKey, normalizePosition, storageKey, viewportHeight, viewportWidth]);
+    }, [clampPosition, dockedButtonSize, getAlignmentForPosition, getInitialPosition, layoutViewportHeight, layoutViewportWidth, legacyOffsetStorageKey, normalizePosition, storageKey]);
 
     const handleDragEnd = (_: any, info: any) => {
-        if (!fabPosition || viewportWidth <= 0 || viewportHeight <= 0) return;
+        if (!fabPosition || layoutViewportWidth <= 0 || layoutViewportHeight <= 0) return;
         setIsDragging(false);
         const next = normalizePosition({
-            left: fabPosition.left + info.offset.x,
-            top: fabPosition.top + info.offset.y,
+            left: fabPosition.left + (info.offset.x / layoutScale),
+            top: fabPosition.top + (info.offset.y / layoutScale),
         });
         flushSync(() => {
             setFabPosition(next);
@@ -287,7 +300,7 @@ export const FabMenu = ({
         // 保存为百分比格式
         writeLocalStorageItem(
             storageKey,
-            JSON.stringify(serializeFabPositionPercent(next, viewportWidth, viewportHeight)),
+            JSON.stringify(serializeFabPositionPercent(next, layoutViewportWidth, layoutViewportHeight)),
         );
     };
 
@@ -299,8 +312,8 @@ export const FabMenu = ({
 
     const handleDrag = (_: any, info: any) => {
         setLiveDragOffset({
-            x: info.offset.x,
-            y: info.offset.y,
+            x: info.offset.x / layoutScale,
+            y: info.offset.y / layoutScale,
         });
     };
 
@@ -372,15 +385,15 @@ export const FabMenu = ({
     }, [activeItemId, isOpen]);
 
     useEffect(() => {
-        if (!fabPosition || viewportWidth <= 0 || viewportHeight <= 0) return;
+        if (!fabPosition || layoutViewportWidth <= 0 || layoutViewportHeight <= 0) return;
         const handleResize = () => {
             // 从 localStorage 读取百分比，按新尺寸重新计算
             try {
                 const resolved = resolveFabStoredPosition({
                     savedPosition: readLocalStorageItem(storageKey),
                     legacyOffset: null,
-                    viewportWidth,
-                    viewportHeight,
+                    viewportWidth: layoutViewportWidth,
+                    viewportHeight: layoutViewportHeight,
                     basePosition: fabPosition,
                     normalizePosition,
                     clampPosition,
@@ -402,7 +415,7 @@ export const FabMenu = ({
         };
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [clampPosition, dockedButtonSize, fabPosition, getAlignmentForPosition, normalizePosition, storageKey, viewportHeight, viewportWidth]);
+    }, [clampPosition, dockedButtonSize, fabPosition, getAlignmentForPosition, layoutViewportHeight, layoutViewportWidth, normalizePosition, storageKey]);
 
     useEffect(() => {
         if (prevActiveItemIdRef.current === activeItemId) return;
@@ -447,9 +460,9 @@ export const FabMenu = ({
             satelliteCount: Math.max(items.length - 1, 0),
             buttonSize: expandedButtonSize,
             buttonGap: expandedButtonGap,
-            viewportHeight,
-            safeAreaTop: safeAreaInsets.top,
-            safeAreaBottom: safeAreaInsets.bottom,
+            viewportHeight: layoutViewportHeight,
+            safeAreaTop: layoutSafeAreaInsets.top,
+            safeAreaBottom: layoutSafeAreaInsets.bottom,
             getHorizontalAlignment: (resolvedPosition, resolvedButtonSize) => (
                 getAlignmentForPosition(resolvedPosition, resolvedButtonSize).h
             ),
@@ -461,9 +474,9 @@ export const FabMenu = ({
         expandedButtonSize,
         getAlignmentForPosition,
         normalizePosition,
-        safeAreaInsets.bottom,
-        safeAreaInsets.top,
-        viewportHeight,
+        layoutSafeAreaInsets.bottom,
+        layoutSafeAreaInsets.top,
+        layoutViewportHeight,
     ]);
 
     const renderLayout = useMemo(() => {
@@ -520,6 +533,7 @@ export const FabMenu = ({
             data-testid="fab-menu"
             data-fab-position={initialPosition}
             data-fab-storage-key={storageKey}
+            data-hud-placement={hudPlacement}
         >
             {/* 主球：锚点，位置固定 */}
             <FabButtonSlot
@@ -535,7 +549,7 @@ export const FabMenu = ({
                 isDragging={isDragging}
                 buttonSize={renderButtonSize}
                 buttonGap={renderButtonGap}
-                edgePadding={edgePadding}
+                edgePadding={screenEdgePadding}
                 safeAreaInsets={safeAreaInsets}
                 isMobileViewport={isMobileViewport}
                 viewportWidth={viewportWidth}
@@ -566,7 +580,7 @@ export const FabMenu = ({
                 columnGap={renderLayout.columnGap}
                 buttonSize={renderButtonSize}
                 buttonGap={renderButtonGap}
-                edgePadding={edgePadding}
+                edgePadding={screenEdgePadding}
                 safeAreaInsets={safeAreaInsets}
                 isMobileViewport={isMobileViewport}
                 viewportWidth={viewportWidth}

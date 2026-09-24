@@ -10,7 +10,6 @@ type BetrayalRecentRollReviewSurfaceProps = {
   visible: boolean;
   isExorciseRollReview: boolean;
   isEndgameExorciseRollReview: boolean;
-  isNativeMobileLayout: boolean;
   canDismissByBackdrop: boolean;
   effectiveLocale: string;
   rerollSelection: RecentRollRerollSelection | null;
@@ -26,7 +25,6 @@ export function BetrayalRecentRollReviewSurface({
   visible,
   isExorciseRollReview,
   isEndgameExorciseRollReview,
-  isNativeMobileLayout,
   canDismissByBackdrop,
   effectiveLocale,
   rerollSelection,
@@ -46,7 +44,6 @@ export function BetrayalRecentRollReviewSurface({
     return (
       <StandardRecentRollOverlay
         roll={roll}
-        isPhoneLandscapeLayout={isNativeMobileLayout}
         canDismissByBackdrop={canDismissByBackdrop}
         onDismiss={onDismiss}
         effectiveLocale={effectiveLocale}
@@ -61,9 +58,7 @@ export function BetrayalRecentRollReviewSurface({
     <div
       data-testid="betrayal-roll-review-backdrop"
       data-backdrop-dismiss={canDismissByBackdrop ? "enabled" : "disabled"}
-      className={`absolute inset-0 z-50 flex items-center justify-center px-4 py-12 ${
-        isNativeMobileLayout ? "bg-[rgba(3,7,6,0.92)]" : ""
-      } pointer-events-auto`}
+      className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center px-4 py-12"
       onClick={
         canDismissByBackdrop
           ? isExorciseRollReview
@@ -83,17 +78,13 @@ export function BetrayalRecentRollReviewSurface({
             ? "betrayal-exorcise-roll-review"
             : "betrayal-attack-roll-review"
         }
-        className="pointer-events-auto flex w-[min(640px,calc(100vw-2rem))] flex-col items-center gap-3"
+        className="pointer-events-auto flex w-[640px] flex-col items-center gap-3"
         onClick={(event) => event.stopPropagation()}
       >
         <RecentRollPanel
           roll={roll}
-          className={
-            isNativeMobileLayout
-              ? "h-[min(72vh,320px)] min-h-[286px] w-full rounded-[18px] border border-[rgba(211,179,109,0.30)] bg-[rgba(8,12,10,0.34)] p-2 shadow-[0_16px_34px_rgba(0,0,0,0.24)]"
-              : "h-[min(42vh,360px)] min-h-[300px] w-[min(560px,calc(100vw-2rem))] rounded-[18px] border border-[rgba(211,179,109,0.40)] bg-[rgba(15,24,19,0.54)] p-3 shadow-[0_16px_34px_rgba(0,0,0,0.30)]"
-          }
-          diceClassName={isNativeMobileLayout ? "min-h-[204px]" : "min-h-[190px]"}
+          className="h-[360px] min-h-[300px] w-[560px] rounded-[18px] border border-[rgba(211,179,109,0.40)] bg-[rgba(15,24,19,0.54)] p-3 shadow-[0_16px_34px_rgba(0,0,0,0.30)]"
+          diceClassName="min-h-[190px]"
           effectiveLocale={effectiveLocale}
           actorLabel={actorLabel}
           openTable

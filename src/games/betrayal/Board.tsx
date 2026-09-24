@@ -17,7 +17,6 @@ import {
 } from "../../lib/audio/useGameAudio";
 import { TutorialSelectionGate, useVisualSequenceGate } from "../../components/game/framework";
 import { useGameMode } from "../../contexts/GameModeContext";
-import { useRuntimeViewport } from "../../hooks/ui/useRuntimeViewport";
 import type { GameBoardProps } from "../../engine/transport/protocol";
 import type {
   BetrayalCore,
@@ -268,7 +267,6 @@ import {
 } from "./previewStateModel";
 import { BetrayalLatestDiscoverySurface } from "./latestDiscoverySurface";
 import { buildBetrayalTutorialRuntimeSyncKey } from "./tutorialRuntimeSyncKey";
-import { resolveBetrayalLayoutMode } from "./layoutMode";
 
 type Props = GameBoardProps<BetrayalCore, BetrayalCommandMap>;
 
@@ -316,7 +314,6 @@ export default function BetrayalBoard({
     animationComplete,
   } = useTutorial();
   const isTutorialMode = gameMode?.mode === "tutorial";
-  const runtimeViewport = useRuntimeViewport({ syncCssVars: false });
   const runtimeDispatch = dispatch as unknown as (
     type: string,
     payload?: unknown,
@@ -555,13 +552,6 @@ export default function BetrayalBoard({
     selectedRoomMapFloor,
     visualTransition,
   ]);
-  const betrayalLayoutMode = resolveBetrayalLayoutMode({
-    viewportWidth: runtimeViewport.width,
-    viewportHeight: runtimeViewport.height,
-    mobileLayoutPreset: BETRAYAL_MANIFEST.mobileLayoutPreset,
-  });
-  const isPhoneLandscapeViewport = betrayalLayoutMode !== "desktop";
-  const isBoardShellMobileViewport = betrayalLayoutMode === "board-shell";
   const isExorciseRollReview =
     displayBaseCore.recentRoll?.kind === "hauntActionTraitCheck" &&
     (displayBaseCore.recentRoll.sourceTitle === "驱魔" ||
@@ -825,8 +815,7 @@ export default function BetrayalBoard({
     if (
       !(
         shouldShowScenarioStartOpening ||
-        (scenarioReaderOpen &&
-          (isReferenceScenarioOpeningStage || isPhoneLandscapeViewport))
+        (scenarioReaderOpen && isReferenceScenarioOpeningStage)
       )
     ) {
       return undefined;
@@ -839,7 +828,6 @@ export default function BetrayalBoard({
     };
   }, [
     isReferenceScenarioOpeningStage,
-    isPhoneLandscapeViewport,
     scenarioReaderOpen,
     shouldShowScenarioStartOpening,
   ]);
@@ -5841,7 +5829,6 @@ export default function BetrayalBoard({
             core={baseCore}
             matchData={matchData}
             effectiveLocale={effectiveLocale}
-            isPhoneLandscapeLayout={false}
             viewerPlayerId={viewerPlayerId}
             selectedExplorerId={selectedExplorerId}
             onSelectExplorer={handleSelectExplorer}
@@ -5917,7 +5904,7 @@ export default function BetrayalBoard({
           />
         ) : null}
         <div
-          className="relative h-full min-h-full w-full overflow-hidden px-3 py-3 md:px-4 md:py-4"
+          className="relative h-full min-h-full w-full overflow-hidden px-4 py-4"
           data-testid="betrayal-desktop-layout"
           data-layout-mode="desktop-board"
         >
@@ -5928,38 +5915,17 @@ export default function BetrayalBoard({
             >
               <span className="sr-only">{phaseLabel}</span>
               {!shouldHideTableChromeForBlockingOverlay ? (
-                isBoardShellMobileViewport ? (
-                  <div
-                    data-testid="betrayal-phase-chip"
-                    data-mobile-role="pc-isomorphic-phase-chip"
-                    className="absolute left-1/2 top-0 flex min-w-[210px] -translate-x-1/2 flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
-                  >
-                    <span className="text-[11px] uppercase tracking-[0.28em] text-[#b99b5f]">
-                      {t("board.hud.phaseLabel")}
-                    </span>
-                    <span className="mt-0.5 text-[21px] font-semibold uppercase tracking-[0.2em] text-[#f0d29a]">
-                      {phaseLabel}
-                    </span>
-                  </div>
-                ) : (
-                  <HudPortal>
-                    <div
-                      data-testid="betrayal-phase-chip"
-                      className="fixed left-1/2 top-3 flex min-w-[210px] flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
-                      style={{
-                        zIndex: UI_Z_INDEX.hud,
-                        transform: "translateX(-50%)",
-                      }}
-                    >
-                      <span className="text-[11px] uppercase tracking-[0.28em] text-[#b99b5f]">
-                        {t("board.hud.phaseLabel")}
-                      </span>
-                      <span className="mt-0.5 text-[21px] font-semibold uppercase tracking-[0.2em] text-[#f0d29a]">
-                        {phaseLabel}
-                      </span>
-                    </div>
-                  </HudPortal>
-                )
+                <div
+                  data-testid="betrayal-phase-chip"
+                  className="absolute left-1/2 top-0 flex min-w-[210px] -translate-x-1/2 flex-col items-center justify-center rounded-[8px] border border-[rgba(114,91,52,0.36)] bg-[rgba(8,13,11,0.68)] px-5 py-2 text-center shadow-[0_14px_30px_rgba(0,0,0,0.2)] backdrop-blur-md"
+                >
+                  <span className="text-[11px] uppercase tracking-[0.28em] text-[#b99b5f]">
+                    {t("board.hud.phaseLabel")}
+                  </span>
+                  <span className="mt-0.5 text-[21px] font-semibold uppercase tracking-[0.2em] text-[#f0d29a]">
+                    {phaseLabel}
+                  </span>
+                </div>
               ) : null}
               <div
                 className="absolute right-[244px] top-0 flex items-center justify-end gap-3 rounded-[8px] border border-[rgba(114,91,52,0.28)] bg-[rgba(8,13,11,0.58)] px-3 py-1.5 shadow-[0_14px_30px_rgba(0,0,0,0.18)] backdrop-blur-md"
@@ -6019,63 +5985,13 @@ export default function BetrayalBoard({
                 revealProtocol={hauntRevealProtocol}
                 scenarioRuntime={core.scenarioRuntime}
                 readerScope={scenarioReaderScope}
-                isPhoneLandscapeLayout={false}
                 onDismiss={handleDismissHauntRevealCue}
               />
             ) : null}
 
-            <BetrayalTopPromptStackSurface
-              variant="mobile"
-              enabled={false}
-              dustProgressItems={visibleDustProgressItems}
-              showDustProgress={shouldShowDustProgressPrompt}
-              dustProgressDimmed={Boolean(activeHauntTargetGuide)}
-              activeHauntCaseLabel={activeHauntCaseLabel}
-              activeHauntTitle={activeHauntTitle}
-              showTradeFlowPrompt={shouldShowTradeFlowPrompt}
-              tradeAgreementState={tradeAgreementState}
-              tradeBannerStatusText={tradeBannerStatusText}
-              mummyReward={
-                mummyPendingReward
-                  ? {
-                      isChooser: isMummyRewardChooser,
-                      chooserTargetName: mummyRewardDefenderName,
-                      waitingPlayerName: mummyRewardControllerName,
-                      damage: mummyPendingReward.damageToHero,
-                      unavailableStealTargetCount:
-                        mummyUnavailableStealTargetCount,
-                    }
-                  : null
-              }
-              helpingHandsReward={
-                helpingHandsPendingReward
-                  ? {
-                      isChooser: isHelpingHandsRewardChooser,
-                      chooserTargetName: helpingHandsRewardDefenderName,
-                      waitingPlayerName: helpingHandsRewardAttackerName,
-                      damage: helpingHandsPendingReward.damageToDefender,
-                    }
-                  : null
-              }
-              helpingHandsMonsterTurnStatus={
-                shouldShowHelpingHandsMonsterTurnStatus
-                  ? {
-                      active: helpingHandsMonsterTurnStatus.active,
-                      controllerName: helpingHandsMonsterControllerName,
-                    }
-                  : null
-              }
-              showHelpingHandsTrollAttack={
-                shouldShowHelpingHandsTrollAttackBanner
-              }
-              helpingHandsTrollAttackTargetName={
-                helpingHandsTrollHandAttackTargetName
-              }
-            />
-
             <section
               data-testid="betrayal-left-status-rail"
-              className={`pointer-events-none absolute left-3 top-3 z-40 grid max-h-[calc(100vh-1.5rem)] w-[286px] min-h-0 content-start gap-2 overflow-visible ${
+              className={`pointer-events-none absolute left-3 top-3 z-40 grid max-h-[calc(1080px-1.5rem)] w-[286px] min-h-0 content-start gap-2 overflow-visible ${
                 activeHauntTargetGuide ? "opacity-[0.72]" : ""
               }`}
             >
@@ -6090,7 +6006,7 @@ export default function BetrayalBoard({
                 isObservingOtherExplorer={isObservingOtherExplorer}
               />
 
-              <article className="hidden px-2 py-1 md:px-1 xl:hidden">
+              <article className="hidden px-1 py-1">
                 <div className="mb-2.5 text-[11px] uppercase tracking-[0.2em] text-[#a89d84]">
                   {t("board.sections.players")}
                 </div>
@@ -6161,7 +6077,6 @@ export default function BetrayalBoard({
               hasSelectedDisplay={hasSelectedInventoryDisplay}
               lastUsedInventoryCardStillUsed={lastUsedInventoryCardStillUsed}
               useStatusText={useStatusText}
-              isPhoneLandscapeLayout={false}
               isDimmed={Boolean(activeHauntTargetGuide)}
               elevatedForRollModifier={
                 shouldShowLatestDiscovery &&
@@ -6227,11 +6142,7 @@ export default function BetrayalBoard({
                 id="betrayal-room-panel"
                 data-testid="betrayal-room-panel"
                 data-tutorial-id="betrayal-room-board"
-                className={`flex min-h-0 flex-col bg-transparent p-0 ${
-                  isBoardShellMobileViewport
-                    ? "pb-0 pt-0"
-                    : "pb-[86px] lg:pb-0"
-                }`}
+                  className="flex min-h-0 flex-col bg-transparent p-0 pb-[86px]"
               >
                 <div className="sr-only">
                   <span data-testid="betrayal-room-latest-feedback">
@@ -6307,7 +6218,6 @@ export default function BetrayalBoard({
                   visible={shouldShowRecentRollReview}
                   isExorciseRollReview={isExorciseRollReview}
                   isEndgameExorciseRollReview={isEndgameExorciseRollReview}
-                  isNativeMobileLayout={false}
                   canDismissByBackdrop={canDismissRecentRollByBackdrop}
                   effectiveLocale={effectiveLocale}
                   rerollSelection={recentRollRerollSelection}
@@ -6350,7 +6260,6 @@ export default function BetrayalBoard({
                     canAct={isPendingDamageAllocationForViewer}
                     ready={pendingDamageAllocationReady}
                     locale={effectiveLocale}
-                    isPhoneLandscapeLayout={false}
                     onToggleBrooch={handleToggleDamageAllocationBrooch}
                     onAdjustTrait={handleAdjustDamageAllocationTrait}
                     canIncrementTrait={canIncrementDamageAllocationTrait}
@@ -6362,7 +6271,6 @@ export default function BetrayalBoard({
                   <BetrayalEventChoiceSurface
                     choice={pendingEventChoice}
                     isEventSymbolSkip={pendingEventChoiceIsEventSymbolSkip}
-                    isPhoneLandscapeLayout={false}
                     awaitsMapTargetClick={pendingEventAwaitsMapTargetClick}
                     hasMapTargetRooms={pendingEventTargetRooms.length > 0}
                     hasResultPanel={pendingEventChoiceHasResultPanel}
@@ -6400,7 +6308,6 @@ export default function BetrayalBoard({
                   hidden={shouldHideTableChromeForBlockingOverlay}
                   forceVisible={useDogTrade}
                   phase={core.phase}
-                  isPhoneLandscapeLayout={false}
                   roomFocusLabel={
                     shouldShowRoomFocusTargetLabel
                       ? (roomFocusState?.label ?? null)
@@ -6508,7 +6415,6 @@ export default function BetrayalBoard({
                   roomCanvasTransformStyle={roomCanvasTransformStyle}
                   roomCanvasWidth={roomCanvasWidth}
                   roomCanvasHeight={roomCanvasHeight}
-                  isPhoneLandscapeLayout={false}
                   isHauntTargetingMode={isHauntTargetingMode}
                   roomFocusPanTarget={roomFocusPanTarget}
                   attackLineOfSightSegments={attackLineOfSightSegments}
@@ -6702,7 +6608,6 @@ export default function BetrayalBoard({
                   onSelectFloor={handleSelectRoomMapFloor}
                 />
                 <BetrayalTopPromptStackSurface
-                  variant="desktop"
                   enabled={
                     !isEndgameExorciseRollReview &&
                     !shouldHideTableChromeForBlockingOverlay &&
@@ -6759,13 +6664,10 @@ export default function BetrayalBoard({
                 !shouldHideTableChromeForBlockingOverlay ? (
                   <div
                     data-testid="betrayal-action-rail"
-                    className={`pointer-events-none absolute inset-x-0 bottom-1 z-50 flex-col items-center justify-end gap-0.5 ${
-                      isBoardShellMobileViewport ? "flex" : "hidden md:flex"
-                    }`}
+                    className="pointer-events-none absolute inset-x-0 bottom-1 z-50 flex flex-col items-center justify-end gap-0.5"
                   >
                     {mummyPendingReward && isMummyRewardChooser ? (
                       <BetrayalMummyRewardActionsSurface
-                        variant="desktop"
                         damage={mummyPendingReward.damageToHero}
                         stealableCards={mummyStealableCards}
                         onResolveDamage={() =>
@@ -6779,7 +6681,6 @@ export default function BetrayalBoard({
                     {helpingHandsPendingReward &&
                     isHelpingHandsRewardChooser ? (
                       <BetrayalHelpingHandsRewardActionsSurface
-                        variant="desktop"
                         damage={helpingHandsPendingReward.damageToDefender}
                         stealableCards={helpingHandsStealableCards}
                         onResolveDamage={() =>
@@ -6798,7 +6699,6 @@ export default function BetrayalBoard({
                     !activeHauntTargetGuide &&
                     helpingHandsVisibleTrollHandAttackOptions.length > 0 ? (
                       <BetrayalHelpingHandsTrollAttackActionsSurface
-                        variant="desktop"
                         attackOptions={
                           helpingHandsVisibleTrollHandAttackOptions
                         }
@@ -6951,7 +6851,6 @@ export default function BetrayalBoard({
                     <div className="pointer-events-auto relative flex min-h-[48px] w-full items-end justify-center gap-5">
                       <BetrayalActionDockSurface
                         actions={visibleActionItems}
-                        variant="desktop"
                         phase={core.phase}
                         recommendedAction={core.recommendedAction}
                         interactionMode={previewState.interactionMode}
@@ -6971,7 +6870,6 @@ export default function BetrayalBoard({
                         }
                         isDustSicknessExchangeMode={isDustSicknessExchangeMode}
                         isHauntTargetingMode={isHauntTargetingMode}
-                        isPhoneLandscapeLayout={false}
                         hideTradeAction={shouldShowInlineTradeConfirm}
                         actionCueText={actionCueText}
                         actionHandlers={actionHandlerMap}
@@ -6984,7 +6882,7 @@ export default function BetrayalBoard({
 
             <section
               data-testid="betrayal-status-rail"
-              className={`no-scrollbar pointer-events-auto absolute bottom-3 right-3 top-3 z-40 flex w-[216px] min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1 md:px-1 ${
+              className={`no-scrollbar pointer-events-auto absolute bottom-[72px] right-3 top-3 z-40 flex w-[216px] min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1 ${
                 shouldHideTableChromeForBlockingOverlay
                   ? "hidden"
                   : activeHauntTargetGuide
@@ -7017,7 +6915,7 @@ export default function BetrayalBoard({
                   onOpenReferenceCards={openReferenceCards}
                   onFocusSelfRoom={handleFocusSelfRoom}
                 />
-                <div className="mt-3 hidden xl:block">
+                <div className="mt-3 block">
                   <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(196,162,101,0.18))]" />
                     <div className="text-[10px] uppercase tracking-[0.22em] text-[#a89d84]">
@@ -7090,7 +6988,6 @@ export default function BetrayalBoard({
             referenceOpen={referenceOpen}
             scenarioReaderOpen={scenarioReaderOpen}
             isReferenceScenarioOpeningStage={isReferenceScenarioOpeningStage}
-            isPhoneLandscapeLayout={false}
             currentReferencePage={currentReferencePage}
             referenceFallbackAsset={ASSETS.playerReference.front}
             effectiveLocale={effectiveLocale}

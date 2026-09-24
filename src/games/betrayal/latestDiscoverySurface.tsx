@@ -205,8 +205,8 @@ export function BetrayalLatestDiscoverySurface({
           shouldShowRoll && recentRoll ? "w-full" : "w-fit"
         } ${
           shouldShowRoll && recentRoll
-            ? "relative isolate justify-center gap-3 max-h-[calc(100vh-8rem)] bg-transparent"
-            : "relative isolate justify-center gap-3 max-h-[calc(100vh-8rem)] rounded-[28px] bg-[radial-gradient(ellipse_at_center,rgba(4,12,10,0.86),rgba(4,12,10,0.62)_52%,rgba(4,12,10,0.46)_72%,rgba(4,12,10,0)_88%)]"
+            ? "relative isolate justify-center gap-3 max-h-[calc(1080px-8rem)] bg-transparent"
+            : "relative isolate justify-center gap-3 max-h-[calc(1080px-8rem)] rounded-[28px] bg-[radial-gradient(ellipse_at_center,rgba(4,12,10,0.86),rgba(4,12,10,0.62)_52%,rgba(4,12,10,0.46)_72%,rgba(4,12,10,0)_88%)]"
         }`}
       >
         <span className="sr-only" data-testid="betrayal-discovery-detail">
@@ -217,7 +217,7 @@ export function BetrayalLatestDiscoverySurface({
           <div
             data-testid="betrayal-discovery-visible-detail"
             data-ui-role="visible-effect-description"
-            className="pointer-events-none z-10 max-w-[min(680px,calc(100vw-2rem))] rounded-[10px] border border-[rgba(214,181,109,0.42)] bg-[rgba(14,12,8,0.78)] px-4 py-2 text-center text-[14px] font-bold leading-snug tracking-[0.04em] text-[#f4e3b5] shadow-[0_10px_24px_rgba(0,0,0,0.30)] md:text-[16px]"
+            className="pointer-events-none z-10 max-w-[680px] rounded-[10px] border border-[rgba(214,181,109,0.42)] bg-[rgba(14,12,8,0.78)] px-4 py-2 text-center text-[16px] font-bold leading-snug tracking-[0.04em] text-[#f4e3b5] shadow-[0_10px_24px_rgba(0,0,0,0.30)]"
           >
             {displayedDiscoveryDetail}
           </div>
@@ -248,7 +248,7 @@ export function BetrayalLatestDiscoverySurface({
             data-room-discovery-search-index={String(searchStepNumber)}
             data-room-discovery-search-total={String(searchSequenceLength)}
             data-room-discovery-search-outcome={visibleProcessCard.outcome}
-            className="pointer-events-none z-10 max-w-[min(520px,calc(100vw-2rem))] rounded-[10px] border border-[rgba(214,181,109,0.42)] bg-[rgba(14,12,8,0.78)] px-4 py-2 text-center text-[13px] font-bold leading-snug tracking-[0.04em] text-[#f4e3b5] shadow-[0_10px_24px_rgba(0,0,0,0.30)]"
+            className="pointer-events-none z-10 max-w-[520px] rounded-[10px] border border-[rgba(214,181,109,0.42)] bg-[rgba(14,12,8,0.78)] px-4 py-2 text-center text-[13px] font-bold leading-snug tracking-[0.04em] text-[#f4e3b5] shadow-[0_10px_24px_rgba(0,0,0,0.30)]"
           >
             {visibleProcessCard.text}
           </div>
@@ -261,21 +261,21 @@ export function BetrayalLatestDiscoverySurface({
         {shouldShowCardFace || (shouldShowRoll && recentRoll) ? (
           <div
             data-testid="betrayal-discovery-panel-main"
-            className={`flex min-h-0 max-w-[calc(100vw-2rem)] flex-col items-center justify-center gap-4 md:flex-row ${
+            className={`flex min-h-0 max-w-[920px] flex-row items-center justify-center gap-5 ${
               shouldShowRoll && recentRoll
                 ? canModifyRoll
-                  ? "w-full md:max-w-[900px] md:gap-5"
-                  : "w-full md:max-w-[920px] md:gap-5"
+                  ? "w-full max-w-[900px]"
+                  : "w-full max-w-[920px]"
                 : canModifyRoll
-                  ? "md:max-w-[min(780px,calc(100vw-18rem))]"
-                  : "md:max-w-[900px]"
+                  ? "max-w-[780px]"
+                  : "max-w-[900px]"
             }`}
           >
             {shouldShowCardFace ? (
               <div
                 className={`relative shrink-0 transition-opacity duration-100 ${
                   isPossessionGainTransitionActive ? "opacity-0" : "opacity-100"
-                } w-[min(300px,calc(100vw-2rem))] md:w-[300px]`}
+                } w-[300px]`}
               >
                 {panelVisual ? (
                   <DiscoveryAtlasFrame
@@ -302,7 +302,7 @@ export function BetrayalLatestDiscoverySurface({
             {shouldShowRoll && recentRoll ? (
               <RecentRollPanel
                 roll={recentRoll}
-                className="h-[min(46vh,380px)] min-h-[332px] w-[min(640px,calc(100vw-2rem))] shrink-0 md:w-[560px]"
+                className="h-[380px] min-h-[332px] w-[560px] shrink-0"
                 diceClassName="min-h-[236px]"
                 animateRerollMotion={animateRerollMotion}
                 rerollSelection={rerollSelection}

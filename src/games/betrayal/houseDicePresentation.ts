@@ -28,12 +28,6 @@ export const BETRAYAL_HOUSE_DICE_STYLE_PROFILE = {
   },
 } satisfies DiceBoxStyleProfile;
 
-export const BETRAYAL_HOUSE_DICE_MOBILE_STYLE_PROFILE = {
-  ...BETRAYAL_HOUSE_DICE_STYLE_PROFILE,
-  id: "betrayal-house-dice-mobile-landscape",
-  cameraZoom: 1.2,
-} satisfies DiceBoxStyleProfile;
-
 export const BETRAYAL_HOUSE_DICE_FACE_SYSTEM =
   "betrayal-house-0-0-1-1-2-2-face-skin";
 

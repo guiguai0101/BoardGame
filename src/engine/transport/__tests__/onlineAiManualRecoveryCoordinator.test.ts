@@ -160,6 +160,34 @@ describe('OnlineAiManualRecoveryCoordinator', () => {
         expect(hooks.setTracker).not.toHaveBeenCalled();
     });
 
+    it('manual force 会等待自动恢复释放执行权后再复用 recovery sequence', async () => {
+        const match = createMatch('manual-recovery-waits-for-auto-test');
+        const isMatchExecuting = vi.fn()
+            .mockReturnValueOnce(true)
+            .mockReturnValue(false);
+        const waitForRecoveryAvailability = vi.fn(async () => true);
+        const hooks = createHooks({
+            isMatchExecuting,
+            waitForRecoveryAvailability,
+        });
+        const coordinator = new OnlineAiManualRecoveryCoordinator({
+            rulesVersion: 'rules-test',
+            gameManifests: {},
+            hooks,
+        });
+
+        await expect(coordinator.handleManualForceEndAiPhase(match, '0')).resolves.toEqual({
+            accepted: true,
+        });
+
+        expect(waitForRecoveryAvailability).toHaveBeenCalledWith(match);
+        expect(hooks.runRecoverySequence).toHaveBeenCalledWith(expect.objectContaining({
+            match,
+            options: { allowManualImmediateAiContinuation: true },
+        }));
+        expect(hooks.finishInFlight).toHaveBeenCalledWith(match.matchID);
+    });
+
     it('manual force 空闲时设置 recovery tracker 并复用 recovery sequence', async () => {
         const match = createMatch('manual-recovery-force-test');
         const candidate = createCandidate();

@@ -21,7 +21,6 @@ type BetrayalInventoryRailSurfaceProps = {
   hasSelectedDisplay: boolean;
   lastUsedInventoryCardStillUsed: boolean;
   useStatusText: string;
-  isPhoneLandscapeLayout: boolean;
   isDimmed: boolean;
   elevatedForRollModifier: boolean;
   usedCardIdsThisTurn: readonly string[];
@@ -49,7 +48,6 @@ export function BetrayalInventoryRailSurface({
   hasSelectedDisplay,
   lastUsedInventoryCardStillUsed,
   useStatusText,
-  isPhoneLandscapeLayout,
   isDimmed,
   elevatedForRollModifier,
   usedCardIdsThisTurn,
@@ -71,11 +69,7 @@ export function BetrayalInventoryRailSurface({
   const itemCards = cards.filter((item) => item.kind === "item");
   const omenCards = cards.filter((item) => item.kind === "omen");
   const rowClassName = (count: number) =>
-    `${count === 0 ? "pointer-events-none hidden lg:flex" : "flex"} ${
-      isPhoneLandscapeLayout
-        ? "max-w-full min-h-[52px] items-end gap-1 overflow-x-auto overflow-y-hidden px-0 pb-0.5 pt-0"
-        : "max-w-[calc(62px*4.35+0.375rem*3)] min-h-[92px] items-end gap-1.5 overflow-x-auto overflow-y-hidden px-1 pb-2 pt-1 xl:max-w-[calc(62px*5.35+0.5rem*4)] xl:gap-2"
-    } min-w-0 smashup-h-scrollbar`;
+    `${count === 0 ? "pointer-events-none flex" : "flex"} max-w-[calc(62px*5.35+0.5rem*4)] min-h-[92px] items-end gap-2 overflow-x-auto overflow-y-hidden px-1 pb-2 pt-1 min-w-0 smashup-h-scrollbar`;
   const renderCards = (
     groupCards: BetrayalInventoryCard[],
     kind: "item" | "omen",
@@ -116,15 +110,12 @@ export function BetrayalInventoryRailSurface({
       data-observed-player={isReadOnly ? "true" : "false"}
       className={`pointer-events-none absolute ${
         elevatedForRollModifier ? "z-[150]" : "z-40"
-      } mt-0 px-0 ${isDimmed ? "opacity-[0.72]" : ""} ${
-        isPhoneLandscapeLayout
-          ? "bottom-[58px] left-2 w-[min(312px,calc(100vw-6.25rem))]"
-          : "bottom-[86px] left-2 w-[320px] max-w-[calc(100vw-1rem)] lg:bottom-2 lg:left-1 lg:w-[calc(62px*5.35+0.5rem*4+0.75rem)] lg:max-w-[calc(62px*5.35+0.5rem*4+0.75rem)]"
+      } bottom-2 left-1 mt-0 w-[calc(62px*5.35+0.5rem*4+0.75rem)] max-w-[calc(62px*5.35+0.5rem*4+0.75rem)] px-0 ${
+        isDimmed ? "opacity-[0.72]" : ""
       }`}
-      data-mobile-role={isPhoneLandscapeLayout ? "possession-rail" : undefined}
     >
       <div
-        className={`${isPhoneLandscapeLayout ? "sr-only" : "mb-1 flex items-center justify-between gap-3 px-1 xl:pr-4"}`}
+        className="mb-1 flex items-center justify-between gap-3 px-1 pr-4"
       >
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[#a89d84]">
           <span className="h-px w-3 bg-[rgba(214,191,129,0.22)]" />
@@ -149,7 +140,7 @@ export function BetrayalInventoryRailSurface({
         </div>
       </div>
       <div
-        className={`${isPhoneLandscapeLayout ? "grid gap-1 px-0" : "grid gap-2 px-1 xl:px-0 xl:pr-2"}`}
+        className="grid gap-2 px-1 pr-2"
       >
         <section data-testid="betrayal-inventory-group-item">
           <div

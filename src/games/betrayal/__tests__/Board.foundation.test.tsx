@@ -1858,25 +1858,20 @@ describe('Betrayal Board foundation', () => {
             'overflow-y-auto',
             'overflow-x-hidden',
         );
-        expect(screen.getByTestId('betrayal-character-selection-grid')).toHaveClass(
-            'no-scrollbar',
-            'overflow-x-hidden',
-            'overflow-y-auto',
-        );
         expect(screen.queryByTestId('betrayal-character-mobile-pager')).not.toBeInTheDocument();
-        const mobileGrid = screen.getByTestId('betrayal-character-mobile-grid');
-        expect(mobileGrid).toHaveClass(
+        const selectionGrid = screen.getByTestId('betrayal-character-selection-grid');
+        expect(selectionGrid).toHaveClass(
             'grid',
             'grid-cols-3',
             'overflow-x-hidden',
             'overflow-y-auto',
             'no-scrollbar',
         );
-        const mobileCharacters = within(mobileGrid);
-        expect(mobileCharacters.getByTestId('betrayal-character-card-isa-valencia')).not.toHaveTextContent('已选择');
-        expect(mobileCharacters.getByTestId('betrayal-character-card-isa-valencia')).toHaveAttribute('aria-label', expect.stringContaining('已选择'));
-        expect(mobileCharacters.getByTestId('betrayal-character-card-isa-valencia')).toHaveTextContent('P1');
-        expect(mobileCharacters.getByTestId('betrayal-character-card-isa-valencia-state-outline')).toHaveAttribute('data-highlight-shape', 'pentagon');
+        const selectionCharacters = within(selectionGrid);
+        expect(selectionCharacters.getByTestId('betrayal-character-card-isa-valencia')).not.toHaveTextContent('已选择');
+        expect(selectionCharacters.getByTestId('betrayal-character-card-isa-valencia')).toHaveAttribute('aria-label', expect.stringContaining('已选择'));
+        expect(selectionCharacters.getByTestId('betrayal-character-card-isa-valencia')).toHaveTextContent('P1');
+        expect(selectionCharacters.getByTestId('betrayal-character-card-isa-valencia-state-outline')).toHaveAttribute('data-highlight-shape', 'pentagon');
         [
             'isa-valencia',
             'anita-hernandez',
@@ -1891,12 +1886,9 @@ describe('Betrayal Board foundation', () => {
             'sammy-angler',
             'jaden-jones',
         ].forEach((explorerId) => {
-            expect(mobileCharacters.getByTestId(`betrayal-character-card-${explorerId}`)).toBeInTheDocument();
+            expect(selectionCharacters.getByTestId(`betrayal-character-card-${explorerId}`)).toBeInTheDocument();
         });
-        expect(mobileCharacters.queryByTestId('betrayal-character-card-rebecca-allen')).not.toBeInTheDocument();
-        expect(mobileCharacters.queryByTestId('betrayal-character-card-darryl-highla')).not.toBeInTheDocument();
-        expect(mobileCharacters.queryByTestId('betrayal-character-card-lia-valencia')).not.toBeInTheDocument();
-        expect(mobileCharacters.queryByTestId('betrayal-character-card-sam-yin')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('betrayal-character-mobile-grid')).not.toBeInTheDocument();
         expect(screen.queryByTestId('betrayal-character-mobile-page-label')).not.toBeInTheDocument();
         expect(screen.queryByTestId('betrayal-character-page-down')).not.toBeInTheDocument();
         expect(screen.queryByTestId('betrayal-character-page-up')).not.toBeInTheDocument();
@@ -1985,7 +1977,7 @@ describe('Betrayal Board foundation', () => {
         fireEvent.click(screen.getByTestId('betrayal-scenario-dialog-close'));
 
         fireEvent.click(
-            within(screen.getByTestId('betrayal-character-mobile-grid'))
+            within(screen.getByTestId('betrayal-character-selection-grid'))
                 .getByTestId('betrayal-character-card-jaden-jones'),
         );
         fireEvent.click(screen.getByTestId('betrayal-character-confirm'));
@@ -2044,7 +2036,7 @@ describe('Betrayal Board foundation', () => {
         );
 
         fireEvent.click(
-            within(screen.getByTestId('betrayal-character-mobile-grid'))
+            within(screen.getByTestId('betrayal-character-selection-grid'))
                 .getByTestId('betrayal-character-card-jaden-jones'),
         );
         fireEvent.click(screen.getByTestId('betrayal-character-confirm'));

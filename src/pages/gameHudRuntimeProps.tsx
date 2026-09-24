@@ -19,6 +19,16 @@ type GameHudRuntimeGameConfig = Pick<
     | 'mobileDelivery'
 > | null | undefined;
 
+export type GameHudPlacement = 'in-shell' | 'portal';
+
+export function resolveGameHudPlacement(
+    gameConfig?: GameHudRuntimeGameConfig,
+): GameHudPlacement {
+    return resolveGameMobileSupport(gameConfig).mobileLayoutPreset === 'board-shell'
+        ? 'in-shell'
+        : 'portal';
+}
+
 export function buildGameHudRuntimeProps(args: {
     gameId?: string | null;
     gameConfig?: GameHudRuntimeGameConfig;

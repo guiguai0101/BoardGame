@@ -118,6 +118,51 @@ describe('DiceThrone AI 主阶段候选门禁', () => {
         expect(actions.some((action) => action.kind === 'skip-bonus-dice-reroll')).toBe(false);
     });
 
+    it('无响应窗口但仍有阻塞伤害时，应先确认当前展示态奖励骰，再处理 Token 响应', () => {
+        const state = createSetupWithHand([], {
+            playerId: '1',
+            cp: 0,
+            mutate: (core) => {
+                core.activePlayerId = '1';
+                core.pendingBonusDiceSettlement = {
+                    id: 'bonus-before-token-response',
+                    sourceAbilityId: 'flight',
+                    attackerId: '1',
+                    targetId: '0',
+                    dice: [{ index: 0, value: 3, face: 'katana' }],
+                    rerollCostTokenId: '',
+                    rerollCostAmount: 0,
+                    rerollCount: 0,
+                    maxRerollCount: 0,
+                    displayOnly: true,
+                };
+                core.pendingDamage = {
+                    id: 'damage-after-display-only-bonus',
+                    sourcePlayerId: '1',
+                    targetPlayerId: '0',
+                    originalDamage: 4,
+                    currentDamage: 4,
+                    responseType: 'beforeDamageDealt',
+                    responderId: '1',
+                    isFullyEvaded: false,
+                };
+            },
+        })(['0', '1'], fixedRandom);
+        state.sys.phase = 'defensiveRoll';
+        state.sys.responseWindow = { current: undefined };
+
+        const actions = buildDiceThroneAiLegalActions({
+            playerId: '1',
+            state,
+        });
+
+        expect(actions).toContainEqual(expect.objectContaining({
+            kind: 'confirm-roll',
+            commands: [{ type: 'CONFIRM_ROLL', payload: {} }],
+        }));
+        expect(actions.some((action) => action.kind === 'skip-token-response')).toBe(false);
+    });
+
     it('未知阻塞交互属于 AI 时应紧急取消而不是继续走主阶段', () => {
         const state = createSetupWithHand(
             ['card-palm-strike', 'card-thrust-punch-2'],

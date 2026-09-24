@@ -4,6 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { GameHUD } from '../GameHUD';
 
+const toastMocks = vi.hoisted(() => ({
+    warning: vi.fn(),
+}));
+
 vi.mock('../../../../../contexts/UndoContext', () => ({
     useUndo: () => ({ canUndo: false, undo: vi.fn() }),
     useUndoStatus: () => ({ canUndo: false, undoAvailable: false }),
@@ -66,7 +70,7 @@ vi.mock('../../../../system/FeedbackModal', () => ({
 }));
 
 vi.mock('../../../../../contexts/ToastContext', () => ({
-    useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
+    useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: toastMocks.warning }),
 }));
 
 vi.mock('../../../../../contexts/AuthContext', () => ({
@@ -260,6 +264,33 @@ describe('GameHUD', () => {
         );
 
         expect(screen.getByTestId('fab-action-force-actions')).toBeInTheDocument();
+    });
+
+    it('强制结束 AI 阶段失败时会把服务端 busy 原因反馈给玩家', async () => {
+        const onForceEndAiPhase = vi.fn(async () => ({
+            accepted: false as const,
+            reason: 'busy' as const,
+        }));
+        renderHud(
+            <GameHUD
+                mode="online"
+                matchId="match-1"
+                gameId="dicethrone"
+                myPlayerId="0"
+                isPregameSetupPhase={true}
+                showForceEndAiPhase={true}
+                onForceEndAiPhase={onForceEndAiPhase}
+            />,
+        );
+
+        const action = screen.getByTestId('fab-action-force-actions');
+        expect(action).toBeInTheDocument();
+        screen.getByTestId('hud-force-end-ai-phase').click();
+
+        await vi.waitFor(() => {
+            expect(onForceEndAiPhase).toHaveBeenCalledTimes(1);
+            expect(toastMocks.warning).toHaveBeenCalledWith('hud.ai.forceEndPhaseBusy');
+        });
     });
 
     it('联机赛前 setup 阶段不因普通弹窗强关单独显示强制操作入口', () => {

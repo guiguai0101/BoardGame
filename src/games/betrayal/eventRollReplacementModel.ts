@@ -1,7 +1,4 @@
 import type { RandomFn } from '../../engine/types';
-import {
-    eventRollResolutionNeedsAcknowledgement,
-} from './acknowledgementReadModel';
 import { findExplorerByPlayerId } from './explorerReadModel';
 import {
     cloneDustRuntimeState,
@@ -233,24 +230,9 @@ export function applyBetrayalEventRollReplacementState(
     const nextPendingEventChoice = replacement.nextPendingEventChoice
         ? cloneEventRollReplacementPendingChoice(replacement.nextPendingEventChoice)
         : undefined;
-    const acknowledgementContext = {
-        nextPendingEventChoice,
-        hauntRevealResolution: replacement.hauntRevealResolution,
-        hauntTraitorResolution: replacement.hauntTraitorResolution,
-        dustSetup: replacement.dustSetup,
-        magicCameraSetup: replacement.magicCameraSetup,
-        helpingHandsSetup: replacement.helpingHandsSetup,
-        uponReflectionSetup: replacement.uponReflectionSetup,
-    };
-    const requiresAcknowledgement = eventRollResolutionNeedsAcknowledgement(acknowledgementContext);
-    const wasSinglePlayerResolution = pending.requiresAcknowledgement === false;
     core.pendingEventRollResolution = {
         ...pending,
-        requiredPlayerIds: requiresAcknowledgement
-            ? wasSinglePlayerResolution
-                ? [pending.playerId]
-                : resolveHumanAcknowledgementPlayerIds(core, pending.playerId)
-            : [pending.playerId],
+        requiredPlayerIds: resolveHumanAcknowledgementPlayerIds(core, pending.playerId),
         acknowledgedPlayerIds: [],
         hauntRoll: replacement.hauntRoll ? { ...replacement.hauntRoll } : undefined,
         effect: cloneUseEffect(replacement.effect),
@@ -278,7 +260,7 @@ export function applyBetrayalEventRollReplacementState(
         uponReflectionSetup: replacement.uponReflectionSetup
             ? cloneUponReflectionRuntimeState(replacement.uponReflectionSetup)
             : undefined,
-        requiresAcknowledgement,
+        requiresAcknowledgement: true,
     };
     core.usedCardIdsThisTurn = Array.from(new Set([
         ...core.usedCardIdsThisTurn,

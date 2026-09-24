@@ -12,7 +12,10 @@ import {
 } from './matchRoomStageRuntimeModelBuilders';
 import type { MatchRoomPageIdentityModel } from './useMatchRoomPageIdentity';
 import type { MatchRoomLobbyTranslator } from './matchRoomPageTypes';
-import { buildGameHudRuntimeProps } from './gameHudRuntimeProps';
+import {
+    buildGameHudRuntimeProps,
+    resolveGameHudPlacement,
+} from './gameHudRuntimeProps';
 import type {
     MatchRoomOnlineStageAdapter,
     MatchRoomPageRuntimeModel,
@@ -39,6 +42,7 @@ export type MatchRoomTutorialHudModel = {
     renderRuntimeSettings?: ReturnType<typeof buildGameHudRuntimeProps>['renderRuntimeSettings'];
     availableEmotes: ReturnType<typeof buildGameHudRuntimeProps>['availableEmotes'];
     resolveEmote: ReturnType<typeof buildGameHudRuntimeProps>['resolveEmote'];
+    hudPlacement: 'in-shell' | 'portal';
 };
 
 export type MatchRoomPageShellModel = {
@@ -90,6 +94,7 @@ export function buildTutorialHudModel(args: {
             gameId,
             gameConfig: pageIdentity.gameConfig,
         }),
+        hudPlacement: resolveGameHudPlacement(pageIdentity.gameConfig),
     };
 }
 

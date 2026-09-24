@@ -82,7 +82,6 @@ export interface BetrayalRoomMapSurfaceProps {
   roomCanvasTransformStyle: React.CSSProperties;
   roomCanvasWidth: number;
   roomCanvasHeight: number;
-  isPhoneLandscapeLayout: boolean;
   isHauntTargetingMode: boolean;
   roomFocusPanTarget: string | null;
   attackLineOfSightSegments: readonly BetrayalAttackLineOfSightSegment[];
@@ -217,7 +216,6 @@ export function BetrayalRoomMapSurface({
   roomCanvasTransformStyle,
   roomCanvasWidth,
   roomCanvasHeight,
-  isPhoneLandscapeLayout,
   isHauntTargetingMode,
   roomFocusPanTarget,
   attackLineOfSightSegments,
@@ -344,14 +342,8 @@ export function BetrayalRoomMapSurface({
       <ZoomPanViewport
         key={selectedFloor}
         ref={roomGridRef}
-        className={`relative h-full min-h-0 w-full bg-transparent ${
-          isPhoneLandscapeLayout
-            ? "mx-auto grid max-w-none place-items-center"
-            : "pt-[72px] pb-[72px]"
-        }`}
-        contentClassName={`relative ${
-          isPhoneLandscapeLayout ? "mx-auto" : "mx-auto"
-        }`}
+        className="relative h-full min-h-0 w-full bg-transparent pt-[72px] pb-[72px]"
+        contentClassName="relative mx-auto"
         containerTestId="betrayal-room-grid"
         contentTestId="betrayal-room-canvas"
         scaleTestId="betrayal-room-map-scale"
@@ -359,12 +351,8 @@ export function BetrayalRoomMapSurface({
         minScale={0.55}
         maxScale={2.4}
         panToTarget={
-          roomFocusPanTarget ??
-          (isPhoneLandscapeLayout
-            ? `betrayal-room-${core.currentExplorer.roomId}`
-            : null)
+          roomFocusPanTarget ?? null
         }
-        panToScale={isPhoneLandscapeLayout ? 1 : undefined}
         panBoundsMode="free"
         dragBoundsPaddingRatioY={0.18}
         containerProps={{
@@ -1045,7 +1033,6 @@ export function BetrayalRoomMapSurface({
         hasCrossFloorMoveTargets={hasCrossFloorMoveTargets}
         hasCrossFloorRoomSelectionTargets={hasCrossFloorRoomSelectionTargets}
         hidden={hiddenTableChrome}
-        isPhoneLandscapeLayout={isPhoneLandscapeLayout}
         onSelectFloor={onSelectFloor}
       />
     </div>

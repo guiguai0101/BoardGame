@@ -598,6 +598,7 @@ export class GameTransportServer {
                 buildSeatControllers: (match) => this.buildOnlineAiSeatControllers(match),
                 isMatchExecuting: (match) => this.createMatchRoomRuntime(match).isExecuting(),
                 isRecoveryInFlight: (matchId) => this.onlineAiRecoveryLedger.isInFlight(matchId),
+                waitForRecoveryAvailability: (match) => this.waitForManualOnlineAiRecoveryAvailability(match),
                 resolvePrivateOverlay: (match, playerId) => (
                     this.stateSynchronizer.applyPlayerView(match, playerId) as MatchState<unknown>
                 ),
@@ -1322,6 +1323,24 @@ export class GameTransportServer {
             match,
             requesterPlayerId,
         );
+    }
+
+    private async waitForManualOnlineAiRecoveryAvailability(match: ActiveMatch): Promise<boolean> {
+        const deadline = Date.now() + 2_000;
+        while (Date.now() < deadline) {
+            if (
+                !this.createMatchRoomRuntime(match).isExecuting()
+                && !this.onlineAiRecoveryLedger.isInFlight(match.matchID)
+            ) {
+                return true;
+            }
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, 50);
+            });
+        }
+
+        return !this.createMatchRoomRuntime(match).isExecuting()
+            && !this.onlineAiRecoveryLedger.isInFlight(match.matchID);
     }
 
     private async recordOnlineAiCircuitFailure(

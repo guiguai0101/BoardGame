@@ -1353,6 +1353,7 @@
     "requireOpponentTurn": "This card can only be played on opponent's turn",
     "requireHasRolled": "Must roll dice first before playing this card",
     "requireDiceExists": "Must have dice results to play this card",
+    "requireMinDiceCount": "Not enough dice results to play this card",
     "requireLoaded": "Must spend 1 Loaded to play this card",
     "requireOpponentDiceExists": "Opponent must have dice results to play this card",
     "requireIsRoller": "This card can only be played by the current roller",
@@ -1361,6 +1362,7 @@
     "requireNotRollConfirmed": "Dice results already confirmed, cannot play this card",
     "rollContextLocked": "The current dice cannot be modified by cards",
     "requireMinDamageDealt": "Not enough damage dealt this attack to play this card",
+    "requireTokenStacks": "Not enough required tokens to play this card",
     "noStatusOnBoard": "No status effects on the board, cannot play this card",
     "requirePendingDamage": "This card requires pending damage to be played",
     "tutorial_manifest_invalid": "Tutorial configuration is invalid",
@@ -1569,6 +1571,7 @@
     },
     "vampireLordDrinkUp": {
       "title": "Drink Up!: choose Blood Power to spend",
+      "noSpend": "Do not spend",
       "spend": "Spend {{value}} Blood Power"
     },
     "lotusPalmUnblockable": {
@@ -5760,7 +5763,7 @@
     "upgrade-vampire-lord-mesmerize-power-2-soul-gaze": { "name": "Mesmerize Power II / Soul Gaze", "description": "Upgrade Mesmerize Power to level II and keep the lower Soul Gaze section as a variant of the upgraded ability." },
     "upgrade-vampire-lord-bloodthirsty-claws-3": { "name": "Bloodthirsty Claws III", "description": "Upgrade Bloodthirsty Claws to level III." },
     "upgrade-vampire-lord-bloodthirsty-claws-2": { "name": "Bloodthirsty Claws II", "description": "Upgrade Bloodthirsty Claws to level II." },
-    "card-vampire-lord-drink-up": { "name": "Drink Up!", "description": "Spend at least 2 Blood Power. Then gain 2 CP for each Blood Power spent." },
+    "card-vampire-lord-drink-up": { "name": "Drink Up!", "description": "Spend up to 2 Blood Power. Then gain 2 CP for each Blood Power spent." },
     "card-vampire-lord-bloodstone": { "name": "Bloodstone!", "description": "Gain 1 Mesmerize and 2 Blood Power. Inflict 1 Bleed on an opponent." }
   },
   "passive": {

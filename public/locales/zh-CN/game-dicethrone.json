@@ -1421,6 +1421,7 @@
     "requireOpponentTurn": "此卡只能在对手回合打出",
     "requireHasRolled": "需要先投掷骰子才能打出此卡",
     "requireDiceExists": "需要有骰子结果才能打出此卡",
+    "requireMinDiceCount": "骰子数量不足，无法打出此卡",
     "requireLoaded": "需要消耗 1 个装填才能打出此卡",
     "requireOpponentDiceExists": "需要对手有骰子结果才能打出此卡",
     "requireIsRoller": "此卡只能由当前投掷方使用",
@@ -1429,6 +1430,7 @@
     "requireNotRollConfirmed": "骰面已确认，无法再打出此卡",
     "rollContextLocked": "当前骰区不允许打出改骰牌",
     "requireMinDamageDealt": "本次攻击未造成足够伤害，无法打出此卡",
+    "requireTokenStacks": "指定标记数量不足，无法打出此卡",
     "noStatusOnBoard": "场上没有任何状态效果，无法打出此卡",
     "requirePendingDamage": "需要存在待结算伤害才能打出此卡",
     "tutorial_manifest_invalid": "教程配置无效",
@@ -1637,6 +1639,7 @@
     },
     "vampireLordDrinkUp": {
       "title": "饮血如酒：选择花费的鲜血之力",
+      "noSpend": "不花费",
       "spend": "花费 {{value}} 个鲜血之力"
     },
     "lotusPalmUnblockable": {
@@ -5835,7 +5838,7 @@
     "upgrade-vampire-lord-mesmerize-power-2-soul-gaze": { "name": "魅惑之力 II / 摄魂术", "description": "升级魅惑之力至 II 级，并保留卡面下区“摄魂术”作为同一升级后的可选技能变体。" },
     "upgrade-vampire-lord-bloodthirsty-claws-3": { "name": "嗜血之爪 III", "description": "升级嗜血之爪至 III 级。" },
     "upgrade-vampire-lord-bloodthirsty-claws-2": { "name": "嗜血之爪 II", "description": "升级嗜血之爪至 II 级。" },
-    "card-vampire-lord-drink-up": { "name": "饮血如酒！", "description": "花费至少 2 个鲜血之力；然后每花费 1 个鲜血之力，获得 2 CP。" },
+    "card-vampire-lord-drink-up": { "name": "饮血如酒！", "description": "花费至多 2 个鲜血之力；然后每花费 1 个鲜血之力，获得 2 CP。" },
     "card-vampire-lord-bloodstone": { "name": "血石！", "description": "获得 1 个催眠和 2 个鲜血之力；对一名对手施加 1 层流血。" }
   },
   "passive": {

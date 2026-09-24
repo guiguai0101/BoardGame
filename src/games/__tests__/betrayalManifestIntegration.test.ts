@@ -18,7 +18,7 @@ describe('betrayal manifest integration', () => {
         expect(game?.preferredOrientation).toBe('landscape');
         expect(game?.mobileLayoutPreset).toBe('board-shell');
         expect(game?.mobileBoardShellLayout).toEqual({
-            designWidth: 2340,
+            designWidth: 1920,
             designHeight: 1080,
             referenceWidth: 1920,
             referenceHeight: 1080,

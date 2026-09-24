@@ -17,7 +17,6 @@ export function MatchRoomPageShell({ shell }: { shell: MatchRoomPageShellModel }
         <div className="relative w-full game-page-viewport bg-black overflow-hidden font-sans" {...shell.rootDataAttributes}>
             <SEO title={shell.seoTitle} ogType="game" noIndex />
             <GamePageRuntimeProvider gameId={shell.gameId}>
-                {shell.tutorialHud ? <GameHUD {...shell.tutorialHud} /> : null}
                 {shell.showSpectatorShield && (
                     <div
                         className="absolute inset-0 bg-transparent pointer-events-auto"
@@ -27,6 +26,7 @@ export function MatchRoomPageShell({ shell }: { shell: MatchRoomPageShellModel }
                 )}
 
                 <MobileBoardShell battlefieldZoomMode={shell.battlefieldZoomMode}>
+                    {shell.tutorialHud ? <GameHUD {...shell.tutorialHud} /> : null}
                     <div className="w-full h-full" style={shell.boardShellStyle}>
                         <BoardRuntimeProvider>
                             <GameCursorProvider

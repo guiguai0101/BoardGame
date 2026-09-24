@@ -815,35 +815,38 @@ export type CardPlayCheckResult =
     | { ok: false; reason: CardPlayFailReason };
 
 /** 卡牌打出失败原因（用于国际化 key，必须与 i18n 保持一致） */
-export type CardPlayFailReason =
-    | 'playerNotFound'
-    | 'upgradeCardCannotPlay'      // 升级卡缺少目标技能
-    | 'upgradeCardSkipLevel'       // 旧错误码保留兼容；当前规则允许直接 I→III
-    | 'upgradeCardMaxLevel'        // 技能已达到最高级
-    | 'wrongPhaseForUpgrade'       // 升级卡只能在主要阶段
-    | 'wrongPhaseForMain'          // 主要阶段卡只能在主要阶段
-    | 'wrongPhaseForRoll'          // 投掷阶段卡只能在投掷阶段
-    | 'notEnoughCp'                // CP 不足
-    | 'unknownCardTiming'          // 未知卡牌时机
-    | 'wrongPhaseForCard'          // 卡牌需要特定阶段（进攻/防御）
-    | 'attackModifierRequiresSelectedAttack' // 攻击修正牌需要先选定攻击技能
-    | 'attackModifierRequiresSelectedDefender' // 4 人模式下该攻击修正牌需要先选定具体受击者
-    | 'requireLoaded'             // 需要消耗装填指示物
-    | 'requireOwnTurn'             // 卡牌需要在自己回合打出
-    | 'requireOpponentTurn'        // 卡牌需要在对手回合打出
-    | 'requireIsRoller'            // 卡牌需要是当前投掷方
-    | 'requireIsNotRoller'         // 卡牌需要不是当前投掷方（响应对手骰面）
-    | 'requireHasRolled'           // 卡牌需要已经投掷过
-    | 'requireDiceExists'          // 卡牌需要有骰子结果
-    | 'requireMinDiceCount'        // 卡牌需要最少骰子数量
-    | 'requireOpponentDiceExists'  // 卡牌需要对手有骰子结果
-    | 'requireRollConfirmed'       // 卡牌需要骰面已确认（响应对手确认后）
-    | 'requireNotRollConfirmed'    // 骰面已确认，不能再打出该卡
-    | 'requireMinDamageDealt'      // 本回合未造成足够伤害
-    | 'requireTokenStacks'         // 卡牌需要拥有足够的指定 Token / 正面标记
-    | 'noStatusOnBoard'            // 场上没有任何状态效果或 token
-    | 'rollContextLocked'          // 当前骰区不允许改骰牌
-    | 'requirePendingDamage';      // 需要处于待结算伤害响应窗口
+export const CARD_PLAY_FAIL_REASONS = [
+    'playerNotFound',
+    'upgradeCardCannotPlay',
+    'upgradeCardSkipLevel',
+    'upgradeCardMaxLevel',
+    'wrongPhaseForUpgrade',
+    'wrongPhaseForMain',
+    'wrongPhaseForRoll',
+    'notEnoughCp',
+    'unknownCardTiming',
+    'wrongPhaseForCard',
+    'attackModifierRequiresSelectedAttack',
+    'attackModifierRequiresSelectedDefender',
+    'requireLoaded',
+    'requireOwnTurn',
+    'requireOpponentTurn',
+    'requireIsRoller',
+    'requireIsNotRoller',
+    'requireHasRolled',
+    'requireDiceExists',
+    'requireMinDiceCount',
+    'requireOpponentDiceExists',
+    'requireRollConfirmed',
+    'requireNotRollConfirmed',
+    'requireMinDamageDealt',
+    'requireTokenStacks',
+    'noStatusOnBoard',
+    'rollContextLocked',
+    'requirePendingDamage',
+] as const;
+
+export type CardPlayFailReason = typeof CARD_PLAY_FAIL_REASONS[number];
 
 const getAttackModifierPlayFailureReason = (
     state: DiceThroneCore,

@@ -543,7 +543,7 @@ test.describe("山屋惊魂基本流程", () => {
     ]);
   });
 
-  test("移动端横屏角色选择包含竖向滚动、选中态和能力提示", async ({
+  test("移动端横屏角色选择保持 PC 同构画布、选中态和能力提示", async ({
     page,
     context,
   }) => {
@@ -567,14 +567,14 @@ test.describe("山屋惊魂基本流程", () => {
     await expect(
       page.getByTestId("betrayal-character-select-screen"),
     ).toBeVisible({ timeout: 30000 });
-    const mobileGrid = page.getByTestId("betrayal-character-mobile-grid");
-    await expect(mobileGrid).toBeVisible();
-    await expect(mobileGrid).toHaveClass(/grid-cols-3/);
+    const selectionGrid = page.getByTestId("betrayal-character-selection-grid");
+    await expect(selectionGrid).toBeVisible();
+    await expect(selectionGrid).toHaveClass(/grid-cols-3/);
     await expect(
-      mobileGrid.getByTestId("betrayal-character-card-isa-valencia"),
+      selectionGrid.getByTestId("betrayal-character-card-isa-valencia"),
     ).toBeVisible();
     await expect(
-      mobileGrid.getByTestId("betrayal-character-card-isa-valencia"),
+      selectionGrid.getByTestId("betrayal-character-card-isa-valencia"),
     ).toHaveAttribute("aria-label", /已选择/);
     for (const explorerId of [
       "isa-valencia",
@@ -585,19 +585,12 @@ test.describe("山屋惊魂基本流程", () => {
       "beat-box-bowen",
     ]) {
       await expect(
-        mobileGrid.getByTestId(`betrayal-character-card-${explorerId}`),
+        selectionGrid.getByTestId(`betrayal-character-card-${explorerId}`),
       ).toBeInViewport();
     }
     await expect(
-      page.getByTestId("betrayal-character-mobile-page-label"),
+      page.getByTestId("betrayal-character-mobile-grid"),
     ).toHaveCount(0);
-    await expect(page.getByTestId("betrayal-character-page-down")).toHaveCount(
-      0,
-    );
-    await expect(page.getByTestId("betrayal-character-page-up")).toHaveCount(0);
-    await expect(
-      page.getByTestId("betrayal-character-selection-grid"),
-    ).toBeHidden();
 
     await expect(
       page.getByTestId("betrayal-character-ability-summary"),

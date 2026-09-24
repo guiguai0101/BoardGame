@@ -17,16 +17,15 @@ import {
 import { CinematicNarrationPanel } from "./cinematicNarrationSurface";
 import { ScenarioBookTurnSheet } from "./scenarioBookTurnSurface";
 
-const REFERENCE_CARD_FRAME_WIDTH = `min(92vw, calc(86vh * ${BETRAYAL_POSSESSION_CARD_SHELL_ASPECT_RATIO}))`;
-const SCENARIO_REFERENCE_BOOK_FRAME_WIDTH = "min(94vw, 1120px)";
-const SCENARIO_REFERENCE_BOOK_FRAME_HEIGHT = "min(86vh, 760px)";
+const REFERENCE_CARD_FRAME_WIDTH = "492px";
+const SCENARIO_REFERENCE_BOOK_FRAME_WIDTH = "1120px";
+const SCENARIO_REFERENCE_BOOK_FRAME_HEIGHT = "760px";
 const SCENARIO_READER_MODAL_Z_INDEX = UI_Z_INDEX.modalContent;
 
 type BetrayalReferenceOverlaySurfaceProps = {
   referenceOpen: boolean;
   scenarioReaderOpen: boolean;
   isReferenceScenarioOpeningStage: boolean;
-  isPhoneLandscapeLayout: boolean;
   currentReferencePage?: ReferencePage;
   referenceFallbackAsset?: string;
   effectiveLocale: string;
@@ -54,7 +53,6 @@ export function BetrayalReferenceOverlaySurface({
   referenceOpen,
   scenarioReaderOpen,
   isReferenceScenarioOpeningStage,
-  isPhoneLandscapeLayout,
   currentReferencePage,
   referenceFallbackAsset,
   effectiveLocale,
@@ -85,6 +83,7 @@ export function BetrayalReferenceOverlaySurface({
       onClose={onClose}
       closeOnBackdrop={false}
       closeButtonClassName="hidden"
+      renderInPlace
       overlayTestId={
         scenarioReaderOpen
           ? "betrayal-scenario-reader-dialog"
@@ -93,7 +92,7 @@ export function BetrayalReferenceOverlaySurface({
       overlayClassName={
         scenarioReaderOpen && isReferenceScenarioOpeningStage
           ? "bg-[rgba(0,0,0,0.58)] p-0 backdrop-blur-[1px]"
-          : "bg-[rgba(3,6,5,0.82)] p-3 md:p-6"
+          : "bg-[rgba(3,6,5,0.82)] p-6"
       }
       containerClassName="rounded-none overflow-visible bg-transparent"
       zIndex={
@@ -106,16 +105,12 @@ export function BetrayalReferenceOverlaySurface({
           scenarioReaderOpen
             ? isReferenceScenarioOpeningStage
               ? {
-                  width: "100vw",
-                  height: "100vh",
+                  width: "1920px",
+                  height: "1080px",
                 }
               : {
-                  width: isPhoneLandscapeLayout
-                    ? "min(96vw, 900px)"
-                    : SCENARIO_REFERENCE_BOOK_FRAME_WIDTH,
-                  height: isPhoneLandscapeLayout
-                    ? "min(94vh, 420px)"
-                    : SCENARIO_REFERENCE_BOOK_FRAME_HEIGHT,
+                  width: SCENARIO_REFERENCE_BOOK_FRAME_WIDTH,
+                  height: SCENARIO_REFERENCE_BOOK_FRAME_HEIGHT,
                 }
             : {
                 width: REFERENCE_CARD_FRAME_WIDTH,
@@ -207,7 +202,7 @@ export function BetrayalReferenceOverlaySurface({
                     text={t(referenceScenarioOpeningSection.bodyKey)}
                     variant="opening"
                     presentation="stage"
-                    compact={isPhoneLandscapeLayout}
+                    compact={false}
                     actionSlot={
                       <>
                         <span
@@ -265,7 +260,7 @@ export function BetrayalReferenceOverlaySurface({
                   </div>
                   <div
                     className={`absolute inset-2 grid grid-cols-2 ${
-                      isPhoneLandscapeLayout ? "gap-2" : "gap-3"
+                      "gap-3"
                     }`}
                   >
                     {showScenarioReaderTitle ? (
@@ -287,7 +282,6 @@ export function BetrayalReferenceOverlaySurface({
                         referenceScenarioTurnSnapshot?.toPages ?? [null, null]
                       }
                       title={activeHauntTitle}
-                      isPhoneLandscapeLayout={isPhoneLandscapeLayout}
                       onTurnComplete={onScenarioTurnComplete}
                     />
                     {[
@@ -301,7 +295,7 @@ export function BetrayalReferenceOverlaySurface({
                             ? `betrayal-scenario-book-page-${page.id}`
                             : `betrayal-scenario-book-page-blank-${sideIndex}`
                         }
-                        className={`relative min-h-0 overflow-hidden border border-[#c7a06b] bg-[radial-gradient(circle_at_48%_18%,rgba(255,243,204,0.94),rgba(229,200,151,0.98)_58%,rgba(205,164,102,0.98)_100%)] text-[#3b2211] shadow-[inset_0_0_0_1px_rgba(255,246,215,0.36),inset_0_0_42px_rgba(95,54,19,0.18)] ${isPhoneLandscapeLayout ? "p-3" : "p-6"}`}
+                        className="relative min-h-0 overflow-hidden border border-[#c7a06b] bg-[radial-gradient(circle_at_48%_18%,rgba(255,243,204,0.94),rgba(229,200,151,0.98)_58%,rgba(205,164,102,0.98)_100%)] p-6 text-[#3b2211] shadow-[inset_0_0_0_1px_rgba(255,246,215,0.36),inset_0_0_42px_rgba(95,54,19,0.18)]"
                       >
                           <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:repeating-linear-gradient(0deg,rgba(92,55,24,0.08)_0_1px,transparent_1px_8px),radial-gradient(circle_at_18%_22%,rgba(88,49,18,0.12),transparent_18%),radial-gradient(circle_at_80%_70%,rgba(96,55,21,0.10),transparent_22%)]" />
                         {page ? (
@@ -322,9 +316,7 @@ export function BetrayalReferenceOverlaySurface({
                             >
                               <div
                                 className={`grid min-h-full content-center ${
-                                  isPhoneLandscapeLayout
-                                    ? "gap-2 px-1 py-5 pb-12"
-                                    : "gap-6 px-3 py-10 pb-16"
+                                  "gap-6 px-3 py-10 pb-16"
                                 }`}
                               >
                                 {(page.sections ?? []).map((section) => {
@@ -345,7 +337,7 @@ export function BetrayalReferenceOverlaySurface({
                                       className={
                                         isCinematicSection
                                           ? "min-h-[250px]"
-                                          : `border-l-4 ${isPhoneLandscapeLayout ? "pl-2" : "pl-4"} ${section.accentClass}`
+                                          : `border-l-4 pl-4 ${section.accentClass}`
                                       }
                                     >
                                       {isCinematicSection ? (
@@ -353,23 +345,21 @@ export function BetrayalReferenceOverlaySurface({
                                           label={t(section.labelKey)}
                                           text={t(section.bodyKey)}
                                           variant="opening"
-                                          compact={isPhoneLandscapeLayout}
+                                          compact={false}
                                           className={
-                                            isPhoneLandscapeLayout
-                                              ? "min-h-[232px]"
-                                              : "min-h-[390px]"
+                                            "min-h-[390px]"
                                           }
                                         />
                                       ) : (
                                         <>
                                           <h2
                                             data-testid={`betrayal-scenario-book-section-title-${section.id}`}
-                                            className={`${isPhoneLandscapeLayout ? "text-[14px]" : "text-[22px]"} font-black tracking-[0.03em] text-[#3b2211]`}
+                                            className="text-[22px] font-black tracking-[0.03em] text-[#3b2211]"
                                           >
                                             {t(section.labelKey)}
                                           </h2>
                                           <p
-                                            className={`${isPhoneLandscapeLayout ? "mt-1 text-[12px] leading-[1.45]" : "mt-3 text-[14px] leading-[1.6]"} whitespace-pre-line font-medium text-[#4e321c]`}
+                                            className="mt-3 text-[14px] leading-[1.6] whitespace-pre-line font-medium text-[#4e321c]"
                                           >
                                             {t(section.bodyKey)}
                                           </p>
@@ -391,9 +381,7 @@ export function BetrayalReferenceOverlaySurface({
                             aria-label={t("board.scenario.readerPrev")}
                             title={t("board.scenario.readerPrev")}
                             className={`pointer-events-auto absolute z-50 inline-flex min-h-11 min-w-11 items-center justify-center rounded-[5px] border border-[rgba(211,179,109,0.42)] bg-[rgba(9,13,12,0.88)] text-[#f3e0b4] shadow-[0_8px_18px_rgba(0,0,0,0.32)] transition hover:bg-[rgba(22,31,27,0.94)] disabled:opacity-35 disabled:hover:bg-[rgba(9,13,12,0.88)] ${
-                              isPhoneLandscapeLayout
-                                ? "bottom-2 left-2"
-                                : "bottom-3 left-3"
+                              "bottom-3 left-3"
                             }`}
                           >
                             <ChevronLeft size={16} aria-hidden="true" />
@@ -408,9 +396,7 @@ export function BetrayalReferenceOverlaySurface({
                             aria-label={t("board.scenario.readerNext")}
                             title={t("board.scenario.readerNext")}
                             className={`pointer-events-auto absolute z-50 inline-flex min-h-11 min-w-11 items-center justify-center rounded-[5px] border border-[rgba(211,179,109,0.42)] bg-[rgba(9,13,12,0.88)] text-[#f3e0b4] shadow-[0_8px_18px_rgba(0,0,0,0.32)] transition hover:bg-[rgba(22,31,27,0.94)] disabled:opacity-35 disabled:hover:bg-[rgba(9,13,12,0.88)] ${
-                              isPhoneLandscapeLayout
-                                ? "bottom-2 right-2"
-                                : "bottom-3 right-3"
+                              "bottom-3 right-3"
                             }`}
                           >
                             <ChevronRight size={16} aria-hidden="true" />

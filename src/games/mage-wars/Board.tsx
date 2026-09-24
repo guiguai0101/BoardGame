@@ -1,5 +1,6 @@
 import {
     useCallback,
+    useEffect,
     useLayoutEffect,
     useId,
     useMemo,
@@ -12,7 +13,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ZoomIn } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useAnimate } from 'framer-motion';
 import type { CardPreviewRef } from '../../core';
 import { EndgameOverlay } from '../../components/game/framework/widgets/EndgameOverlay';
 import { ZoomPanViewport } from '../../components/game/framework';
@@ -1477,7 +1478,6 @@ function ZoneFieldCard({
     });
     const touchInspectProps = getTouchInspectProps(touchInspectKey, null);
 
-    if (!previewRef) return null;
     const hasPrimaryActionIntent = Boolean(primaryActionIntent || onClick);
     const primaryActionEnabled = Boolean(onClick);
     const hasBrowseInspectAction = !hasPrimaryActionIntent && Boolean(onInspect);
@@ -1491,6 +1491,49 @@ function ZoneFieldCard({
         ? ((meleeAttack.targetSnapshot.center.yPct - meleeAttack.sourceSnapshot.center.yPct)
             / Math.max(meleeAttack.sourceSnapshot.box.height, 0.1)) * 70
         : 0;
+    const [meleeScope, meleeAnimate] = useAnimate<HTMLButtonElement>();
+    const meleeAnimatingRef = useRef(false);
+
+    useEffect(() => {
+        if (!isMeleeAttacker || meleeAnimatingRef.current) return;
+        meleeAnimatingRef.current = true;
+
+        const run = async () => {
+            try {
+                await meleeAnimate(meleeScope.current, {
+                    x: `${meleeLungeX}%`,
+                    y: `${meleeLungeY}%`,
+                    scale: 1.05,
+                }, {
+                    duration: 0.16,
+                    ease: [0.2, 0, 0.3, 1],
+                });
+                await new Promise((resolve) => window.setTimeout(resolve, 80));
+                await meleeAnimate(meleeScope.current, {
+                    x: '0%',
+                    y: '0%',
+                    scale: 1,
+                }, {
+                    duration: 0.16,
+                    ease: [0, 0, 0.2, 1],
+                });
+            } finally {
+                meleeAnimatingRef.current = false;
+            }
+        };
+
+        void run();
+    }, [
+        isMeleeAttacker,
+        meleeAttack?.attackEventId,
+        meleeLungeX,
+        meleeLungeY,
+        meleeAnimate,
+        meleeScope,
+    ]);
+
+    if (!previewRef) return null;
+
     const objectTutorialTargetId = object ? `mw-arena-object-${object.id}` : undefined;
     const primaryTutorialId = objectTutorialTargetId && tutorialHighlightTarget === objectTutorialTargetId
         ? objectTutorialTargetId
@@ -1547,6 +1590,7 @@ function ZoneFieldCard({
     const primaryButton = (
         <motion.button
             type="button"
+            ref={meleeScope}
             className={cx(
                 'group relative block h-full w-full rounded-[0.18rem] text-left shadow-[0_14px_30px_rgba(0,0,0,0.48)] transition-[filter,box-shadow,opacity] duration-150',
                 compact && 'shadow-[0_8px_16px_rgba(0,0,0,0.42)]',
@@ -1562,20 +1606,6 @@ function ZoneFieldCard({
                 (primaryActionEnabled || hasBrowseInspectAction) && 'hover:brightness-110 hover:shadow-[0_0_24px_rgba(251,191,36,0.32)]',
             )}
             style={cardSizeStyle}
-            animate={isMeleeAttacker ? {
-                x: ['0%', `${meleeLungeX}%`, `${meleeLungeX}%`, '0%'],
-                y: ['0%', `${meleeLungeY}%`, `${meleeLungeY}%`, '0%'],
-                scale: [1, 1.04, 1.04, 1],
-            } : {
-                x: '0%',
-                y: '0%',
-                scale: 1,
-            }}
-            transition={isMeleeAttacker ? {
-                duration: 1.25,
-                times: [0, 0.336, 0.4, 1],
-                ease: 'easeInOut',
-            } : { duration: 0 }}
             data-melee-lunge-active={isMeleeAttacker ? 'true' : undefined}
             data-melee-lunge-event-id={isMeleeAttacker ? meleeAttack?.attackEventId : undefined}
             disabled={!primaryActionEnabled && !hasBrowseInspectAction && !hasSecondaryInspect}
@@ -2947,11 +2977,21 @@ function ArenaStage({
                         )
                         || hasPendingAbilityTarget
                     );
+                    const isMeleeAttacker = meleeAttack?.sourceObjectId === object.id;
+                    const laneStyle = getZoneLaneItemStyle(laneIndex, fieldRole != null);
+                    const visualZIndex = isMeleeAttacker || fieldRole === 'source'
+                        ? 110
+                        : fieldRole === 'target'
+                            ? 95
+                            : laneStyle?.zIndex;
                     return (
                         <div
                             key={object.id}
                             className="relative flex shrink-0 items-center justify-center"
-                            style={getZoneLaneItemStyle(laneIndex, fieldRole != null)}
+                            style={{
+                                ...laneStyle,
+                                ...(visualZIndex == null ? {} : { zIndex: visualZIndex }),
+                            }}
                             data-testid="mage-wars-zone-lane-item"
                             data-lane-item-kind="field"
                             data-lane-item-index={laneIndex}
@@ -3052,11 +3092,18 @@ function ArenaStage({
                         && occupant.id === activePlayer?.id
                         && ((creatureActionActive && canUseMageAction) || occupantCanUseRestoreAbility),
                     );
+                    const isMeleeAttacker = meleeAttack?.sourceObjectId === occupant.id;
+                    const laneStyle = getZoneLaneItemStyle(laneIndex, true);
+                    const visualZIndex = isMeleeAttacker || role === 'source'
+                        ? 110
+                        : role === 'target'
+                            ? 95
+                            : 90;
                     return (
                         <div
                             key={occupant.id}
                             className="relative flex shrink-0 items-center justify-center"
-                            style={{ ...(getZoneLaneItemStyle(laneIndex, true) ?? {}), zIndex: 90 }}
+                            style={{ ...laneStyle, zIndex: visualZIndex }}
                             data-testid="mage-wars-zone-lane-item"
                             data-lane-item-kind="mage"
                             data-lane-item-index={laneIndex}

@@ -651,8 +651,9 @@ function MeleeSlashEffect({
                     rotate: [-28, -10, 8, 24],
                 }}
                 transition={{
-                    duration: MAGE_WARS_FX_TIMING.meleeStrikeMs / 1000,
-                    times: [0, 0.28, 0.62, 1],
+                    delay: MAGE_WARS_FX_TIMING.meleeStrikeMs / 1000,
+                    duration: 0.18,
+                    times: [0, 0.24, 0.62, 1],
                     ease: 'easeOut',
                 }}
             >
@@ -681,9 +682,9 @@ function MeleeSlashEffect({
                             x: [-10, 0, 8, 16],
                         }}
                         transition={{
-                            duration: MAGE_WARS_FX_TIMING.meleeStrikeMs / 1000,
+                            delay: MAGE_WARS_FX_TIMING.meleeStrikeMs / 1000 + index * 0.025,
+                            duration: 0.18,
                             times: [0, 0.24, 0.6, 1],
-                            delay: index * 0.025,
                             ease: 'easeOut',
                         }}
                     />

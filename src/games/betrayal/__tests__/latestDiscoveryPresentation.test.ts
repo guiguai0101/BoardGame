@@ -627,4 +627,96 @@ describe('latest discovery presentation', () => {
     expect(panel.shouldKeepTableChromeOpenForEventResult).toBe(true);
     expect(panel.shouldHideTableChromeForBlockingOverlay).toBe(false);
   });
+
+  it('keeps the spider discovery visible while the event roll awaits acknowledgement', () => {
+    const currentDiscovery: BetrayalDiscoverySummary = {
+      kind: 'event',
+      title: '蜘蛛！',
+      summary: '结果已公开',
+      detail: '神志检定 8：获得 1 点神志或速度，并放置到相邻板块；神志 +1；放置到相邻板块',
+    };
+    const core = {
+      playerIds: ['0'],
+      latestDiscovery: currentDiscovery,
+      latestDiscoveryOwnerPlayerId: '0',
+      recentRoll: {
+        id: 'spider-roll',
+        kind: 'eventTraitCheck',
+        playerId: '0',
+        sourceTitle: '蜘蛛！',
+        trait: 'sanity',
+        rollLabel: '神志检定',
+        dice: [2, 2, 2, 2],
+        passiveBonus: 0,
+        latestLabel: '获得 1 点神志或速度，并放置到相邻板块',
+        consumedRabbitFootCardIds: [],
+      },
+      pendingEventChoice: null,
+      pendingEventRollStart: null,
+      pendingEventRollResolution: {
+        rollId: 'spider-roll',
+        playerId: '0',
+        sourceTitle: '蜘蛛！',
+        effect: {
+          mode: 'compound',
+          recommendedAction: 'explore',
+          effects: [],
+        },
+        requiredPlayerIds: ['0'],
+        acknowledgedPlayerIds: [],
+        nextPendingEventChoice: {
+          id: 'spider-choice',
+          playerId: '0',
+          sourceTitle: '蜘蛛！',
+          effect: {
+            mode: 'compound',
+            recommendedAction: 'explore',
+            effects: [],
+          },
+        },
+      },
+      pendingCardResolutionQueue: [],
+      activityLog: [{ id: 'spider-log', text: '蜘蛛！', tone: 'accent' }],
+      turnEndedByDiscovery: true,
+    } as unknown as BetrayalCore;
+    const currentEntry = buildLatestDiscoveryDisplayEntry(core);
+    const selection = resolveBetrayalLatestDiscoverySelectionPresentation({
+      core,
+      currentEntry,
+      queue: [],
+      dismissedLatestDiscoveryKey: null,
+      dismissedLatestDiscoveryKeys: new Set(),
+    });
+
+    const panel = resolveBetrayalLatestDiscoveryPanelPresentation({
+      core,
+      selection,
+      dismissedLatestDiscoveryKey: null,
+      dismissedRecentRollId: null,
+      viewerPlayerId: '0',
+      inventoryActionPlayerId: '0',
+      hasRecentRollModifier: false,
+      isConfirmedExorciseRoll: false,
+      pendingEventChoice: null,
+      shouldShowHauntRevealCue: false,
+      shouldPauseHauntBoardActions: false,
+      scenarioReaderOpen: false,
+      shouldShowScenarioStartOpening: false,
+      latestDiscoverySearchRevealIndex: 0,
+      eventRollConfirmation: {
+        requiredPlayerIds: ['0'],
+        acknowledgedPlayerIds: [],
+        confirmedCount: 0,
+        totalCount: 1,
+        viewerHasAcknowledged: false,
+        canViewerAcknowledge: true,
+      },
+      isRecentRollReadable: true,
+      t: (key) => key,
+    });
+
+    expect(panel.shouldAutoReturnAfterLatestDiscovery).toBe(false);
+    expect(panel.shouldShow).toBe(true);
+    expect(panel.shouldShowRoll).toBe(true);
+  });
 });

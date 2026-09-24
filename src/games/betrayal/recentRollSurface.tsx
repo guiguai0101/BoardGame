@@ -1,10 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { HudPortal, UI_Z_INDEX } from "../../core";
 import type { DiceBoxStyleProfile } from "../../lib/dice-box-threejs/engine";
 import type { BetrayalRecentRollState } from "./game";
 import {
-  BETRAYAL_HOUSE_DICE_MOBILE_STYLE_PROFILE,
   BETRAYAL_HOUSE_DICE_STYLE_PROFILE,
 } from "./houseDicePresentation";
 import {
@@ -32,7 +30,6 @@ export function RecentRollPanel({
   deferEventDamageStage = false,
   diceStyleProfile = BETRAYAL_HOUSE_DICE_STYLE_PROFILE,
   diceVisualScale = 1,
-  landscapeResultDock = false,
   floatingResultClassName = "",
   openTableResultDocked = false,
   resultStageClassName = "",
@@ -59,7 +56,6 @@ export function RecentRollPanel({
   deferEventDamageStage?: boolean;
   diceStyleProfile?: DiceBoxStyleProfile;
   diceVisualScale?: number;
-  landscapeResultDock?: boolean;
   floatingResultClassName?: string;
   openTableResultDocked?: boolean;
   resultStageClassName?: string;
@@ -418,7 +414,7 @@ export function RecentRollPanel({
                 ? openTableResultDocked
                   ? "max-h-[34px] overflow-hidden whitespace-normal break-words text-[12px] leading-[17px]"
                   : "whitespace-normal break-words text-[13px] leading-[18px]"
-                : "truncate text-[16px] md:text-[18px]"
+                : "truncate text-[18px]"
             }`}
           >
             {eventDamageDescriptionLabel}
@@ -459,7 +455,7 @@ export function RecentRollPanel({
                 ? openTableResultDocked
                   ? "mt-0.5 max-h-[34px] overflow-hidden whitespace-normal break-words text-[12px] leading-[17px]"
                   : "mt-1 whitespace-normal break-words text-[13px] leading-[18px]"
-                : "mt-2 truncate text-[16px] md:text-[18px]"
+                : "mt-2 truncate text-[18px]"
             }`}
           >
             {primaryOutcomeLabel}
@@ -509,7 +505,7 @@ export function RecentRollPanel({
             ? openTableResultDocked
               ? "pl-1.5 text-[16px]"
               : "pl-2 text-[16px]"
-          : "pl-4 text-[22px] md:text-[28px]"
+          : "pl-4 text-[28px]"
         }`}
       >
         <span className="leading-none">{totalLabel}</span>
@@ -555,30 +551,6 @@ export function RecentRollPanel({
       {shouldShowPrimaryOutcome ? <span>{primaryOutcomeLabel}</span> : null}
     </div>
   );
-
-  if (landscapeResultDock) {
-    return (
-      <div
-        data-testid="betrayal-recent-roll-panel"
-        data-tutorial-id="betrayal-recent-roll-panel"
-        data-roll-panel-style="mobile-landscape-open-dock"
-        data-visible-dice-source={
-          showEventDamageDiceStage ? "event-rolled-damage" : "recent-roll"
-        }
-        className={`pointer-events-none min-h-[214px] text-[#f3e0a6] ${className}`}
-      >
-        <div className="grid h-full min-h-[214px] grid-cols-[minmax(220px,0.62fr)_minmax(190px,0.88fr)] items-center gap-2">
-          <div className="relative h-full min-h-[214px] min-w-0">
-            {diceStageWithPrompt}
-          </div>
-          <div className="pointer-events-auto relative -left-[70px] flex min-h-0 min-w-0 flex-col justify-center gap-2">
-            {resultStage}
-          </div>
-        </div>
-        {srSummary}
-      </div>
-    );
-  }
 
   return (
     <div
@@ -661,7 +633,6 @@ export function RecentRollPanel({
 
 export function StandardRecentRollOverlay({
   roll,
-  isPhoneLandscapeLayout,
   canDismissByBackdrop,
   onDismiss,
   effectiveLocale,
@@ -670,7 +641,6 @@ export function StandardRecentRollOverlay({
   actorLabel = null,
 }: {
   roll: BetrayalRecentRollState;
-  isPhoneLandscapeLayout: boolean;
   canDismissByBackdrop: boolean;
   onDismiss: () => void;
   effectiveLocale: string;
@@ -683,9 +653,7 @@ export function StandardRecentRollOverlay({
     <button
       type="button"
       data-testid="betrayal-roll-continue"
-      className={`pointer-events-auto inline-flex min-h-[42px] max-w-full shrink-0 items-center justify-center whitespace-nowrap border border-[#d6b56d] bg-[#d6b56d] px-5 py-2 text-[14px] font-bold tracking-[0.12em] text-[#19140d] shadow-[0_10px_22px_rgba(0,0,0,0.34)] transition hover:bg-[#f0d28a] ${
-        isPhoneLandscapeLayout ? "min-w-[132px]" : "min-w-[168px]"
-      }`}
+      className="pointer-events-auto inline-flex min-h-[42px] min-w-[168px] max-w-full shrink-0 items-center justify-center whitespace-nowrap border border-[#d6b56d] bg-[#d6b56d] px-5 py-2 text-[14px] font-bold tracking-[0.12em] text-[#19140d] shadow-[0_10px_22px_rgba(0,0,0,0.34)] transition hover:bg-[#f0d28a]"
       onClick={onDismiss}
     >
       {t("board.roll.backToBoard")}
@@ -696,78 +664,37 @@ export function StandardRecentRollOverlay({
     <div
       data-testid="betrayal-roll-result-backdrop"
       data-backdrop-dismiss={canDismissByBackdrop ? "enabled" : "disabled"}
-      data-render-layer={isPhoneLandscapeLayout ? "hud-portal" : "board-stage"}
-      className={`${isPhoneLandscapeLayout ? "fixed inset-0" : "absolute inset-0 z-40"} pointer-events-auto`}
-      style={
-        isPhoneLandscapeLayout
-          ? {
-              zIndex: UI_Z_INDEX.emergencyHud + 40,
-              backgroundImage:
-                "radial-gradient(circle at 50% 50%, rgba(6,18,13,0.86), rgba(2,8,6,0.94) 74%, rgba(2,8,6,0.98))",
-            }
-          : undefined
-      }
+      data-render-layer="board-stage"
+      className="pointer-events-auto absolute inset-0 z-40"
       onClick={canDismissByBackdrop ? onDismiss : undefined}
     >
       <div
         data-testid="betrayal-roll-result-dock"
-        className={
-          isPhoneLandscapeLayout
-            ? "pointer-events-auto absolute flex flex-col items-center gap-2"
-            : "pointer-events-auto absolute bottom-[106px] left-[392px] right-[240px] z-40 flex flex-col items-center gap-2"
-        }
-        style={
-          isPhoneLandscapeLayout
-            ? {
-                left: "50%",
-                top: "clamp(82px, 22vh, 108px)",
-                transform: "translateX(-50%)",
-                width: "min(760px, calc(100vw - 5rem))",
-              }
-            : undefined
-        }
+        className="pointer-events-auto absolute bottom-[106px] left-[392px] right-[240px] z-40 flex flex-col items-center gap-2"
         onClick={(event) => event.stopPropagation()}
       >
         <RecentRollPanel
           roll={roll}
-          className={
-            isPhoneLandscapeLayout
-              ? "h-[min(54vh,238px)] min-h-[218px] w-full"
-              : "h-[min(44vh,390px)] min-h-[360px] w-[min(700px,100%)]"
-          }
-          diceClassName={isPhoneLandscapeLayout ? "min-h-[214px]" : "min-h-[252px]"}
+          className="h-[min(44vh,390px)] min-h-[360px] w-[min(700px,100%)]"
+          diceClassName="min-h-[252px]"
           rerollSelection={rerollSelection}
           openTable
           compactResult
-          compactRowsClassName={
-            isPhoneLandscapeLayout
-              ? undefined
-              : "grid-rows-[minmax(252px,1fr)_auto]"
-          }
-          resultStageClassName={isPhoneLandscapeLayout ? undefined : "mt-3"}
-          denseResult={isPhoneLandscapeLayout}
-          landscapeResultDock={isPhoneLandscapeLayout}
-          diceStyleProfile={
-            isPhoneLandscapeLayout
-              ? BETRAYAL_HOUSE_DICE_MOBILE_STYLE_PROFILE
-              : BETRAYAL_HOUSE_DICE_STYLE_PROFILE
-          }
-          diceVisualScale={isPhoneLandscapeLayout ? 1.16 : 1}
+          compactRowsClassName="grid-rows-[minmax(252px,1fr)_auto]"
+          resultStageClassName="mt-3"
+          diceStyleProfile={BETRAYAL_HOUSE_DICE_STYLE_PROFILE}
           effectiveLocale={effectiveLocale}
           actorLabel={actorLabel}
-          actionSlot={isPhoneLandscapeLayout ? dockedActionSlot : null}
         />
-        {isPhoneLandscapeLayout ? null : (
-          <div
-            data-testid="betrayal-roll-continue-dock"
-            className="pointer-events-auto mt-2 flex w-[min(700px,100%)] justify-center"
-          >
-            {dockedActionSlot}
-          </div>
-        )}
+        <div
+          data-testid="betrayal-roll-continue-dock"
+          className="pointer-events-auto mt-2 flex w-[min(700px,100%)] justify-center"
+        >
+          {dockedActionSlot}
+        </div>
       </div>
     </div>
   );
 
-  return isPhoneLandscapeLayout ? <HudPortal>{overlay}</HudPortal> : overlay;
+  return overlay;
 }

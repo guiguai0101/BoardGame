@@ -27,6 +27,7 @@ import { useUndo, useUndoStatus } from '../../../../contexts/UndoContext';
 import { HudPortal } from '../../../../core';
 import { FabMenu, type FabAction, type FabMenuPosition } from '../../../system/FabMenu';
 import { UNDO_COMMANDS } from '../../../../engine';
+import type { ManualForceEndAiPhaseResult } from '../../../../engine/transport/protocol';
 import { AudioControlSection } from './AudioControlSection';
 import { AboutModal } from '../../../system/AboutModal';
 import { FeedbackModal } from '../../../system/FeedbackModal';
@@ -96,7 +97,12 @@ interface GameHUDProps {
     onDestroy?: () => void;
     onForceExit?: () => void;
     showForceEndAiPhase?: boolean;
-    onForceEndAiPhase?: () => boolean | void | Promise<boolean | void>;
+    onForceEndAiPhase?: () => (
+        | boolean
+        | void
+        | ManualForceEndAiPhaseResult
+        | Promise<boolean | void | ManualForceEndAiPhaseResult>
+    );
     showForceDismissPopup?: boolean;
     onForceDismissPopup?: () => boolean | void | Promise<boolean | void>;
     showSeatSwap?: boolean;
@@ -111,6 +117,11 @@ interface GameHUDProps {
     renderRuntimeSettings?: (t: TFunction) => ReactNode;
     availableEmotes?: readonly EmoteDefinition[];
     resolveEmote?: (emoteId: string) => EmoteDefinition | undefined;
+    /**
+     * 主 HUD 的坐标归属。固定牌桌必须放在壳内，避免和 board-shell
+     * 产生第二套真实视口定位；独立页面默认继续使用 portal。
+     */
+    hudPlacement?: 'in-shell' | 'portal';
 }
 
 const EMPTY_EMOTES: readonly EmoteDefinition[] = [];
@@ -149,6 +160,7 @@ export const GameHUD = ({
     renderRuntimeSettings,
     availableEmotes = EMPTY_EMOTES,
     resolveEmote,
+    hudPlacement = 'portal',
 }: GameHUDProps) => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation('game');
@@ -592,13 +604,35 @@ export const GameHUD = ({
         setIsForceEndingAiPhase(true);
         try {
             const result = await onForceEndAiPhase();
-            if (result !== false) {
+            const accepted = typeof result === 'object' && result !== null
+                ? result.accepted
+                : result !== false;
+            if (accepted) {
                 closePanel();
+                return;
             }
+
+            const reason = typeof result === 'object' && result !== null ? result.reason : undefined;
+            const message = reason === 'busy'
+                ? t('hud.ai.forceEndPhaseBusy')
+                : reason === 'unavailable'
+                    ? t('hud.ai.forceEndPhaseUnavailable')
+                    : reason === 'unauthorized'
+                        ? t('hud.ai.forceEndPhaseUnauthorized')
+                        : reason === 'timeout'
+                            ? t('hud.ai.forceEndPhaseTimeout')
+                            : reason === 'not-connected'
+                                ? t('hud.ai.forceEndPhaseNotReady')
+                                : reason === 'rejected'
+                                    ? t('hud.ai.forceEndPhaseRejected')
+                                    : t('hud.ai.forceEndPhaseFailed', {
+                                        reason: t('hud.ai.forceEndPhaseNotReady'),
+                                    });
+            toast.warning(message);
         } finally {
             setIsForceEndingAiPhase(false);
         }
-    }, [isForceEndingAiPhase, onForceEndAiPhase]);
+    }, [isForceEndingAiPhase, onForceEndAiPhase, t, toast]);
     const handleForceDismissPopupClick = useCallback(async (closePanel: () => void) => {
         if (isForceDismissingPopup) {
             return;
@@ -1185,8 +1219,8 @@ export const GameHUD = ({
         items.push(settingsAction);
     }
 
-    return (
-        <HudPortal>
+    const hudContent = (
+        <>
             {/* 对手状态提示（仅联机模式，加载完成后） */}
             {isOnline
                 && !isSpectator
@@ -1211,6 +1245,7 @@ export const GameHUD = ({
                 zIndex={GAME_HUD_FAB_Z_INDEX}
                 storageKey={fabMenuStorageKey}
                 legacyOffsetStorageKey={fabMenuLegacyOffsetStorageKey}
+                hudPlacement={hudPlacement}
             />
 
             {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
@@ -1235,6 +1270,8 @@ export const GameHUD = ({
                     })()}
                 />
             )}
-        </HudPortal>
+        </>
     );
+
+    return hudPlacement === 'in-shell' ? hudContent : <HudPortal>{hudContent}</HudPortal>;
 };

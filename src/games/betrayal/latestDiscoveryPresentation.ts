@@ -877,6 +877,8 @@ export function resolveBetrayalLatestDiscoveryPanelPresentation(options: {
   );
   const shouldAutoReturnAfterLatestDiscovery = Boolean(
     !pendingEventChoice &&
+      !core.pendingEventRollStart &&
+      !core.pendingEventRollResolution &&
       (core.pendingCardResolutionQueue?.length ?? 0) === 0 &&
       core.turnEndedByDiscovery &&
       isSpiderAdjacentRoomResolutionDiscovery(core.latestDiscovery) &&

@@ -966,7 +966,7 @@ test.describe("山屋惊魂日志与撤回截图验收", () => {
     await expect(
       eventRollPanel.getByTestId("betrayal-recent-roll-thresholds"),
     ).toHaveCount(0);
-    await expect(eventRollPanel).toContainText("受到一颗骰子的精神伤害");
+    await expect(eventRollPanel).toContainText("总点数");
 
     let currentCore = await readCurrentCore(page);
     expect(currentCore.pendingEventRollResolution).toMatchObject({

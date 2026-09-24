@@ -1280,7 +1280,7 @@ export const BETRAYAL_DISCOVERY_POOLS = {
                 tags: ['一层', '事件'],
                 visualId: 'specimenRoom',
                 discoverySymbol: 'omen',
-                doorways: ['east', 'south', 'west'],
+                doorways: ['east', 'west'],
             },
             {
                 name: '沙龙',

@@ -1303,11 +1303,13 @@ async function expectMobileEventChoiceLayout(page: Page, label: string) {
   ).toHaveAttribute("data-result-layout", "split-primary-total");
   await expect(
     rollPanel.getByTestId("betrayal-recent-roll-result-stage"),
-  ).toHaveAttribute("data-result-surface", "open-info-band");
+  ).toHaveAttribute("data-result-surface", "open-transparent");
   await expect(rollPanel.getByTestId("betrayal-recent-roll-stage-surface")).toHaveCount(0);
   await expect(rollPanel.getByTestId("betrayal-recent-roll-breakdown")).toContainText("骰面合计");
   await expect(rollPanel.getByTestId("betrayal-recent-roll-breakdown")).toContainText("加值");
-  await expect(rollPanel.getByTestId("betrayal-recent-roll-outcome")).toHaveCount(0);
+  await expect(
+    rollPanel.getByTestId("betrayal-recent-roll-outcome"),
+  ).toBeVisible();
 
   const metrics = await page.evaluate(() => {
     const rectOf = (selector: string) => {
@@ -1727,7 +1729,7 @@ async function expectDesktopEventChoiceLayout(page: Page, label: string) {
   );
   await expect(
     rollPanel.getByTestId("betrayal-recent-roll-result-stage"),
-  ).toHaveAttribute("data-result-surface", "open-info-band");
+  ).toHaveAttribute("data-result-surface", "open-transparent");
 
   const metrics = await page.evaluate(() => {
     const rectOf = (selector: string) => {
@@ -2301,7 +2303,7 @@ async function expectMobileDiscoveryRollLayout(page: Page, label: string) {
   );
   await expect(
     rollPanel.getByTestId("betrayal-recent-roll-result-stage"),
-  ).toHaveAttribute("data-result-surface", "open-info-band");
+  ).toHaveAttribute("data-result-surface", "open-transparent");
   await expect(
     page.getByTestId("betrayal-left-status-rail"),
   ).toBeVisible();
@@ -7536,6 +7538,8 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
     const core = createRuntimeCore();
     core.drawOrder = ["event"];
     core.eventOrder = [spider];
+    core.deckCounts.event = core.eventOrder.length;
+    pinGroundNorthToEventRoom(core);
     core.currentExplorer = {
       ...core.currentExplorer,
       traits: {
@@ -7588,6 +7592,22 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
       `${screenshotBase}-01a-确认房间朝向放置事件房.jpg`,
     );
     await page.getByTestId("betrayal-room-placement-confirm").click();
+    await expect(page.getByTestId("betrayal-event-choice-panel")).toHaveCount(
+      0,
+    );
+    const discoveryPanel = page.getByTestId("betrayal-discovery-panel");
+    await expect(discoveryPanel).toBeVisible({ timeout: 30000 });
+    const eventRollStart = page.getByTestId("betrayal-event-roll-start");
+    await expect(eventRollStart).toBeVisible();
+    await expect(eventRollStart).toBeEnabled();
+    await setHarnessRandomQueue(page, [0.6, 0.6, 0.6, 0.6]);
+    await eventRollStart.click();
+    await expect(discoveryPanel).toBeVisible();
+    await expect(page.getByTestId("betrayal-discovery-continue")).toBeVisible();
+    await finalizePendingEventRollForAllPlayers(
+      page,
+      "蜘蛛事件骰确认后必须进入4+效果选择",
+    );
     const eventChoicePanel = page.getByTestId("betrayal-event-choice-panel");
     await expect(eventChoicePanel).toHaveAttribute("aria-label", "蜘蛛！");
     await expect(
@@ -7880,6 +7900,8 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
     const core = createRuntimeCore();
     core.drawOrder = ["event"];
     core.eventOrder = [spider];
+    core.deckCounts.event = core.eventOrder.length;
+    pinGroundNorthToEventRoom(core);
     core.currentExplorer = {
       ...core.currentExplorer,
       traits: {
@@ -7920,6 +7942,22 @@ test.describe("山屋惊魂事件牌真实页面选择承接", () => {
       `${screenshotBase}-02a-确认房间朝向放置事件房.jpg`,
     );
     await page.getByTestId("betrayal-room-placement-confirm").click();
+    await expect(page.getByTestId("betrayal-event-choice-panel")).toHaveCount(
+      0,
+    );
+    const discoveryPanel = page.getByTestId("betrayal-discovery-panel");
+    await expect(discoveryPanel).toBeVisible({ timeout: 30000 });
+    const eventRollStart = page.getByTestId("betrayal-event-roll-start");
+    await expect(eventRollStart).toBeVisible();
+    await expect(eventRollStart).toBeEnabled();
+    await setHarnessRandomQueue(page, [0.6, 0.6, 0.6, 0.6]);
+    await eventRollStart.click();
+    await expect(discoveryPanel).toBeVisible();
+    await expect(page.getByTestId("betrayal-discovery-continue")).toBeVisible();
+    await finalizePendingEventRollForAllPlayers(
+      page,
+      "蜘蛛事件骰确认后必须进入4+效果选择",
+    );
     const eventChoicePanel = page.getByTestId("betrayal-event-choice-panel");
     await expect(eventChoicePanel).toHaveAttribute("aria-label", "蜘蛛！");
     await expect(

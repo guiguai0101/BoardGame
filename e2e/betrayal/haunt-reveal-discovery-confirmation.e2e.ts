@@ -5,6 +5,7 @@ import {
 } from '../framework/evidenceScreenshots';
 import { type BetrayalCore } from '../../src/games/betrayal/game';
 import { BETRAYAL_COMMANDS } from '../../src/games/betrayal/commands';
+import { resolveRoomExploredCardResolutionRequiredPlayerIds } from '../../src/games/betrayal/acknowledgementReadModel';
 import { BETRAYAL_DISCOVERY_POOLS } from '../../src/games/betrayal/scenarioConfig';
 import {
     applyBetrayalCommand,
@@ -246,7 +247,6 @@ function createSafeOmenPendingResolutionCore(
 
 function createItemPendingResolutionCore(
     itemCard: ItemDiscoveryCard,
-    requiredPlayerIds: string[],
 ): BetrayalCore {
     const core = createStartedFirstScenarioCore(['0', '1', '2']);
     core.currentExplorer.inventory = [{ ...itemCard }];
@@ -263,6 +263,15 @@ function createItemPendingResolutionCore(
         tone: 'accent',
     };
     core.latestDiscoveryOwnerPlayerId = '0';
+    const requiredPlayerIds = resolveRoomExploredCardResolutionRequiredPlayerIds(core, {
+        payload: {
+            playerId: '0',
+            deckKind: 'item',
+            drawnCard: itemCard,
+            roomDiscoveryCards: [],
+            buriedRoomDiscoveryCards: [],
+        },
+    });
     core.pendingCardResolutionQueue = [{
         id: `e2e-item-${itemCard.id}-resolution`,
         playerId: '0',
@@ -367,24 +376,6 @@ const readHauntDiscoveryConfirmationState = async (
         };
     });
 
-async function readCurrentCore(page: Page): Promise<BetrayalCore> {
-    return page.evaluate(() => {
-        const snapshot = (
-            window as typeof window & {
-                __BG_TEST_HARNESS__?: {
-                    state?: {
-                        get?: () => { core: BetrayalCore };
-                    };
-                };
-            }
-        ).__BG_TEST_HARNESS__?.state?.get?.();
-        if (!snapshot) {
-            throw new Error('山屋 E2E 无法读取当前核心状态');
-        }
-        return snapshot.core;
-    });
-}
-
 const closeScenarioReaderIfPresent = async (page: Page): Promise<void> => {
     const scenarioReader = page.getByTestId('betrayal-scenario-reader-dialog');
     if (!await scenarioReader.isVisible({ timeout: 800 }).catch(() => false)) {
@@ -462,6 +453,7 @@ test('普通预兆触发作祟时先确认预兆和检定，再承接作祟揭�
         () => diceGroup.getAttribute('data-dice-physics-motion'),
         { timeout: 15000 },
     ).toBe('settled');
+    await saveEvidenceScreenshot(page, testInfo, '01c-作祟检定-物理骰子停稳后-确认0-3.jpg');
     await expect.poll(() => readHauntDiscoveryConfirmationState(page)).toMatchObject({
         phase: 'haunt',
         latestDiscoveryTitle: DOG_OMEN_CARD.name,
@@ -610,7 +602,7 @@ test('普通预兆未触发作祟时同屏显示获得预兆和作祟检定且�
     ]);
 });
 
-test('普通物品停留三秒后自动飞入持有区，但会改写骰子结果的物品必须全员确认', async ({ page, context }, testInfo) => {
+test('普通物品停留三秒后自动飞入持有区，未来可改写骰子的物品也不额外扩大确认', async ({ page, context }, testInfo) => {
     test.setTimeout(120000);
     await initBetrayalContext(context);
     const diagnostics = attachPageDiagnostics(page, 'betrayal-item-discovery-confirmation-rules');
@@ -620,7 +612,7 @@ test('普通物品停留三秒后自动飞入持有区，但会改写骰子结�
     await page.goto(TEST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await waitForBetrayalPageReady(page);
 
-    await injectCore(page, createItemPendingResolutionCore(MEDICAL_KIT_ITEM_CARD, ['0']));
+    await injectCore(page, createItemPendingResolutionCore(MEDICAL_KIT_ITEM_CARD));
     const ordinaryPanel = page.getByTestId('betrayal-discovery-panel');
     await expect(ordinaryPanel).toBeVisible({ timeout: 10000 });
     await expect(ordinaryPanel).toContainText(MEDICAL_KIT_ITEM_CARD.name);
@@ -637,63 +629,22 @@ test('普通物品停留三秒后自动飞入持有区，但会改写骰子结�
     await expect(page.getByTestId('betrayal-inventory-medical-kit')).toBeVisible();
     await saveEvidenceScreenshot(page, testInfo, '物品-普通物品-三秒后进入持有区.jpg');
 
-    await injectCore(page, createItemPendingResolutionCore(LUCKY_COIN_ITEM_CARD, ['0', '1', '2']));
+    await injectCore(page, createItemPendingResolutionCore(LUCKY_COIN_ITEM_CARD));
     const diceModifierPanel = page.getByTestId('betrayal-discovery-panel');
     await expect(diceModifierPanel).toBeVisible({ timeout: 10000 });
     await expect(diceModifierPanel).toContainText(LUCKY_COIN_ITEM_CARD.name);
-    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('确认 0/3');
-    await page.waitForTimeout(3500);
+    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('确认 0/1');
+    await page.waitForTimeout(2500);
     await expect(diceModifierPanel).toBeVisible();
-    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('确认 0/3');
-    await saveEvidenceScreenshot(page, testInfo, '物品-可改骰结果-未确认前仍等待.jpg');
-
-    await diceModifierPanel.getByTestId('betrayal-discovery-continue').click();
-    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('已确认 1/3');
-    const playerOneCore = await readCurrentCore(page);
-    const playerPages: Page[] = [];
-    let latestCore = playerOneCore;
-    for (const playerId of ['1', '2']) {
-        const playerPage = await context.newPage();
-        playerPages.push(playerPage);
-        await playerPage.setViewportSize({ width: 1600, height: 900 });
-        await playerPage.goto(
-            `/play/betrayal?players=3&seat0=human&seat1=human&seat2=human&playerID=${playerId}`,
-            { waitUntil: 'commit', timeout: 30000 },
-        );
-        await playerPage.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => undefined);
-        await waitForBetrayalPageReady(playerPage);
-        await injectCore(playerPage, latestCore);
-        const playerPanel = playerPage.getByTestId('betrayal-discovery-panel');
-        await expect(playerPanel).toBeVisible();
-        await expect(playerPanel.getByTestId('betrayal-discovery-continue')).toContainText('确认');
-        if (playerId === '1') {
-            await playerPanel.getByTestId('betrayal-discovery-continue').click();
-            latestCore = await readCurrentCore(playerPage);
-            await expect(playerPanel.getByTestId('betrayal-discovery-continue')).toHaveText('已确认 2/3');
-            await expect(playerPanel).toBeVisible();
-            await saveEvidenceScreenshot(page, testInfo, '物品-可改骰结果-本人确认后仍等待.jpg');
-        } else {
-            await playerPanel.getByTestId('betrayal-discovery-continue').click();
-            const gainTransitionBlocker = playerPage.getByTestId('betrayal-visual-transition-blocker');
-            await expect(gainTransitionBlocker).toBeVisible();
-            await expect(gainTransitionBlocker).toHaveAttribute(
-                'data-transition-kind',
-                'possession-gain',
-            );
-            await expect.poll(
-                () => readHauntDiscoveryConfirmationState(playerPage),
-                { timeout: 10000 },
-            ).toMatchObject({ pendingSteps: [] });
-            await expect(playerPage.getByTestId('betrayal-discovery-panel')).toHaveCount(0);
-            await expect(playerPage.getByTestId('betrayal-inventory-lucky-coin')).toBeVisible();
-        }
-    }
-    await expect(diceModifierPanel).toBeVisible();
-    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('已确认 1/3');
-    await page.waitForTimeout(3500);
-    await expect(diceModifierPanel).toBeVisible();
-    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('已确认 1/3');
-    await Promise.all(playerPages.map((playerPage) => playerPage.close()));
+    await expect(diceModifierPanel.getByTestId('betrayal-discovery-continue')).toHaveText('确认 0/1');
+    await saveEvidenceScreenshot(page, testInfo, '物品-幸运硬币-三秒等待中.jpg');
+    await expect.poll(
+        () => readHauntDiscoveryConfirmationState(page),
+        { timeout: 10000 },
+    ).toMatchObject({ pendingSteps: [] });
+    await expect(diceModifierPanel).toHaveCount(0);
+    await expect(page.getByTestId('betrayal-inventory-lucky-coin')).toBeVisible();
+    await saveEvidenceScreenshot(page, testInfo, '物品-幸运硬币-三秒后进入持有区.jpg');
 
     await assertNoFatalFrontendErrors([
         { label: 'betrayal-item-discovery-confirmation-rules', diagnostics },

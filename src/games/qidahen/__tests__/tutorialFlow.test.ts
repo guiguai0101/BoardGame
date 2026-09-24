@@ -381,7 +381,10 @@ describe('qidahen tutorial flow', () => {
         expect(basic.wheelMove).toContain('前进 1 格');
         expect(basic.wheelMove).toContain('指定一名对手摸 2 张');
         expect(basic.wheelMove).toContain('所有对手各摸 2 张');
-        expect(basic.wheelResult).toContain('建立 2 个等级 2 正规军');
+        expect(basic.wheelResult).toContain('公共轮盘从军屯推进到征兵训练');
+        expect(basic.wheelResult).toContain('大明在宣府进行征兵训练');
+        expect(basic.wheelResult).toContain('部队增加 2 个');
+        expect(basic.wheelResult).not.toContain('火炮技术');
         expect(basic.pickAction).toContain('弃 3 张手牌');
         expect(basic.actionResult).toContain('不是直接把山海关的控制权改成大明');
 

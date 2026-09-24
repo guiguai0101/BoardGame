@@ -1,7 +1,6 @@
 import type { GameManifestEntry } from '../manifest.types';
 import {
     DESKTOP_REFERENCE_VIEWPORT,
-    MOBILE_LANDSCAPE_DESIGN_VIEWPORT,
 } from '../../shared/referenceViewports';
 import {
     BETRAYAL_SCENARIO_SETUP_OPTIONS,
@@ -48,8 +47,8 @@ const entry: GameManifestEntry = {
     preferredOrientation: 'landscape',
     mobileLayoutPreset: 'board-shell',
     mobileBoardShellLayout: {
-        designWidth: MOBILE_LANDSCAPE_DESIGN_VIEWPORT.width,
-        designHeight: MOBILE_LANDSCAPE_DESIGN_VIEWPORT.height,
+        designWidth: DESKTOP_REFERENCE_VIEWPORT.width,
+        designHeight: DESKTOP_REFERENCE_VIEWPORT.height,
         referenceWidth: DESKTOP_REFERENCE_VIEWPORT.width,
         referenceHeight: DESKTOP_REFERENCE_VIEWPORT.height,
     },

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { executePipeline } from '../../../engine/pipeline';
@@ -5,6 +7,7 @@ import type { DiceThroneCore, DiceThroneCommand, DiceThroneEvent } from '../doma
 import { DiceThroneDomain } from '../domain';
 import { execute } from '../domain/execute';
 import { validateCommand } from '../domain/commandValidation';
+import { getChoiceResolvedEventHandler } from '../domain/choiceResolvedEvents';
 import { diceThroneFlowHooks } from '../domain/flowHooks';
 import { reduce } from '../domain/reducer';
 import { resolveEffectsToEvents } from '../domain/effects';
@@ -1923,25 +1926,64 @@ describe('DiceThrone 吸血鬼领主机制实现矩阵', () => {
         expect(settled.next.players['0'].discard.map(card => card.id)).toEqual([cardId]);
     });
 
-    it('饮血如酒至少花费 2 鲜血之力，并按每花费 1 个获得 2 CP', () => {
+    it('饮血如酒可花费 0..2 个鲜血之力，每花费 1 个获得 2 CP', () => {
         const cardId = 'card-vampire-lord-drink-up';
-        const blocked = createVampireLordState();
-        blocked.sys.phase = 'main1';
-        blocked.core.players['0'].resources[RESOURCE_IDS.CP] = 0;
-        blocked.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER] = 1;
-        blocked.core.players['0'].hand = [getCardById(cardId)];
-        const playCommand = command('PLAY_CARD', '0', { cardId });
         const pipelineConfig = { domain: DiceThroneDomain, systems: testSystems };
 
-        expect(validateCommand(blocked.core, playCommand, 'main1').valid).toBe(false);
-        expect(executePipeline(pipelineConfig, blocked, playCommand, fixedRandom, ['0', '1']).success).toBe(false);
+        const buildState = (bloodPower: number) => {
+            const state = createVampireLordState();
+            state.sys.phase = 'main1';
+            state.core.players['0'].resources[RESOURCE_IDS.CP] = 0;
+            state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER] = bloodPower;
+            state.core.players['0'].hand = [getCardById(cardId)];
+            state.core.players['0'].discard = [];
+            return state;
+        };
 
-        const state = createVampireLordState();
-        state.sys.phase = 'main1';
-        state.core.players['0'].resources[RESOURCE_IDS.CP] = 0;
-        state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER] = 4;
-        state.core.players['0'].hand = [getCardById(cardId)];
-        state.core.players['0'].discard = [];
+        const zeroBlood = executePipeline(
+            pipelineConfig,
+            buildState(0),
+            command('PLAY_CARD', '0', { cardId }),
+            fixedRandom,
+            ['0', '1'],
+        );
+        expect(zeroBlood.success).toBe(true);
+        if (!zeroBlood.success) return;
+        const zeroChoice = getSimpleChoicePrompt(zeroBlood.state, cardId);
+        expect(zeroChoice.options.map(option => option.value.value)).toEqual([0]);
+        expect(zeroChoice.options[0]?.labelKey).toBe('choices.vampireLordDrinkUp.noSpend');
+        const zeroResolved = respondToPrompt(zeroBlood.state, 'option-0', '0', fixedRandom, ['0', '1']);
+        expect(zeroResolved.success).toBe(true);
+        if (!zeroResolved.success) return;
+        expect(eventsOfType(zeroResolved.events as DiceThroneEvent[], 'TOKEN_CONSUMED')).toHaveLength(0);
+        expect(eventsOfType(zeroResolved.events as DiceThroneEvent[], 'CP_CHANGED')).toHaveLength(0);
+        expect(zeroResolved.state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER]).toBe(0);
+        expect(zeroResolved.state.core.players['0'].resources[RESOURCE_IDS.CP]).toBe(0);
+        expect(zeroResolved.state.core.players['0'].discard.map(card => card.id)).toEqual([cardId]);
+
+        const oneBlood = executePipeline(
+            pipelineConfig,
+            buildState(1),
+            command('PLAY_CARD', '0', { cardId }),
+            fixedRandom,
+            ['0', '1'],
+        );
+        expect(oneBlood.success).toBe(true);
+        if (!oneBlood.success) return;
+        const oneChoice = getSimpleChoicePrompt(oneBlood.state, cardId);
+        expect(oneChoice.options.map(option => option.value.value)).toEqual([0, 1]);
+        expect(oneChoice.options.map(option => option.labelKey)).toEqual([
+            'choices.vampireLordDrinkUp.noSpend',
+            'choices.vampireLordDrinkUp.spend',
+        ]);
+        const oneResolved = respondToPrompt(oneBlood.state, 'option-1', '0', fixedRandom, ['0', '1']);
+        expect(oneResolved.success).toBe(true);
+        if (!oneResolved.success) return;
+        expect(oneResolved.state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER]).toBe(0);
+        expect(oneResolved.state.core.players['0'].resources[RESOURCE_IDS.CP]).toBe(2);
+
+        const state = buildState(4);
+        const playCommand = command('PLAY_CARD', '0', { cardId });
 
         const played = executePipeline(pipelineConfig, state, playCommand, fixedRandom, ['0', '1']);
         expect(played.success).toBe(true);
@@ -1955,9 +1997,9 @@ describe('DiceThrone 吸血鬼领主机制实现矩阵', () => {
         expect(played.state.core.players['0'].discard.map(card => card.id)).toEqual([cardId]);
         const choice = getSimpleChoicePrompt(played.state, cardId);
         expect(choice.options.map(option => option.id)).toEqual(['option-0', 'option-1', 'option-2']);
-        expect(choice.options.map(option => option.value.value)).toEqual([2, 3, 4]);
+        expect(choice.options.map(option => option.value.value)).toEqual([0, 1, 2]);
 
-        const resolved = respondToPrompt(played.state, 'option-1', '0', fixedRandom, ['0', '1']);
+        const resolved = respondToPrompt(played.state, 'option-2', '0', fixedRandom, ['0', '1']);
         expect(resolved.success).toBe(true);
         if (!resolved.success) return;
 
@@ -1965,25 +2007,52 @@ describe('DiceThrone 吸血鬼领主机制实现矩阵', () => {
         expect(eventsOfType(resolvedEvents, 'CHOICE_RESOLVED')[0]?.payload).toMatchObject({
             playerId: '0',
             customId: 'vampire-lord-drink-up-spend',
-            value: 3,
+            value: 2,
             sourceAbilityId: cardId,
         });
         expect(eventsOfType(resolvedEvents, 'TOKEN_CONSUMED')[0]?.payload).toMatchObject({
             playerId: '0',
             tokenId: TOKEN_IDS.BLOOD_POWER,
-            amount: 3,
-            newTotal: 1,
+            amount: 2,
+            newTotal: 2,
             sourceAbilityId: cardId,
         });
         expect(eventsOfType(resolvedEvents, 'CP_CHANGED')[0]?.payload).toMatchObject({
             playerId: '0',
-            delta: 6,
-            newValue: 6,
+            delta: 4,
+            newValue: 4,
             sourceAbilityId: cardId,
         });
-        expect(resolved.state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER]).toBe(1);
-        expect(resolved.state.core.players['0'].resources[RESOURCE_IDS.CP]).toBe(6);
+        expect(resolved.state.core.players['0'].tokens[TOKEN_IDS.BLOOD_POWER]).toBe(2);
+        expect(resolved.state.core.players['0'].resources[RESOURCE_IDS.CP]).toBe(4);
         expect(resolved.state.core.players['0'].hand).toHaveLength(0);
+
+        const choiceHandler = getChoiceResolvedEventHandler('vampire-lord-drink-up-spend');
+        expect(choiceHandler).toBeDefined();
+        expect(choiceHandler?.({
+            state: played.state.core,
+            playerId: '0',
+            customId: 'vampire-lord-drink-up-spend',
+            sourceAbilityId: cardId,
+            value: 3,
+            timestamp: 200,
+        })).toEqual([]);
+    });
+
+    it('饮血如酒中英文描述必须表达“至多 / up to”而不是最低花费', () => {
+        const zh = JSON.parse(readFileSync(resolve(process.cwd(), 'public/locales/zh-CN/game-dicethrone.json'), 'utf-8')) as {
+            cards: Record<string, { description?: string }>;
+        };
+        const en = JSON.parse(readFileSync(resolve(process.cwd(), 'public/locales/en/game-dicethrone.json'), 'utf-8')) as {
+            cards: Record<string, { description?: string }>;
+        };
+        const zhDescription = zh.cards['card-vampire-lord-drink-up']?.description ?? '';
+        const enDescription = en.cards['card-vampire-lord-drink-up']?.description ?? '';
+
+        expect(zhDescription).toContain('花费至多 2 个鲜血之力');
+        expect(zhDescription).not.toContain('花费至少 2 个鲜血之力');
+        expect(enDescription).toContain('Spend up to 2 Blood Power');
+        expect(enDescription).not.toContain('Spend at least 2 Blood Power');
     });
 
     it('嗜血之爪 II 升级牌替换基础技能并更新升级等级', () => {

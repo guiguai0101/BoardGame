@@ -194,7 +194,7 @@ export function BetrayalObservedExplorerPanelSurface({
 
   return (
     <article className="pointer-events-none relative overflow-visible bg-transparent px-1 py-1">
-      <div className="mx-auto flex w-full max-w-[252px] flex-col gap-1 pb-1 pt-1 xl:mx-0">
+      <div className="mx-auto flex w-full max-w-[252px] flex-col gap-1 pb-1 pt-1">
         <div
           className="relative mx-auto w-full max-w-[188px]"
           data-testid="betrayal-observed-explorer-panel"

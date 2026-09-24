@@ -872,8 +872,8 @@ export const expectEventRollWorkbenchReadable = async (
   ).toBe("none");
   expect(
     metrics.resultSurface,
-    `${label}开放骰盘结果区必须是轻量信息带，不能退回封闭结果盒：${JSON.stringify(metrics)}`,
-  ).toBe("open-info-band");
+    `${label}统一 PC 构图的开放骰盘结果区不得回到移动专用信息带：${JSON.stringify(metrics)}`,
+  ).toBe("open-transparent");
   expect(
     metrics.resultBorderMaxPx,
     `${label}开放骰盘结果区不得保留可见硬边框：${JSON.stringify(metrics)}`,
@@ -1379,12 +1379,11 @@ export const expectVisiblePhysicalDiceBox = async (rollPanel: Locator) => {
       async () =>
         readableFaceOverlay.evaluate((node) => {
           const element = node as HTMLElement;
-          const rect = element.getBoundingClientRect();
           const style = window.getComputedStyle(element);
           return {
             position: style.position,
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
+            width: style.width,
+            height: style.height,
             overflow: style.overflow,
           };
         }),
@@ -1392,8 +1391,8 @@ export const expectVisiblePhysicalDiceBox = async (rollPanel: Locator) => {
     )
     .toEqual({
       position: "absolute",
-      width: 1,
-      height: 1,
+      width: "1px",
+      height: "1px",
       overflow: "hidden",
     });
   await expect

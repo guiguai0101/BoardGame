@@ -933,7 +933,7 @@ test.describe('山屋惊魂房间效果代表链', () => {
 
         const mobileRollPanel = page.getByTestId('betrayal-recent-roll-panel');
         await expect(mobileRollPanel).toBeVisible({ timeout: 30000 });
-        await expect(mobileRollPanel).toHaveAttribute('data-roll-panel-style', 'mobile-landscape-open-dock');
+        await expect(mobileRollPanel).toHaveAttribute('data-roll-panel-style', 'open-table-transparent');
         await expect(mobileRollPanel).toContainText('倒塌房间');
         await expect(page.getByTestId('betrayal-action-rail')).toHaveCount(0);
         await expect(page.getByTestId('betrayal-room-floor-switcher')).toBeHidden();

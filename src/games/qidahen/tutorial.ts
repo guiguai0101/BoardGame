@@ -418,8 +418,9 @@ const QIDAHEN_BASIC_TUTORIAL: TutorialManifest = {
         {
             id: 'wheel-result',
             content: 'game-qidahen:tutorial.basic.steps.wheelResult',
-            highlightTarget: 'qidahen-action-wheel',
-            position: 'right',
+            highlightTarget: 'qidahen-season-summary',
+            position: 'top',
+            infoStep: true,
         },
         {
             id: 'wheel-branch-finish',

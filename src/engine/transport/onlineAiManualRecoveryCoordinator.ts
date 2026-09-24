@@ -37,6 +37,7 @@ export type OnlineAiManualRecoveryCoordinatorHooks<TMatch extends OnlineAiManual
     buildSeatControllers: (match: TMatch) => Record<string, OnlineAiWatchdogSeatController>;
     isMatchExecuting: (match: TMatch) => boolean;
     isRecoveryInFlight: (matchId: string) => boolean;
+    waitForRecoveryAvailability?: (match: TMatch) => Promise<boolean>;
     resolvePrivateOverlay: (match: TMatch, playerId: string) => MatchState<unknown>;
     executeManualSetupCommand: (args: {
         match: TMatch;
@@ -170,7 +171,14 @@ export class OnlineAiManualRecoveryCoordinator<TMatch extends OnlineAiManualReco
             return { accepted: false, reason: 'unavailable' };
         }
         if (this.hooks.isMatchExecuting(match) || this.hooks.isRecoveryInFlight(match.matchID)) {
-            return { accepted: false, reason: 'busy' };
+            const available = await this.hooks.waitForRecoveryAvailability?.(match) ?? false;
+            if (
+                !available
+                || this.hooks.isMatchExecuting(match)
+                || this.hooks.isRecoveryInFlight(match.matchID)
+            ) {
+                return { accepted: false, reason: 'busy' };
+            }
         }
 
         const manualSeatStates: Record<string, MatchState<unknown> | null | undefined> = Object.fromEntries(

@@ -16,6 +16,7 @@ export const MagnifyOverlay = ({
   interactive = true,
   closeOnBackdrop = true,
   zIndex = UI_Z_INDEX.magnify,
+  renderInPlace = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +29,7 @@ export const MagnifyOverlay = ({
   interactive?: boolean;
   closeOnBackdrop?: boolean;
   zIndex?: number;
+  renderInPlace?: boolean;
 }) => {
   const { t } = useTranslation("common");
   const portalRoot = useMemo(() => {
@@ -76,6 +78,9 @@ export const MagnifyOverlay = ({
     </div>
   );
 
-  // 使用 portal 渲染到 modal-root，避免被父级 transform/overflow 裁剪
-  return portalRoot ? createPortal(overlay, portalRoot) : overlay;
+  // 游戏画布内的阅读/放大层必须留在当前 transform 树中，才能与 PC 构图同步缩放。
+  if (renderInPlace || !portalRoot) {
+    return overlay;
+  }
+  return createPortal(overlay, portalRoot);
 };
