@@ -1,6 +1,10 @@
 {
-  "title": "Fate / Domination",
+  "title": "命运支配",
+  "brand": "命运支配",
   "subtitle": "冬木市 · 圣杯战争牌桌",
+  "dev": {
+    "title": "命运支配开发验证入口"
+  },
   "round": "回合",
   "phases": {
     "preparation": "准备",
@@ -36,14 +40,8 @@
     "subtitle": "本方御主 / 从者",
     "sectionLabel": "御主与从者选择",
     "servant": "从者",
+    "servantFallback": "从者",
     "notDeployed": "尚未部署"
-  },
-  "setup": {
-    "mode": {
-      "label": "游戏模式",
-      "custom": "自选模式",
-      "threeX": "3X 模式"
-    }
   },
   "scoreboard": "玩家状态",
   "players": "位玩家",
@@ -70,7 +68,13 @@
     "toOutpost": "进入部署",
     "toAction": "进入行动",
     "confirmAttack": "确认攻击",
-    "resolveBattle": "结算战斗"
+    "resolveBattle": "结算战斗",
+    "actionControls": "行动操作",
+    "battleControls": "战斗结算操作",
+    "moveTo": "移动至",
+    "playSkill": "发动技能",
+    "passAction": "结束行动",
+    "resolveLocation": "结算地点"
   },
   "error": {
     "unknownPlayer": "未知玩家",

@@ -61,7 +61,44 @@ export function reduce(state: FateDominationCore, event: FateDominationEvent): F
     switch (event.type) {
         case 'MASTER_SELECTED': { const player = state.players[event.payload.playerId]; const master = FATE_MASTER_BY_ID[event.payload.masterId]; if (!master) return state; const skills = [...(master.skills ?? []), ...(FATE_SERVANT_BY_ID[player.servantId]?.skillCards ?? [])].map((skill, index) => ({ ...skill, id: `${skill.id ?? skill.name}:${index}` })); return { ...state, players: { ...state.players, [event.payload.playerId]: { ...player, masterId: event.payload.masterId, mana: master.initMana ?? player.mana, skills, activeSkills: [] } } }; }
         case 'SERVANT_SELECTED': { const player = state.players[event.payload.playerId]; const servant = FATE_SERVANT_BY_ID[event.payload.servantId]; if (!servant) return state; const ids = servant.deck?.length ? servant.deck : player.deck.map((card) => card.definitionId); const deck = ids.map((definitionId, index) => ({ id: `${player.id}:${definitionId}:${index}`, definitionId })); const skills = [...(FATE_MASTER_BY_ID[player.masterId]?.skills ?? []), ...(servant.skillCards ?? [])].map((skill, index) => ({ ...skill, id: `${skill.id ?? skill.name}:${index}` })); return { ...state, players: { ...state.players, [event.payload.playerId]: { ...player, servantId: event.payload.servantId, hand: deck.slice(0, 6), deck: deck.slice(6), skills, activeSkills: [] } }, pendingChoice: { kind: null }, actionNotice: '身份已确认，可以开始本轮准备。' }; }
-        case 'MASTER_DEPLOYED': { const player = state.players[event.payload.playerId]; const battlefield = { ...state.battlefield }; Object.keys(battlefield).forEach((id) => { battlefield[id as LocationId] = { ...battlefield[id as LocationId], playerIds: battlefield[id as LocationId].playerIds.filter((pid) => pid !== event.payload.playerId) }; }); battlefield[event.payload.locationId] = { ...battlefield[event.payload.locationId], playerIds: [...battlefield[event.payload.locationId].playerIds, event.payload.playerId] }; return { ...state, battlefield, players: { ...state.players, [event.payload.playerId]: { ...player, locationId: event.payload.locationId, mana: player.mana + event.payload.manaGain } }, phase: 'action', currentPlayerId: event.payload.playerId, actionCount: 0, pendingChoice: { kind: 'attack-cards', playerId: event.payload.playerId, minimum: 2, maximum: 2 }, actionNotice: '行动阶段：可移动或选择攻击牌。' }; }
+        case 'MASTER_DEPLOYED': {
+            const player = state.players[event.payload.playerId];
+            const battlefield = { ...state.battlefield };
+            Object.keys(battlefield).forEach((id) => {
+                battlefield[id as LocationId] = {
+                    ...battlefield[id as LocationId],
+                    playerIds: battlefield[id as LocationId].playerIds.filter((pid) => pid !== event.payload.playerId),
+                };
+            });
+            battlefield[event.payload.locationId] = {
+                ...battlefield[event.payload.locationId],
+                playerIds: [...battlefield[event.payload.locationId].playerIds, event.payload.playerId],
+            };
+            const players = {
+                ...state.players,
+                [event.payload.playerId]: {
+                    ...player,
+                    locationId: event.payload.locationId,
+                    mana: player.mana + event.payload.manaGain,
+                },
+            };
+            const nextPlayerId = state.playerIds.find((id) => !players[id].eliminated && !players[id].locationId);
+            const firstActivePlayerId = state.playerIds.find((id) => !players[id].eliminated) ?? event.payload.playerId;
+            const allDeployed = !nextPlayerId;
+            return {
+                ...state,
+                battlefield,
+                players,
+                phase: allDeployed ? 'action' : 'outpost',
+                currentPlayerId: nextPlayerId ?? firstActivePlayerId,
+                currentTurnIndex: state.turnOrder.indexOf(nextPlayerId ?? firstActivePlayerId),
+                actionCount: 0,
+                pendingChoice: allDeployed
+                    ? { kind: 'attack-cards', playerId: firstActivePlayerId, minimum: 2, maximum: 2 }
+                    : { kind: 'location', playerId: nextPlayerId },
+                actionNotice: allDeployed ? '行动阶段：可移动或选择攻击牌。' : '部署阶段：轮到下一位玩家选择地点。',
+            };
+        }
         case 'PLAYER_MOVED': { const player = state.players[event.payload.playerId]; const battlefield = { ...state.battlefield }; battlefield[event.payload.from] = { ...battlefield[event.payload.from], playerIds: battlefield[event.payload.from].playerIds.filter((id) => id !== event.payload.playerId) }; battlefield[event.payload.to] = { ...battlefield[event.payload.to], playerIds: [...battlefield[event.payload.to].playerIds, event.payload.playerId] }; return { ...state, battlefield, players: { ...state.players, [event.payload.playerId]: { ...player, locationId: event.payload.to, mana: player.mana - event.payload.manaSpent } }, actionCount: state.actionCount + 1, actionNotice: `已移动至${battlefield[event.payload.to].label}。` }; }
         case 'ACTION_PASSED': {
             const players = { ...state.players, [event.payload.playerId]: { ...state.players[event.payload.playerId], hasPassedAction: true } };

@@ -8,7 +8,7 @@
 
 ## 参考与核心判断
 
-- 用户提供的 `G:/FD image/网站wiki/Fuyuki.webp` 仅是棋盘交互分区的坐标参考，不进入画面。
+- 用户提供的 `repository-relative-reference-not-committed` 仅是棋盘交互分区的坐标参考，不进入画面。
 - 参考图的空间语言采用开放式牌桌：中央棋盘、左右席位、顶部牌库、底部扇形手牌、右下阶段按钮。
 - 手牌区参考 DiceThrone 的实体牌堆：五张真实牌重叠排列，选中上浮，检查入口在牌外沿。
 
@@ -50,7 +50,7 @@
 ## 素材账本
 
 - `assets/fuyuki-city.webp`：项目正式未标注冬木市棋盘，作为实际主棋盘画面。
-- `G:/FD image/网站wiki/Fuyuki.webp`：仅作为交互坐标参考图，不进入设计稿画面；画面中的白色遮罩和字母均由 HTML 交互层绘制。
+- `repository-relative-reference-not-committed`：仅作为交互坐标参考图，不进入设计稿画面；画面中的白色遮罩和字母均由 HTML 交互层绘制。
 - `assets/event-back.webp`：项目正式事件牌背。
 - `assets/master-emiya.webp`、`assets/master-slot-b.webp`：项目正式 Master 素材。
 - `assets/attack-magic-low.webp`、`assets/attack-strength-high.webp`、`assets/skill-luck.webp`、`assets/skill-moment.webp`：项目正式手牌素材。

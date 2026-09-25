@@ -3925,7 +3925,7 @@ const SkillLib = {
                     pt.ply._chateauPending = false;
                     pt.ply.isRevealed = true;
                     defeatOpp(pt, all, gl, "岩窟王", null, "one");
-                    gl.push(`<div class="report-line" style="color:var(--gold);"><span>✨ ${pt.ply.master.name} (岩窟王)</span> <span>【爱德华·蒙泰斯】真名解放！</span></div>`);
+                    gl.push(`<div class="report-line" style="color:var(--gold);"><span>✨ ${pt.ply.master.name} (岩窟王)</span> <span>【爱德蒙·唐泰斯】真名解放！</span></div>`);
                 }
             })
         },

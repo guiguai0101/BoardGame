@@ -270,14 +270,6 @@ const AppContent = () => {
                       )}
                     />
                     <Route
-                      path="/play/fate-domination/local"
-                      element={(
-                        <React.Suspense fallback={playRouteFallback}>
-                          <LazyFateDominationDev />
-                        </React.Suspense>
-                      )}
-                    />
-                    <Route
                       path="/play/:gameId/match/:matchId"
                       element={(
                         <React.Suspense fallback={playRouteFallback}>

@@ -19,7 +19,7 @@
 ## 方格交互合同
 
 - 使用项目正式未标记棋盘 `assets/fuyuki-city.webp`。
-- `G:/FD image/网站wiki/Fuyuki.webp` 仅作为区域坐标参考，不进入画面。
+- `repository-relative-reference-not-committed` 仅作为区域坐标参考，不进入画面。
 - 测试层默认打开。每个热点由 HTML 独立绘制白色半透明遮罩和字母/区域编号。
 - 点击热点后变为 cyan 高亮，底部文字与短提示同步更新。
 - 高亮只改变颜色、边框和光晕，不改变热点的几何位置，确保视觉高亮边界与半透遮罩严格一致。

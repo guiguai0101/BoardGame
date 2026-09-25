@@ -9,11 +9,11 @@
 - OpenDesign 项目：`b4bb4fbb-ee71-4465-9e34-e4c24f397155`
 - 当前 artifact：`fate-domination-v4-2.html`
 - 真实棋盘：`assets/fuyuki-city.webp`
-- 坐标参考：`G:/FD image/网站wiki/Fuyuki.webp`，只用于定位，不进入画面
+- 坐标参考：`repository-relative-reference-not-committed`，只用于定位，不进入画面
 - 桌面：1920×1080，页面宽度 1920，无页面滚动
 - 移动：390px 宽，页面宽度 390，无横向溢出
 - 图片：17 张资源全部加载，0 broken image
-- 热点：23 个白色半透明可点击热点，默认测试标记开启
+- 热点：60 个可点击目标（20 个白色半透明区域热点 + 40 个积分轨道节点），默认测试标记开启
 - OpenDesign lint：0 P0、0 P1、0 P2
 
 ## 交互检查

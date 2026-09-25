@@ -27,7 +27,7 @@
 
 ## 5. Real Entry Verification
 - [x] 5.1 Run manifest generation and focused game tests.
-- [x] 5.2 Start the local development service and open the real `/play/fate-domination/local` entry.
+- [x] 5.2 Start the local development service and open the development verification entry `/dev/fate-domination`; keep the formal product route as `/play/fate-domination/match/:matchId`.
 - [x] 5.3 Verify desktop and mobile screenshots: nonblank page, board/card assets loaded, no text overflow or overlap, stable card ratios, and reachable actions.
 - [x] 5.4 Exercise browser interactions for card inspection, location selection, two-card selection/confirmation, phase advance, and return from overlay; record screenshot/evidence paths.
 - [x] 5.5 Run typecheck/lint and relevant asset validation; report any unrun upload/remote checks as explicit residual risk.
@@ -35,5 +35,5 @@
 ## 6. Explicitly Deferred In This Change
 - [ ] 6.1 Full situation deck effects remain deferred until every supplied front is manually transcribed and validated against the rulebook/Wiki.
 - [ ] 6.2 Complete master/servant catalog, every attack/event effect, advanced response windows, all elimination/tiebreak rules, and production scoring remain deferred to follow-up changes.
-- [ ] 6.3 Full local/remote AI strategy, tutorial flow, Fate/Domination audio, and player-visible debug controls remain outside this foundation implementation.
+- [ ] 6.3 Full AI strategy, tutorial flow, Fate/Domination audio, and player-visible debug controls remain outside this foundation implementation.
 - [ ] 6.4 Remote asset upload, server file-index, Android package, and production URL verification remain outside this local foundation change.

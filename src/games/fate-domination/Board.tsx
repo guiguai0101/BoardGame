@@ -6,6 +6,7 @@ import type { MatchState } from '../../engine/types';
 import { UndoProvider } from '../../contexts/UndoContext';
 import { OptimizedImage } from '../../components/common/media/OptimizedImage';
 import { FATE_ATTACK_BY_ID, FATE_MASTERS, FATE_SERVANT_BY_ID, FATE_SERVANTS } from './data';
+import { legalMoveTargets } from './domain';
 import type { FateDominationCommandMap, FateDominationCore, LocationId } from './domain';
 import { FATE_DOMINATION_COMMANDS } from './domain';
 import './ui/styles.css';
@@ -54,6 +55,8 @@ export const FateDominationBoard: React.FC<Props> = ({ G, dispatch, playerID, ma
     const selectedCount = actor?.selectedAttackIds.length ?? 0;
     const actionLog = [...new Map((G.sys.actionLog?.entries ?? []).map((entry) => [entry.id, entry])).values()].slice(-5).reverse();
     const inspectedCard = inspectedCardId ? cardDefinitionFor(inspectedCardId, core) : undefined;
+    const moveTargets = actor ? legalMoveTargets(core, actor) : [];
+    const nextBattleLocation = LOCATION_ORDER.find((locationId) => !core.resolvedLocations.includes(locationId));
 
     const inspect = (cardId: string) => {
         runtimeDispatch(FATE_DOMINATION_COMMANDS.INSPECT_CARD, { cardId });
@@ -64,11 +67,16 @@ export const FateDominationBoard: React.FC<Props> = ({ G, dispatch, playerID, ma
     const selectServant = (servantId: string) => runtimeDispatch(FATE_DOMINATION_COMMANDS.SELECT_SERVANT, { servantId });
     const deploy = (locationId: LocationId) => runtimeDispatch(FATE_DOMINATION_COMMANDS.DEPLOY_MASTER, { locationId });
     const toggleAttack = (cardId: string) => runtimeDispatch(FATE_DOMINATION_COMMANDS.SELECT_ATTACK_CARD, { cardId });
+    const move = (locationId: LocationId) => runtimeDispatch(FATE_DOMINATION_COMMANDS.MOVE_PLAYER, { locationId });
+    const passAction = () => runtimeDispatch(FATE_DOMINATION_COMMANDS.PASS_ACTION, {});
+    const playSkill = (skillId: string) => runtimeDispatch(FATE_DOMINATION_COMMANDS.PLAY_SKILL, { skillId });
+    const resolveLocation = (locationId: LocationId) => runtimeDispatch(FATE_DOMINATION_COMMANDS.RESOLVE_LOCATION, { locationId });
     const advance = () => runtimeDispatch(FATE_DOMINATION_COMMANDS.ADVANCE_PHASE, {});
+    const allDeployed = core.playerIds.every((id) => core.players[id].eliminated || Boolean(core.players[id].locationId));
 
     const canAdvance = isCurrentPlayer && (
         core.phase === 'preparation'
-        || (core.phase === 'outpost' && Boolean(actor?.locationId))
+        || (core.phase === 'outpost' && allDeployed)
         || core.phase === 'action'
         || core.phase === 'battle'
     );
@@ -85,7 +93,7 @@ export const FateDominationBoard: React.FC<Props> = ({ G, dispatch, playerID, ma
             <div className="fd-table" data-testid="fate-domination-board">
                 <header className="fd-top-rail">
                     <div className="fd-brand-lockup">
-                        <div className="fd-brand-kicker">FATE / DOMINATION</div>
+                        <div className="fd-brand-kicker">{t('brand')}</div>
                         <h1>{t('title')}</h1>
                         <span>{t('subtitle')}</span>
                     </div>
@@ -154,8 +162,8 @@ export const FateDominationBoard: React.FC<Props> = ({ G, dispatch, playerID, ma
                                 <div><Shield size={17} /><b>{actor?.commandSpells ?? 0}</b><span>{t('resources.commandSpells')}</span></div>
                             </div>
                             <div className="fd-identity-mini">
-                                <OptimizedImage src={FATE_SERVANT_BY_ID[actor?.servantId ?? 'servant-saber']?.assetPath ?? 'fate-domination/servants/saber'} alt="Saber" />
-                                <div><span>{t('identity.servant')}</span><b>{FATE_SERVANT_BY_ID[actor?.servantId ?? 'servant-saber']?.name ?? 'Saber'}</b><small>{actor?.locationId ? core.battlefield[actor.locationId].label : t('identity.notDeployed')}</small></div>
+                                <OptimizedImage src={FATE_SERVANT_BY_ID[actor?.servantId ?? 'servant-saber']?.assetPath ?? 'fate-domination/servants/saber'} alt={FATE_SERVANT_BY_ID[actor?.servantId ?? 'servant-saber']?.name ?? t('identity.servantFallback')} />
+                                <div><span>{t('identity.servant')}</span><b>{FATE_SERVANT_BY_ID[actor?.servantId ?? 'servant-saber']?.name ?? t('identity.servantFallback')}</b><small>{actor?.locationId ? core.battlefield[actor.locationId].label : t('identity.notDeployed')}</small></div>
                             </div>
                         </section>
                         <section className="fd-panel fd-score-panel">
@@ -210,6 +218,18 @@ export const FateDominationBoard: React.FC<Props> = ({ G, dispatch, playerID, ma
                     </div>
                     <div className="fd-action-dock">
                         <div className="fd-notice"><span>{t(`notices.${core.phase}`)}</span><b>{core.actionNotice}</b></div>
+                        {core.phase === 'action' && isCurrentPlayer && (
+                            <div className="fd-action-controls" aria-label={t('commands.actionControls')}>
+                                {moveTargets.map((locationId) => <button key={locationId} type="button" className="fd-secondary-action" onClick={() => move(locationId)}>{t('commands.moveTo')} {core.battlefield[locationId].label}</button>)}
+                                {actor?.skills.filter((skill) => !actor.activeSkills.includes(skill.id)).map((skill) => <button key={skill.id} type="button" className="fd-secondary-action" onClick={() => playSkill(skill.id)}>{t('commands.playSkill')} · {skill.name}</button>)}
+                                <button type="button" className="fd-secondary-action" onClick={passAction}>{t('commands.passAction')}</button>
+                            </div>
+                        )}
+                        {core.phase === 'battle' && isCurrentPlayer && nextBattleLocation && (
+                            <div className="fd-action-controls" aria-label={t('commands.battleControls')}>
+                                <button type="button" className="fd-secondary-action" onClick={() => resolveLocation(nextBattleLocation)}>{t('commands.resolveLocation')} · {core.battlefield[nextBattleLocation].label}</button>
+                            </div>
+                        )}
                         <button type="button" className="fd-primary-action" disabled={!isCurrentPlayer || (core.phase === 'action' && selectedCount !== 2) || !canAdvance} onClick={() => core.phase === 'action' ? runtimeDispatch(FATE_DOMINATION_COMMANDS.CONFIRM_ATTACK, {}) : advance()} data-testid="fate-domination-primary-action">
                             <span>{actionButtonLabel}</span><ArrowRight size={18} />
                         </button>

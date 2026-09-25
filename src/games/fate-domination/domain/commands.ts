@@ -92,7 +92,13 @@ export function validate(state: MatchState<FateDominationCore>, command: FateDom
         case 'CONFIRM_ATTACK': {
             if (core.phase !== 'action') return fail('wrongPhase');
             if (!isCurrentPlayer(core, command)) return fail('notYourTurn');
-            if (core.players[command.playerId].selectedAttackIds.length !== 2) return fail('needExactlyTwoCards');
+            const player = core.players[command.playerId];
+            if (player.selectedAttackIds.length !== 2) return fail('needExactlyTwoCards');
+            const selectedCost = player.selectedAttackIds.reduce((sum, id) => {
+                const selected = player.hand.find((card) => card.id === id);
+                return sum + (selected ? FATE_ATTACK_BY_ID[selected.definitionId]?.manaCost ?? 0 : 0);
+            }, 0);
+            if (selectedCost > player.mana) return fail('notEnoughMana');
             return ok();
         }
         case 'INSPECT_CARD': {
@@ -103,7 +109,10 @@ export function validate(state: MatchState<FateDominationCore>, command: FateDom
         case 'ADVANCE_PHASE':
             if (!isCurrentPlayer(core, command)) return fail('notYourTurn');
             if (core.phase === 'preparation') return ok();
-            if (core.phase === 'outpost') return core.players[command.playerId].locationId ? ok() : fail('deploymentRequired');
+            if (core.phase === 'outpost') {
+                const allDeployed = core.playerIds.every((id) => core.players[id].eliminated || Boolean(core.players[id].locationId));
+                return allDeployed ? ok() : fail('deploymentRequired');
+            }
             if (core.phase === 'battle') return ok();
             return fail('actionMustBeConfirmed');
         default:

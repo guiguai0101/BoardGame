@@ -5,10 +5,7 @@ import type { BattlefieldState, CardInstance, FateDominationCore, LocationId, Pl
 const createDeck = (playerId: PlayerId, servantId: string): CardInstance[] => {
     const servant = FATE_SERVANTS.find((item) => item.id === servantId);
     const ids = servant?.deck?.length ? servant.deck : FATE_ATTACK_CARDS.filter((card) => card.basePower > 0).slice(0, 12).map((card) => card.id);
-    const cards = ids.map((definitionId, index) => ({ id: `${playerId}:${definitionId}:${index}`, definitionId }));
-    const legacyOpening = ['cardA1', 'cardA2', 'cardA3', 'cardA4', 'cardB1', 'cardB2'];
-    const opening = legacyOpening.map((definitionId) => ({ id: `${playerId}:${definitionId}`, definitionId }));
-    return [...opening, ...cards.filter((card) => !legacyOpening.includes(card.definitionId))];
+    return ids.map((definitionId, index) => ({ id: `${playerId}:${definitionId}:${index}`, definitionId }));
 };
 
 const createBattlefield = (): Record<LocationId, BattlefieldState> => ({
@@ -19,30 +16,33 @@ const createBattlefield = (): Record<LocationId, BattlefieldState> => ({
 });
 
 const createPlayer = (playerId: PlayerId, index: number, _random: RandomFn): PlayerState => {
+    const master = index === 0
+        ? (FATE_MASTERS.find((item) => item.name === '卫宫士郎') ?? FATE_MASTERS[0])
+        : FATE_MASTERS[index % FATE_MASTERS.length];
     const servant = index === 0 ? (FATE_SERVANTS.find((item) => item.id === 'servant-saber') ?? FATE_SERVANTS[0]) : FATE_SERVANTS[index % FATE_SERVANTS.length];
     const deck = createDeck(playerId, servant.id);
     return {
-    id: playerId,
-    masterId: index === 0 ? (FATE_MASTERS.find((master) => master.name === '卫宫士郎')?.id ?? FATE_MASTERS[0].id) : FATE_MASTERS[index % FATE_MASTERS.length].id,
-    servantId: servant.id,
-    locationId: null,
-    mana: index === 0 ? 2 : (FATE_MASTERS[index % FATE_MASTERS.length].initMana ?? 4),
-    victoryPoints: 0,
-    commandSpells: 3,
+        id: playerId,
+        masterId: master.id,
+        servantId: servant.id,
+        locationId: null,
+        mana: master.initMana ?? 4,
+        victoryPoints: 0,
+        commandSpells: 3,
         hand: deck.splice(0, 6),
-    selectedAttackIds: [],
-    activeAttackIds: [],
-    discard: [],
-    deck,
-    hasPassedAction: false,
-    eliminated: false,
-    isRevealed: false,
-    activeSkills: [],
-    skills: [
-        ...((FATE_MASTERS[index % FATE_MASTERS.length].skills ?? [])),
-        ...((servant.skillCards ?? [])),
-    ].map((skill, skillIndex) => ({ ...skill, id: `${skill.id ?? skill.name}:${skillIndex}` })),
-};
+        selectedAttackIds: [],
+        activeAttackIds: [],
+        discard: [],
+        deck,
+        hasPassedAction: false,
+        eliminated: false,
+        isRevealed: false,
+        activeSkills: [],
+        skills: [
+            ...(master.skills ?? []),
+            ...(servant.skillCards ?? []),
+        ].map((skill, skillIndex) => ({ ...skill, id: `${skill.id ?? skill.name}:${skillIndex}` })),
+    };
 };
 
 export function createInitialFateDominationCore(playerIds: PlayerId[], random: RandomFn): FateDominationCore {

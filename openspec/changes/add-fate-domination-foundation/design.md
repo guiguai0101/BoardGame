@@ -4,7 +4,7 @@
 本提案范围是第一版牌桌原型与最小可演示规则链，不是完整卡牌编目、完整从者池、完整 AI、教程或线上资源发布。
 
 ## Goals / Non-Goals
-- Goals: 接入真实游戏 ID；建立可扩展的领域数据结构；让玩家在真实本地对局页浏览并操作一条基础回合；以真实卡图和中文文案组织桌面信息层级；保留明确缺口。
+- Goals: 接入真实游戏 ID；建立可扩展的领域数据结构；让开发者通过开发验证入口浏览并操作一条基础回合；以真实卡图和中文文案组织桌面信息层级；保留明确缺口。
 - Non-Goals: 本轮不猜测尚未逐张核验的局势牌效果；不把单个 Saber 素材外推成完整从者全集；不实现全部攻击牌能力、所有御主/从者、所有事件效果、完整终局淘汰、远程 AI、教程和音频。
 
 ## Source And Intake Contract
@@ -111,7 +111,7 @@ Visual style is Fate/Domination-specific: blue-gold card chrome, dark wood/ink t
 
 - Situation card images are now available. V1 may show the real situation zone and verified cards, but must label the catalog/effects as partial until every supplied front is transcribed and validated.
 - The event image set has readable named fronts but no rulebook card index in the supplied files. Use stable slot IDs and only lock text that is directly readable from the image/rulebook; defer ambiguous effects.
-- A full 3-7 player online contract and complete hidden-information playerView require more time than the prototype. The first runtime may use local mode for the demonstration while preserving player-scoped state shapes.
+- The first runtime keeps the development verification entry separate from the formal online-match entry while preserving player-scoped state shapes. For face-down Shinto events, this foundation's acceptance scope is that other players' Board does not render the card face or effect text; transport-layer anti-cheat and stronger server-side secrecy are outside this change.
 - Asset upload and remote URL verification are intentionally outside this unapproved change. Local Web/runtime verification is the only allowed evidence until release authorization.
 
 ## Approval Gate

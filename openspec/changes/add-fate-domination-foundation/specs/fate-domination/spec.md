@@ -1,18 +1,18 @@
 ## ADDED Requirements
 ### Requirement: Fate/Domination foundation runtime
-The system SHALL provide a `fate-domination` game package on the existing game runtime with typed deterministic domain state, commands, events, validation, reduction, and a real local match entry.
+The system SHALL provide a `fate-domination` game package on the existing game runtime with typed deterministic domain state, commands, events, validation, and reduction. The formal product entry is online matching; development-only verification uses a separate dev route.
 
-#### Scenario: Local match starts from the real game route
-- **WHEN** a user opens `/play/fate-domination/local`
+#### Scenario: Online match starts from the formal game route
+- **WHEN** a user opens `/play/fate-domination/match/:matchId`
 - **THEN** the game registry SHALL resolve the `fate-domination` manifest and mount its Board with a valid initial domain state
-- **AND** the page SHALL not depend on a hidden test command or a separate demo route
+- **AND** development-only verification SHALL use `/dev/fate-domination` rather than being described as a product local mode
 
 #### Scenario: Deterministic foundation state
 - **WHEN** the same player setup and random seed are used
 - **THEN** setup and event reduction SHALL produce the same entity IDs, phase, card zones, player resources, and pending choices
 
 ### Requirement: First playable tabletop flow
-The system SHALL expose a first playable local flow covering setup identity, preparation reveal state, outpost deployment, two-card attack selection, confirmation, phase progression, and representative battle settlement.
+The system SHALL expose a first playable foundation flow covering setup identity, preparation reveal state, outpost deployment, two-card attack selection, confirmation, phase progression, and representative battle settlement; the formal product entry is online matching.
 
 #### Scenario: Player deploys on a legal location
 - **GIVEN** the player is in the outpost phase and the selected location has capacity
@@ -28,7 +28,7 @@ The system SHALL expose a first playable local flow covering setup identity, pre
 
 #### Scenario: Representative battle closes visibly
 - **GIVEN** the demonstration state contains active attacks and a battlefield event
-- **WHEN** the player advances to battle resolution
+- **WHEN** the current resolver advances to battle resolution
 - **THEN** the game SHALL record a representative power comparison and visible VP/result change
 - **AND** the table SHALL return to the next actionable phase or an explicit deferred-state marker
 
@@ -45,6 +45,12 @@ The system SHALL use approved local board/card assets as the visible subjects of
 - **WHEN** the situation zone is rendered
 - **THEN** the runtime SHALL use only supplied situation art and preserve the zone contract without rendering guessed card data
 - **AND** the implementation status SHALL remain partial for unverified situation effects
+
+#### Scenario: Face-down event content is not rendered to other players
+- **GIVEN** the Shinto event is face down
+- **WHEN** another player's Fate/Domination Board is rendered
+- **THEN** the Board SHALL NOT render the face-down event card face or effect text
+- **AND** this foundation change SHALL NOT claim transport-layer anti-cheat or stronger server-side secrecy
 
 ### Requirement: Table information hierarchy and responsive delivery
 The system SHALL present map/locations, player resources, hand/attack cards, event/situation zones, pile counts, phase status, and current actions in one desktop-first tabletop composition that remains reachable on mobile.

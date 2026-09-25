@@ -23,6 +23,7 @@ const ACTION_ALLOWLIST = [
 function formatActionLog({ command, state }: { command: Command; state: MatchState<unknown>; events: GameEvent[]; afterEventsRound: number }): ActionLogEntry | null {
     const core = state.core as FateDominationCore;
     const timestamp = typeof command.timestamp === 'number' ? command.timestamp : 0;
+    const actionSequence = state.sys.eventStream?.nextId ?? 0;
     const payload = command.payload as Record<string, unknown>;
     const labels: Record<string, string> = {
         SELECT_MASTER: `选择御主：${String(payload.masterId ?? '')}`,
@@ -38,7 +39,7 @@ function formatActionLog({ command, state }: { command: Command; state: MatchSta
         PLAY_SKILL: `发动技能：${String(payload.skillId ?? '')}`,
     };
     const text = labels[command.type];
-    return text ? { id: `${command.type}-${command.playerId}-${timestamp}`, timestamp, actorId: command.playerId, kind: command.type, segments: [{ type: 'text', text }] } : null;
+    return text ? { id: `${command.type}-${command.playerId}-${timestamp}-${actionSequence}`, timestamp, actorId: command.playerId, kind: command.type, segments: [{ type: 'text', text }] } : null;
 }
 
 const systems = createBaseSystems<FateDominationCore>({

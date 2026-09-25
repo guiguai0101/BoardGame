@@ -14,28 +14,10 @@ const entry: GameManifestEntry = {
     icon: 'FD',
     thumbnailPath: 'fate-domination/thumbnails/cover',
     cursorTheme: 'fate-domination-table',
-    allowLocalMode: true,
+    allowLocalMode: false,
     playerOptions: [3, 4, 5, 6, 7],
     bestPlayers: [3, 4],
     tags: ['card_driven', 'tabletop', 'prototype'],
-    setupOptions: {
-        mode: {
-            type: 'select',
-            labelKey: 'games.fate-domination.setup.mode.label',
-            options: [
-                {
-                    value: 'custom',
-                    labelKey: 'games.fate-domination.setup.mode.custom',
-                },
-                {
-                    value: '3x',
-                    labelKey: 'games.fate-domination.setup.mode.threeX',
-                },
-            ],
-            default: 'custom',
-            presentation: 'segmented',
-        },
-    },
     mobileProfile: 'landscape-adapted',
     preferredOrientation: 'landscape',
     mobileLayoutPreset: 'board-shell',
